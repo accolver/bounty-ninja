@@ -100,7 +100,7 @@
 		bind:this={triggerRef}
 		type="button"
 		onclick={toggle}
-		class="inline-flex items-center justify-center rounded-md p-2 transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+		class="inline-flex cursor-pointer items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
 		aria-expanded={open}
 		aria-haspopup="menu"
 		aria-label={statusLabel}

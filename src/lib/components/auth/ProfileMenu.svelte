@@ -95,7 +95,7 @@
 		<button
 			bind:this={triggerRef}
 			onclick={toggle}
-			class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+			class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
 			aria-expanded={open}
 			aria-haspopup="menu"
 			aria-label="Account menu"

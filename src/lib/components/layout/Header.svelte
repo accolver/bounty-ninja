@@ -26,8 +26,8 @@
 		class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3"
 		aria-label="Main navigation"
 	>
-		<!-- Left: Logo + Browse -->
-		<div class="flex items-center gap-6">
+		<!-- Left: Logo -->
+		<div class="flex items-center">
 			<a
 				href="/"
 				class="flex items-center gap-2 text-foreground hover:text-foreground/90"
@@ -50,12 +50,6 @@
 						letter-spacing="-0.5">Tasks<tspan fill="var(--color-primary)">.fyi</tspan></text
 					>
 				</svg>
-			</a>
-			<a
-				href="/"
-				class="hidden text-sm text-muted-foreground transition-colors hover:text-foreground sm:inline"
-			>
-				Browse
 			</a>
 		</div>
 

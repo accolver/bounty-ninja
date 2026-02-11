@@ -4,7 +4,7 @@ import { env } from '$env/dynamic/public';
 export function getDefaultRelays(): string[] {
 	const raw =
 		env.PUBLIC_DEFAULT_RELAYS ??
-		'wss://relay.damus.io,wss://nos.lol,wss://relay.primal.net,wss://purplepag.es,wss://relay.snort.social,wss://nostr.wine';
+		'wss://relay.damus.io,wss://nos.lol,wss://relay.primal.net,wss://relay.snort.social,wss://relay.nostr.net,wss://offchain.pub';
 	return raw
 		.split(',')
 		.map((url) => url.trim())
