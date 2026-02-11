@@ -1,0 +1,127 @@
+# mise.toml
+min_version = "2024.11.1"
+
+[tools]
+node = "22"
+bun = "latest"
+# nak (nostr army knife) — CLI for Nostr relay interaction, event publishing, local relay
+"go:github.com/fiatjaf/nak" = "latest"
+
+[env]
+# Default relay list (comma-separated WebSocket URLs)
+PUBLIC_DEFAULT_RELAYS = "wss://relay.damus.io,wss://nos.lol,wss://relay.nostr.band,wss://relay.primal.net"
+# Default Cashu mint URL
+PUBLIC_DEFAULT_MINT = "https://mint.minibits.cash/Bitcoin"
+# App metadata
+PUBLIC_APP_NAME = "Tasks.fyi"
+PUBLIC_APP_URL = "https://tasks.fyi"
+# Anti-spam fee range (in sats)
+PUBLIC_MIN_SUBMISSION_FEE = "10"
+PUBLIC_MAX_SUBMISSION_FEE = "100"
+# NIP-50 search relay (must support search filter)
+PUBLIC_SEARCH_RELAY = "wss://relay.nostr.band"
+# Local relay URL for development
+LOCAL_RELAY = "ws://localhost:10547"
+
+[tasks.dev]
+description = "Start the SvelteKit dev server with hot reloading"
+run = "bun run dev"
+
+[tasks.build]
+description = "Build the static site for production"
+run = "bun run build"
+
+[tasks.preview]
+description = "Preview the production build locally"
+run = "bun run preview"
+
+[tasks.test]
+description = "Run unit and integration tests"
+run = "bun run test:unit && bun run test:integration"
+
+[tasks."test:unit"]
+description = "Run unit tests only"
+run = "bun run test:unit"
+
+[tasks."test:integration"]
+description = "Run integration tests only"
+run = "bun run test:integration"
+
+[tasks."test:e2e"]
+description = "Run Playwright end-to-end tests"
+run = "bun run test:e2e"
+
+[tasks.relay]
+description = "Start a local Nostr relay at ws://localhost:10547 (in-memory)"
+run = "nak serve"
+
+[tasks."relay:negentropy"]
+description = "Start local relay with NIP-77 negentropy sync support"
+run = "nak serve --negentropy"
+
+[tasks.seed]
+description = "Seed the local relay with sample bounty events for development"
+run = """
+echo "Seeding local relay at ws://localhost:10547 with sample bounty events..."
+
+# Generate a throwaway keypair for seeding (nak uses random key if no --sec provided)
+# Bounty 1: Development task
+nak event \
+  -k 37300 \
+  -c 'Build a Lightning-powered vending machine controller. Must support LNURL-pay and NFC tap-to-pay. Provide a working prototype with documentation.' \
+  --tag d=bounty-dev-001 \
+  --tag title='Lightning Vending Machine Controller' \
+  --tag reward=50000 \
+  --tag t=development \
+  --tag t=lightning \
+  --tag t=hardware \
+  --tag fee=21 \
+  --tag client=tasks.fyi \
+  ws://localhost:10547
+
+# Bounty 2: Design task
+nak event \
+  -k 37300 \
+  -c 'Design a logo and brand identity for a Nostr-based marketplace. Deliverables: SVG logo, color palette, typography guide, and 3 social media templates.' \
+  --tag d=bounty-design-001 \
+  --tag title='Nostr Marketplace Brand Identity' \
+  --tag reward=25000 \
+  --tag t=design \
+  --tag t=branding \
+  --tag fee=10 \
+  --tag client=tasks.fyi \
+  ws://localhost:10547
+
+# Bounty 3: Documentation task
+nak event \
+  -k 37300 \
+  -c 'Write a comprehensive beginner guide to Cashu ecash. Cover: what is ecash, how Cashu works, setting up a wallet, minting tokens, and P2PK locking. Target audience: Bitcoin users new to ecash.' \
+  --tag d=bounty-docs-001 \
+  --tag title='Beginner Guide to Cashu Ecash' \
+  --tag reward=15000 \
+  --tag t=documentation \
+  --tag t=cashu \
+  --tag t=writing \
+  --tag fee=10 \
+  --tag client=tasks.fyi \
+  ws://localhost:10547
+
+echo "Done! 3 sample bounties seeded to ws://localhost:10547"
+echo "Start the dev server with 'mise run dev' and browse to http://localhost:5173"
+"""
+
+[tasks.lint]
+description = "Run ESLint linting"
+run = "bun run lint"
+
+[tasks.format]
+description = "Run Prettier formatting"
+run = "bun run format"
+
+[tasks.check]
+description = "Run svelte-check for type errors"
+run = "bun run check"
+
+[tasks.clean]
+description = "Remove build artifacts and caches"
+run = "rm -rf build .svelte-kit node_modules/.vite"

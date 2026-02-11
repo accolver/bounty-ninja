@@ -1,0 +1,77 @@
+@import 'tailwindcss';
+
+@theme {
+	/* Tokyo Night Storm — Dark theme (default) */
+	--color-primary: #7aa2f7;
+	--color-primary-foreground: #1f2335;
+	--color-secondary: #9d7cd8;
+	--color-secondary-foreground: #1f2335;
+	--color-destructive: #f7768e;
+	--color-success: #9ece6a;
+	--color-warning: #e0af68;
+	--color-background: #1f2335;
+	--color-foreground: #c0caf5;
+	--color-card: #24283b;
+	--color-card-foreground: #c0caf5;
+	--color-muted: #414868;
+	--color-muted-foreground: #737aa2;
+	--color-border: #414868;
+	--color-input: #414868;
+	--color-ring: #7aa2f7;
+	--color-accent: #7dcfff;
+
+	/* Spacing and sizing */
+	--radius-sm: 0.25rem;
+	--radius-md: 0.375rem;
+	--radius-lg: 0.5rem;
+}
+
+/* Light theme — Tokyo Night Day (lightened backgrounds, desaturated text) */
+.light {
+	--color-primary: #2e7de9;
+	--color-primary-foreground: #ffffff;
+	--color-secondary: #7847bd;
+	--color-secondary-foreground: #ffffff;
+	--color-destructive: #f52a65;
+	--color-success: #587539;
+	--color-warning: #b15c00;
+	--color-background: #f0f0f3;
+	--color-foreground: #2e2e3e;
+	--color-card: #e8e8ec;
+	--color-card-foreground: #2e2e3e;
+	--color-muted: #d8d8de;
+	--color-muted-foreground: #6b6b80;
+	--color-border: #b8b8c2;
+	--color-input: #ffffff;
+	--color-ring: #2e7de9;
+	--color-accent: #007197;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+}
+
+/* Focus ring styles for keyboard navigation */
+*:focus-visible {
+	outline: 2px solid var(--color-ring);
+	outline-offset: 2px;
+}
+
+/* Base body styles */
+body {
+	font-family:
+		system-ui,
+		-apple-system,
+		BlinkMacSystemFont,
+		'Segoe UI',
+		Roboto,
+		sans-serif;
+}
