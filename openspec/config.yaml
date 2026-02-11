@@ -1,20 +1,31 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  Tasks.fyi — Decentralized bounty board / labor marketplace.
+  Tech stack: SvelteKit 2, Svelte 5 Runes, TypeScript strict, Bun, Tailwind CSS 4, shadcn-svelte (next), Applesauce (Nostr), nostr-idb, @cashu/cashu-ts, RxJS, Vitest, Playwright.
+  Static SPA — no backend, no SSR. All data from Nostr relays + IndexedDB cache.
+  Cashu ecash for payments via P2PK locking (NUT-11).
+  Tokyo Night color theme. WCAG 2.1 AA accessibility.
+  See PRD.md for complete specifications.
+  CRITICAL: Svelte 5 runes only ($state, $derived, $effect). No legacy stores or $: syntax.
+  CRITICAL: Bun only — never npm/yarn/pnpm.
+  CRITICAL: Applesauce libraries — never NDK.
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+rules:
+  proposal:
+    - Reference specific PRD sections for requirements
+    - Include acceptance criteria from the PRD phase
+    - Keep proposals focused on one implementation phase
+  specs:
+    - Use TypeScript interfaces from PRD Section 6 as canonical data models
+    - Reference PRD file paths from Section 5 exactly
+    - Include Nostr event kind constants from PRD Section 6.1
+  design:
+    - Follow component hierarchy from PRD Section 9
+    - Use Applesauce patterns from PRD Section 7 for state management
+    - Reference Tokyo Night tokens from PRD Section 12
+  tasks:
+    - Each task should be completable in one implementation session
+    - Tasks should include specific file paths to create/modify
+    - Include test files alongside implementation tasks
+    - Order tasks by dependency (infrastructure before features)

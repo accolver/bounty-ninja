@@ -163,7 +163,7 @@ All published events must include the tag `["client", "tasks.fyi"]`.
   rune assertions.
 - E2E tests use a local Nostr relay (`nak serve`), mock NIP-07 via
   `page.addInitScript()`, and mock Cashu mint.
-- Square-root voting math must be tested with edge cases (zero pledges, single
+- Linear voting math must be tested with edge cases (zero pledges, single
   funder, tie-breaking).
 
 ---

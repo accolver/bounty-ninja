@@ -813,7 +813,7 @@ export interface Solution {
 /**
  * Parsed representation of a Kind 1018 consensus vote.
  * Only pubkeys that have pledged (Kind 73002) to this bounty may vote.
- * Vote weight is proportional to the square root of the voter's pledge amount.
+ * Vote weight is proportional to the voter's pledge amount (linear weighting).
  */
 export interface Vote {
   /** Raw Nostr event */
@@ -837,7 +837,7 @@ export interface Vote {
   /** Derived: voter's pledge amount (looked up from Kind 73002 events) */
   pledgeAmount: number;
 
-  /** Derived: vote weight = sqrt(pledgeAmount) */
+  /** Derived: vote weight = pledgeAmount (linear) */
   weight: number;
 
   /** Event created_at timestamp */
@@ -858,10 +858,10 @@ export interface Vote {
  *
  * Voting Rules:
  *   - Only pubkeys with at least one Kind 73002 pledge for this bounty may vote.
- *   - Vote weight = Math.sqrt(pledgeAmountInSats).
+ *   - Vote weight = pledgeAmountInSats (linear — 1 sat = 1 vote weight).
  *   - Each pubkey may vote once per solution. Latest event wins (replaceable by pubkey+solution).
  *   - A solution is "approved" when total approve weight > total reject weight
- *     AND total approve weight >= sqrt(totalPledgedSats) * 0.5 (quorum).
+ *     AND total approve weight >= totalPledgedSats * 0.5 (quorum).
  */
 ```
 
@@ -1298,17 +1298,26 @@ export function deriveBountyStatus(
 }
 ```
 
-### 10.2 Square Root Weighted Voting
+### 10.2 Linear Weighted Voting
+
+Linear voting weights each funder's vote proportionally to their pledge amount
+(1 sat pledged = 1 unit of vote weight). This was chosen over square-root
+weighting because sub-linear functions (like √x) are vulnerable to Sybil
+attacks: an attacker can multiply their voting power by splitting the same
+capital across many pseudonymous Nostr identities (since `√a + √b > √(a+b)`).
+With linear weighting, splitting provides zero mathematical advantage — total
+weight is identical regardless of how many identities the funds are spread
+across. The pledge itself (locking real Cashu tokens) serves as proof of stake.
 
 ```typescript
 // src/lib/bounty/voting.ts
 
 export interface VoteTally {
-  /** Total approve weight (sum of sqrt of each approver's pledge) */
+  /** Total approve weight (sum of each approver's pledge amount) */
   approveWeight: number;
   /** Total reject weight */
   rejectWeight: number;
-  /** Quorum threshold: sqrt(totalPledgedSats) * 0.5 */
+  /** Quorum threshold: totalPledgedSats * 0.5 */
   quorum: number;
   /** Whether quorum is met and approve > reject */
   isApproved: boolean;
@@ -1320,14 +1329,15 @@ export interface VoteTally {
 
 /**
  * Calculate vote weight for a single voter.
- * Uses square root to prevent plutocratic dominance.
+ * Uses linear weighting (1 sat = 1 vote weight) to prevent Sybil attacks.
+ * Sub-linear functions like square root are vulnerable to identity splitting.
  *
  * @param pledgeAmountSats - Total sats pledged by this voter
- * @returns Vote weight (square root of pledge amount)
+ * @returns Vote weight (equal to pledge amount)
  */
 export function calculateVoteWeight(pledgeAmountSats: number): number {
   if (pledgeAmountSats <= 0) return 0;
-  return Math.sqrt(pledgeAmountSats);
+  return pledgeAmountSats;
 }
 
 /**
@@ -1364,7 +1374,7 @@ export function tallyVotes(
     }
   }
 
-  const quorum = Math.sqrt(totalPledgedSats) * 0.5;
+  const quorum = totalPledgedSats * 0.5;
   const quorumPercent = quorum > 0
     ? (Math.max(approveWeight, rejectWeight) / quorum) * 100
     : 0;
@@ -2138,7 +2148,7 @@ multi-mint support.
 | 2 | **How should the payout process work when the bounty creator goes offline?** The creator holds the P2PK key for pledge tokens. | High — single point of failure for payout | For MVP: creator must be online to orchestrate payout. Post-MVP: explore multi-sig escrow where a quorum of pledgers can trigger payout. |
 | 3 | **Should votes have a time limit?** Currently voting is open-ended.                                                            | Medium — could lead to stale bounties     | Add optional `voting_deadline` tag to Kind 37300. Default: 7 days after first solution.                                                  |
 | 4 | **How to handle bounties with pledges from multiple mints?**                                                                   | Medium — complicates payout               | MVP: require all pledges use the bounty's specified mint. Post-MVP: support cross-mint swaps.                                            |
-| 5 | **What is the exact quorum formula?** Current: `sqrt(totalPledgedSats) * 0.5`. Is this too low/high?                           | Medium — affects governance               | Start with proposed formula, gather data, adjust based on real usage patterns.                                                           |
+| 5 | **What is the exact quorum formula?** Current: `totalPledgedSats * 0.5`. Is this too low/high?                                 | Medium — affects governance               | Start with proposed formula, gather data, adjust based on real usage patterns.                                                           |
 | 6 | **Should the anti-spam fee scale with bounty size?**                                                                           | Low — affects UX                          | MVP: fixed range (10-100 sats). Post-MVP: percentage-based or bounty-creator-defined.                                                    |
 | 7 | **Are event kinds 37300, 73001, 73002, 1018, 73004 registered or proposed NIPs?**                                              | Medium — interoperability                 | Research existing bounty NIPs. If none exist, propose a NIP. Use these kinds for MVP regardless.                                         |
 
@@ -2203,33 +2213,33 @@ multi-mint support.
 
 ## 23. Glossary
 
-| Term                   | Definition                                                                                         |
-| ---------------------- | -------------------------------------------------------------------------------------------------- |
-| **Bounty**             | A task posted on Tasks.fyi with a bitcoin reward, represented as a Kind 37300 Nostr event          |
-| **Pledge**             | A funding contribution to a bounty, containing P2PK-locked Cashu tokens (Kind 73002)               |
-| **Solution**           | A submission claiming to fulfill a bounty's requirements (Kind 73001)                              |
-| **Vote**               | A funder's approval or rejection of a solution (Kind 1018)                                         |
-| **Payout**             | The transfer of pledged tokens to the winning solver (Kind 73004)                                  |
-| **Cashu**              | An open-source ecash protocol for Bitcoin, enabling bearer tokens                                  |
-| **P2PK**               | Pay-to-Public-Key — a Cashu spending condition (NUT-11) that locks tokens to a specific public key |
-| **NIP**                | Nostr Implementation Possibility — a specification for Nostr protocol features                     |
-| **NIP-07**             | Browser extension signer standard for Nostr (e.g., nos2x, Alby)                                    |
-| **NIP-19**             | Bech32-encoded Nostr identifiers (npub, naddr, nevent, etc.)                                       |
-| **NIP-33**             | Parameterized Replaceable Events — events that can be updated by the same author                   |
-| **NIP-40**             | Expiration Timestamp — events with an expiration date                                              |
-| **NIP-50**             | Search Capability — relay-side full-text search                                                    |
-| **NIP-90**             | Data Vending Machine — protocol for on-demand computation services                                 |
-| **DVM**                | Data Vending Machine (NIP-90)                                                                      |
-| **ContextVM**          | A bridge between Nostr and Model Context Protocol (MCP) for AI agent integration                   |
-| **Applesauce**         | A collection of TypeScript libraries for building Nostr web clients (by hzrd149)                   |
-| **EventStore**         | Applesauce's reactive in-memory database for Nostr events                                          |
-| **RelayPool**          | Applesauce's relay connection manager                                                              |
-| **Runes**              | Svelte 5's reactivity primitives (`$state`, `$derived`, `$effect`)                                 |
-| **naddr**              | NIP-19 encoded address for parameterized replaceable events (used for bounty URLs)                 |
-| **npub**               | NIP-19 encoded public key (used for profile URLs)                                                  |
-| **Square Root Voting** | Voting mechanism where weight = √(pledge amount), preventing plutocratic dominance                 |
-| **Anti-spam fee**      | A small, non-refundable Cashu token attached to solution submissions to deter spam                 |
-| **Tokyo Night**        | A popular dark/light color scheme used as the app's visual theme                                   |
+| Term              | Definition                                                                                                                    |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **Bounty**        | A task posted on Tasks.fyi with a bitcoin reward, represented as a Kind 37300 Nostr event                                     |
+| **Pledge**        | A funding contribution to a bounty, containing P2PK-locked Cashu tokens (Kind 73002)                                          |
+| **Solution**      | A submission claiming to fulfill a bounty's requirements (Kind 73001)                                                         |
+| **Vote**          | A funder's approval or rejection of a solution (Kind 1018)                                                                    |
+| **Payout**        | The transfer of pledged tokens to the winning solver (Kind 73004)                                                             |
+| **Cashu**         | An open-source ecash protocol for Bitcoin, enabling bearer tokens                                                             |
+| **P2PK**          | Pay-to-Public-Key — a Cashu spending condition (NUT-11) that locks tokens to a specific public key                            |
+| **NIP**           | Nostr Implementation Possibility — a specification for Nostr protocol features                                                |
+| **NIP-07**        | Browser extension signer standard for Nostr (e.g., nos2x, Alby)                                                               |
+| **NIP-19**        | Bech32-encoded Nostr identifiers (npub, naddr, nevent, etc.)                                                                  |
+| **NIP-33**        | Parameterized Replaceable Events — events that can be updated by the same author                                              |
+| **NIP-40**        | Expiration Timestamp — events with an expiration date                                                                         |
+| **NIP-50**        | Search Capability — relay-side full-text search                                                                               |
+| **NIP-90**        | Data Vending Machine — protocol for on-demand computation services                                                            |
+| **DVM**           | Data Vending Machine (NIP-90)                                                                                                 |
+| **ContextVM**     | A bridge between Nostr and Model Context Protocol (MCP) for AI agent integration                                              |
+| **Applesauce**    | A collection of TypeScript libraries for building Nostr web clients (by hzrd149)                                              |
+| **EventStore**    | Applesauce's reactive in-memory database for Nostr events                                                                     |
+| **RelayPool**     | Applesauce's relay connection manager                                                                                         |
+| **Runes**         | Svelte 5's reactivity primitives (`$state`, `$derived`, `$effect`)                                                            |
+| **naddr**         | NIP-19 encoded address for parameterized replaceable events (used for bounty URLs)                                            |
+| **npub**          | NIP-19 encoded public key (used for profile URLs)                                                                             |
+| **Linear Voting** | Voting mechanism where weight = pledge amount (1 sat = 1 vote weight), chosen over square-root weighting for Sybil resistance |
+| **Anti-spam fee** | A small, non-refundable Cashu token attached to solution submissions to deter spam                                            |
+| **Tokyo Night**   | A popular dark/light color scheme used as the app's visual theme                                                              |
 
 ---
 
