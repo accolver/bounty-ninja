@@ -16,6 +16,10 @@
 	let query = $state('');
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	let inputRef = $state<HTMLInputElement | null>(null);
+	let listRef = $state<HTMLUListElement | null>(null);
+
+	/** -1 = input focused, 0..n-1 = result index */
+	let selectedIndex = $state(-1);
 
 	const trimmedQuery = $derived(query.trim());
 	const canSearch = $derived(trimmedQuery.length >= 2);
@@ -41,6 +45,12 @@
 			});
 	});
 
+	// Reset selection when results change
+	$effect(() => {
+		activeResults;
+		selectedIndex = -1;
+	});
+
 	/** Compute days since creation */
 	function daysActive(createdAt: number): string {
 		const now = Math.floor(Date.now() / 1000);
@@ -61,21 +71,6 @@
 		}, 250);
 	}
 
-	function handleKeydown(e: KeyboardEvent) {
-		if (e.key === 'Enter') {
-			e.preventDefault();
-			if (debounceTimer) {
-				clearTimeout(debounceTimer);
-				debounceTimer = null;
-			}
-			const trimmed = query.trim();
-			if (trimmed) {
-				searchDialog.open = false;
-				goto(`/search?q=${encodeURIComponent(trimmed)}`);
-			}
-		}
-	}
-
 	function navigateToTask(pubkey: string, dTag: string) {
 		const naddr = nip19.naddrEncode({
 			identifier: dTag,
@@ -86,6 +81,93 @@
 		goto(`/task/${naddr}`);
 	}
 
+	function navigateToSelected() {
+		if (selectedIndex >= 0 && selectedIndex < activeResults.length) {
+			const result = activeResults[selectedIndex];
+			navigateToTask(result.pubkey, result.dTag);
+		}
+	}
+
+	function scrollSelectedIntoView() {
+		if (selectedIndex < 0 || !listRef) return;
+		const item = listRef.children[selectedIndex] as HTMLElement | undefined;
+		item?.scrollIntoView({ block: 'nearest' });
+	}
+
+	/**
+	 * Unified keydown handler for the entire dialog.
+	 * Captures Tab/Shift+Tab to cycle through results,
+	 * Enter/Space to activate the selected result.
+	 */
+	function handleDialogKeydown(e: KeyboardEvent) {
+		const count = activeResults.length;
+
+		if (e.key === 'Tab' && count > 0) {
+			e.preventDefault();
+			if (e.shiftKey) {
+				// Shift+Tab: move up, loop to last from input
+				if (selectedIndex <= 0) {
+					selectedIndex = count - 1;
+				} else {
+					selectedIndex--;
+				}
+			} else {
+				// Tab: move down, loop to input from last
+				if (selectedIndex >= count - 1) {
+					selectedIndex = -1;
+					inputRef?.focus();
+					return;
+				} else {
+					selectedIndex++;
+				}
+			}
+			scrollSelectedIntoView();
+			return;
+		}
+
+		if (e.key === 'Escape') {
+			// Let bits-ui Dialog handle Escape to close
+			return;
+		}
+
+		// When input is focused, Enter goes to full search page
+		if (selectedIndex === -1 && e.key === 'Enter') {
+			e.preventDefault();
+			if (debounceTimer) {
+				clearTimeout(debounceTimer);
+				debounceTimer = null;
+			}
+			const trimmed = query.trim();
+			if (trimmed) {
+				searchDialog.open = false;
+				goto(`/search?q=${encodeURIComponent(trimmed)}`);
+			}
+			return;
+		}
+
+		// When a result is selected, Enter/Space navigates to it
+		if (selectedIndex >= 0 && (e.key === 'Enter' || e.key === ' ')) {
+			e.preventDefault();
+			navigateToSelected();
+			return;
+		}
+
+		// ArrowDown/ArrowUp as alternative navigation
+		if (e.key === 'ArrowDown' && count > 0) {
+			e.preventDefault();
+			selectedIndex = selectedIndex >= count - 1 ? 0 : selectedIndex + 1;
+			scrollSelectedIntoView();
+			return;
+		}
+
+		if (e.key === 'ArrowUp' && count > 0) {
+			e.preventDefault();
+			selectedIndex = selectedIndex <= 0 ? count - 1 : selectedIndex - 1;
+			scrollSelectedIntoView();
+			return;
+		}
+	}
+
 	function close() {
 		searchDialog.open = false;
 	}
@@ -93,6 +175,7 @@
 	$effect(() => {
 		if (searchDialog.open) {
 			query = '';
+			selectedIndex = -1;
 			searchStore.clear();
 			requestAnimationFrame(() => {
 				inputRef?.focus();
@@ -134,8 +217,10 @@
 		<Dialog.Content forceMount>
 			{#snippet child({ props, open })}
 				{#if open}
+					<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 					<div
 						{...props}
+						onkeydown={handleDialogKeydown}
 						transition:scale={{ duration: 150, start: 0.98, easing: cubicOut }}
 						class="fixed left-1/2 top-[12%] z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2
 							rounded-xl bg-card shadow-2xl"
@@ -150,7 +235,7 @@
 								type="text"
 								bind:value={query}
 								oninput={handleInput}
-								onkeydown={handleKeydown}
+								onfocus={() => (selectedIndex = -1)}
 								placeholder="Search tasks..."
 								style="outline: none; box-shadow: none;"
 								class="h-11 flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground"
@@ -158,6 +243,7 @@
 							<button
 								type="button"
 								onclick={close}
+								tabindex={-1}
 								class="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
 								aria-label="Close search"
 							>
@@ -177,7 +263,7 @@
 										<p class="py-6 text-center text-sm text-destructive">
 											{searchStore.error}
 										</p>
-									{:else if searchStore.loading}
+									{:else if activeResults.length === 0 && searchStore.loading}
 										<div class="flex items-center justify-center py-6">
 											<LoaderIcon class="size-5 animate-spin text-muted-foreground" />
 										</div>
@@ -186,12 +272,16 @@
 											No active tasks found
 										</p>
 									{:else}
-										<ul role="listbox" aria-label="Search results">
-											{#each activeResults as result (result.id)}
-												<li role="option" aria-selected="false">
+										<ul bind:this={listRef} role="listbox" aria-label="Search results">
+											{#each activeResults as result, i (result.id)}
+												<li
+													role="option"
+													aria-selected={i === selectedIndex}
+												>
 													<button
 														type="button"
-														class="flex w-full items-center gap-4 border-b border-border/50 px-4 py-2.5 text-left text-sm transition-colors last:border-b-0 hover:bg-muted/30"
+														tabindex={-1}
+														class="flex w-full items-center gap-4 border-b border-border/50 px-4 py-2.5 text-left text-sm transition-colors last:border-b-0 hover:bg-muted/30 {i === selectedIndex ? 'bg-muted/30' : ''}"
 														onclick={() => navigateToTask(result.pubkey, result.dTag)}
 													>
 														<span class="min-w-0 flex-1 truncate text-foreground">
