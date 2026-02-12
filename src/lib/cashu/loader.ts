@@ -1,19 +1,5 @@
 /**
- * Dynamic import wrapper for @cashu/cashu-ts.
- * Enables code-splitting so the Cashu library is only loaded when needed,
- * reducing initial bundle size.
+ * @deprecated Use `getCashu` from `./lazy` instead.
+ * This file is kept for backward compatibility.
  */
-
-let cachedModule: typeof import('@cashu/cashu-ts') | null = null;
-
-/**
- * Lazily load the @cashu/cashu-ts module.
- * The module is cached after the first import so subsequent calls are synchronous.
- *
- * @returns The full @cashu/cashu-ts module
- */
-export async function loadCashuModule(): Promise<typeof import('@cashu/cashu-ts')> {
-	if (cachedModule) return cachedModule;
-	cachedModule = await import('@cashu/cashu-ts');
-	return cachedModule;
-}
+export { getCashu as loadCashuModule } from './lazy';

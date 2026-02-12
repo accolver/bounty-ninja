@@ -205,7 +205,7 @@ class TokenValidator {
 	 */
 	async #verifyAsync(token: string, mintUrl: string, hash: string): Promise<void> {
 		// Step 1: Structural decode check
-		const tokenInfo = decodeToken(token);
+		const tokenInfo = await decodeToken(token);
 
 		if (!tokenInfo) {
 			this.#setStatus(hash, 'invalid');
@@ -229,7 +229,7 @@ class TokenValidator {
 		}
 
 		// Step 4: Structural pre-filter (fast fail before mint contact)
-		const passesStructural = this.#structuralCheck(token, mintUrl);
+		const passesStructural = await this.#structuralCheck(token, mintUrl);
 		if (!passesStructural) {
 			this.#setStatus(hash, 'unverified');
 			return;
@@ -241,14 +241,14 @@ class TokenValidator {
 	}
 
 	/**
-	 * Synchronous structural check — validates token format without contacting the mint.
-	 * Used as a fast pre-filter before the async mint verification.
+	 * Async structural check — validates token format without contacting the mint.
+	 * Used as a pre-filter before the async mint verification.
 	 */
-	#structuralCheck(token: string, mintUrl: string): boolean {
+	async #structuralCheck(token: string, mintUrl: string): Promise<boolean> {
 		const hasValidPrefix = token.startsWith('cashuA') || token.startsWith('cashuB');
 		if (!hasValidPrefix) return false;
 
-		const tokenInfo = decodeToken(token);
+		const tokenInfo = await decodeToken(token);
 		if (!tokenInfo) return false;
 
 		// Normalize mint URLs for comparison
@@ -277,7 +277,7 @@ class TokenValidator {
 			try {
 				// Dynamic imports to preserve code-splitting
 				const { getWallet } = await import('./mint');
-				const tokenInfo = decodeToken(token);
+				const tokenInfo = await decodeToken(token);
 				if (!tokenInfo) return false;
 
 				const wallet = await getWallet(mintUrl);

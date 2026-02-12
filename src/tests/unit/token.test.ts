@@ -4,17 +4,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Proof, Token } from '@cashu/cashu-ts';
 
-// Mock @cashu/cashu-ts so we don't need a real mint
-vi.mock('@cashu/cashu-ts', () => ({
-	getEncodedTokenV4: vi.fn(),
-	getDecodedToken: vi.fn()
+// Mock the lazy loader so we don't need the real @cashu/cashu-ts module
+const mockGetEncodedTokenV4 = vi.fn();
+const mockGetDecodedToken = vi.fn();
+
+vi.mock('$lib/cashu/lazy', () => ({
+	getCashu: vi.fn(async () => ({
+		getEncodedTokenV4: mockGetEncodedTokenV4,
+		getDecodedToken: mockGetDecodedToken
+	}))
 }));
 
-import { getEncodedTokenV4, getDecodedToken } from '@cashu/cashu-ts';
 import { encodeToken, decodeToken, getTokenAmount, getProofsAmount, isValidToken } from '$lib/cashu/token';
-
-const mockedGetEncodedTokenV4 = vi.mocked(getEncodedTokenV4);
-const mockedGetDecodedToken = vi.mocked(getDecodedToken);
 
 const MINT_URL = 'https://mint.example.com';
 
@@ -31,14 +32,14 @@ beforeEach(() => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('encodeToken', () => {
-	it('encodes proofs into a v4 token string', () => {
-		mockedGetEncodedTokenV4.mockReturnValue('cashuBencoded123');
+	it('encodes proofs into a v4 token string', async () => {
+		mockGetEncodedTokenV4.mockReturnValue('cashuBencoded123');
 		const proofs = [mockProof(100)];
 
-		const result = encodeToken(proofs, MINT_URL);
+		const result = await encodeToken(proofs, MINT_URL);
 
 		expect(result).toBe('cashuBencoded123');
-		expect(mockedGetEncodedTokenV4).toHaveBeenCalledWith(
+		expect(mockGetEncodedTokenV4).toHaveBeenCalledWith(
 			expect.objectContaining({
 				mint: MINT_URL,
 				proofs,
@@ -47,40 +48,40 @@ describe('encodeToken', () => {
 		);
 	});
 
-	it('includes memo when provided', () => {
-		mockedGetEncodedTokenV4.mockReturnValue('cashuBwithmemo');
+	it('includes memo when provided', async () => {
+		mockGetEncodedTokenV4.mockReturnValue('cashuBwithmemo');
 
-		encodeToken([mockProof(50)], MINT_URL, 'test memo');
+		await encodeToken([mockProof(50)], MINT_URL, 'test memo');
 
-		expect(mockedGetEncodedTokenV4).toHaveBeenCalledWith(
+		expect(mockGetEncodedTokenV4).toHaveBeenCalledWith(
 			expect.objectContaining({ memo: 'test memo' })
 		);
 	});
 
-	it('omits memo when not provided', () => {
-		mockedGetEncodedTokenV4.mockReturnValue('cashuBnomemo');
+	it('omits memo when not provided', async () => {
+		mockGetEncodedTokenV4.mockReturnValue('cashuBnomemo');
 
-		encodeToken([mockProof(50)], MINT_URL);
+		await encodeToken([mockProof(50)], MINT_URL);
 
-		const call = mockedGetEncodedTokenV4.mock.calls[0][0];
+		const call = mockGetEncodedTokenV4.mock.calls[0][0];
 		expect(call).not.toHaveProperty('memo');
 	});
 
-	it('handles empty proofs array', () => {
-		mockedGetEncodedTokenV4.mockReturnValue('cashuBempty');
+	it('handles empty proofs array', async () => {
+		mockGetEncodedTokenV4.mockReturnValue('cashuBempty');
 
-		const result = encodeToken([], MINT_URL);
+		const result = await encodeToken([], MINT_URL);
 		expect(result).toBe('cashuBempty');
 	});
 
-	it('handles multiple proofs of different denominations', () => {
-		mockedGetEncodedTokenV4.mockReturnValue('cashuBmulti');
+	it('handles multiple proofs of different denominations', async () => {
+		mockGetEncodedTokenV4.mockReturnValue('cashuBmulti');
 		const proofs = [mockProof(1), mockProof(2), mockProof(4), mockProof(8)];
 
-		const result = encodeToken(proofs, MINT_URL);
+		const result = await encodeToken(proofs, MINT_URL);
 
 		expect(result).toBe('cashuBmulti');
-		const call = mockedGetEncodedTokenV4.mock.calls[0][0];
+		const call = mockGetEncodedTokenV4.mock.calls[0][0];
 		expect(call.proofs).toHaveLength(4);
 	});
 });
@@ -90,15 +91,15 @@ describe('encodeToken', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('decodeToken', () => {
-	it('decodes a valid token string', () => {
-		mockedGetDecodedToken.mockReturnValue({
+	it('decodes a valid token string', async () => {
+		mockGetDecodedToken.mockReturnValue({
 			mint: MINT_URL,
 			proofs: [mockProof(100), mockProof(50)],
 			memo: 'test',
 			unit: 'sat'
 		} as Token);
 
-		const result = decodeToken('cashuBvalid');
+		const result = await decodeToken('cashuBvalid');
 
 		expect(result).not.toBeNull();
 		expect(result!.mint).toBe(MINT_URL);
@@ -108,47 +109,47 @@ describe('decodeToken', () => {
 		expect(result!.unit).toBe('sat');
 	});
 
-	it('returns null for malformed token', () => {
-		mockedGetDecodedToken.mockImplementation(() => {
+	it('returns null for malformed token', async () => {
+		mockGetDecodedToken.mockImplementation(() => {
 			throw new Error('Invalid token format');
 		});
 
-		const result = decodeToken('not-a-token');
+		const result = await decodeToken('not-a-token');
 		expect(result).toBeNull();
 	});
 
-	it('computes amount from proof sum', () => {
-		mockedGetDecodedToken.mockReturnValue({
+	it('computes amount from proof sum', async () => {
+		mockGetDecodedToken.mockReturnValue({
 			mint: MINT_URL,
 			proofs: [mockProof(1), mockProof(2), mockProof(4), mockProof(8), mockProof(16)],
 			unit: 'sat'
 		} as Token);
 
-		const result = decodeToken('cashuBsum');
+		const result = await decodeToken('cashuBsum');
 		expect(result!.amount).toBe(31);
 	});
 
-	it('handles token with zero proofs', () => {
-		mockedGetDecodedToken.mockReturnValue({
+	it('handles token with zero proofs', async () => {
+		mockGetDecodedToken.mockReturnValue({
 			mint: MINT_URL,
 			proofs: [],
 			unit: 'sat'
 		} as Token);
 
-		const result = decodeToken('cashuBempty');
+		const result = await decodeToken('cashuBempty');
 		expect(result).not.toBeNull();
 		expect(result!.amount).toBe(0);
 		expect(result!.proofs).toHaveLength(0);
 	});
 
-	it('handles token without memo', () => {
-		mockedGetDecodedToken.mockReturnValue({
+	it('handles token without memo', async () => {
+		mockGetDecodedToken.mockReturnValue({
 			mint: MINT_URL,
 			proofs: [mockProof(42)],
 			unit: 'sat'
 		} as Token);
 
-		const result = decodeToken('cashuBnomemo');
+		const result = await decodeToken('cashuBnomemo');
 		expect(result!.memo).toBeUndefined();
 	});
 });
@@ -158,32 +159,32 @@ describe('decodeToken', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('getTokenAmount', () => {
-	it('returns total amount for valid token', () => {
-		mockedGetDecodedToken.mockReturnValue({
+	it('returns total amount for valid token', async () => {
+		mockGetDecodedToken.mockReturnValue({
 			mint: MINT_URL,
 			proofs: [mockProof(100), mockProof(50)],
 			unit: 'sat'
 		} as Token);
 
-		expect(getTokenAmount('cashuBvalid')).toBe(150);
+		expect(await getTokenAmount('cashuBvalid')).toBe(150);
 	});
 
-	it('returns 0 for malformed token', () => {
-		mockedGetDecodedToken.mockImplementation(() => {
+	it('returns 0 for malformed token', async () => {
+		mockGetDecodedToken.mockImplementation(() => {
 			throw new Error('Bad token');
 		});
 
-		expect(getTokenAmount('garbage')).toBe(0);
+		expect(await getTokenAmount('garbage')).toBe(0);
 	});
 
-	it('returns 0 for token with no proofs', () => {
-		mockedGetDecodedToken.mockReturnValue({
+	it('returns 0 for token with no proofs', async () => {
+		mockGetDecodedToken.mockReturnValue({
 			mint: MINT_URL,
 			proofs: [],
 			unit: 'sat'
 		} as Token);
 
-		expect(getTokenAmount('cashuBempty')).toBe(0);
+		expect(await getTokenAmount('cashuBempty')).toBe(0);
 	});
 });
 
@@ -218,51 +219,51 @@ describe('getProofsAmount', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('isValidToken', () => {
-	it('returns true for valid token with amount > 0', () => {
-		mockedGetDecodedToken.mockReturnValue({
+	it('returns true for valid token with amount > 0', async () => {
+		mockGetDecodedToken.mockReturnValue({
 			mint: MINT_URL,
 			proofs: [mockProof(100)],
 			unit: 'sat'
 		} as Token);
 
-		expect(isValidToken('cashuBvalid')).toBe(true);
+		expect(await isValidToken('cashuBvalid')).toBe(true);
 	});
 
-	it('returns false for malformed token', () => {
-		mockedGetDecodedToken.mockImplementation(() => {
+	it('returns false for malformed token', async () => {
+		mockGetDecodedToken.mockImplementation(() => {
 			throw new Error('Invalid');
 		});
 
-		expect(isValidToken('garbage')).toBe(false);
+		expect(await isValidToken('garbage')).toBe(false);
 	});
 
-	it('returns false for token with zero amount', () => {
-		mockedGetDecodedToken.mockReturnValue({
+	it('returns false for token with zero amount', async () => {
+		mockGetDecodedToken.mockReturnValue({
 			mint: MINT_URL,
 			proofs: [],
 			unit: 'sat'
 		} as Token);
 
-		expect(isValidToken('cashuBzeroproofs')).toBe(false);
+		expect(await isValidToken('cashuBzeroproofs')).toBe(false);
 	});
 
-	it('returns false for token with empty proofs', () => {
-		mockedGetDecodedToken.mockReturnValue({
+	it('returns false for token with empty proofs', async () => {
+		mockGetDecodedToken.mockReturnValue({
 			mint: MINT_URL,
 			proofs: [],
 			unit: 'sat'
 		} as Token);
 
-		expect(isValidToken('cashuBnoproofs')).toBe(false);
+		expect(await isValidToken('cashuBnoproofs')).toBe(false);
 	});
 
-	it('returns true for token with multiple proofs', () => {
-		mockedGetDecodedToken.mockReturnValue({
+	it('returns true for token with multiple proofs', async () => {
+		mockGetDecodedToken.mockReturnValue({
 			mint: MINT_URL,
 			proofs: [mockProof(1), mockProof(2), mockProof(4)],
 			unit: 'sat'
 		} as Token);
 
-		expect(isValidToken('cashuBmulti')).toBe(true);
+		expect(await isValidToken('cashuBmulti')).toBe(true);
 	});
 });

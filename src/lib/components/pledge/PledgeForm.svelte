@@ -69,21 +69,32 @@
 			return;
 		}
 
-		const info = decodeToken(trimmed);
-		if (!info) {
-			decodedToken = null;
-			decodeError = 'Invalid Cashu token — could not decode';
-			return;
-		}
-
-		if (info.amount <= 0) {
-			decodedToken = null;
-			decodeError = 'Token has zero amount';
-			return;
-		}
-
-		decodedToken = info;
+		// decodeToken is async (lazy-loaded Cashu module). Fire and update state
+		// on resolution. The `currentInput` guard prevents stale responses from
+		// overwriting results when the user types faster than the decode resolves.
+		const currentInput = trimmed;
+		decodedToken = null;
 		decodeError = '';
+
+		decodeToken(trimmed).then((info) => {
+			// Guard: input changed while we were decoding — discard this result
+			if (tokenInput.trim() !== currentInput) return;
+
+			if (!info) {
+				decodedToken = null;
+				decodeError = 'Invalid Cashu token — could not decode';
+				return;
+			}
+
+			if (info.amount <= 0) {
+				decodedToken = null;
+				decodeError = 'Token has zero amount';
+				return;
+			}
+
+			decodedToken = info;
+			decodeError = '';
+		});
 	});
 
 	const effectiveMint = $derived(mintUrl || getDefaultMint());
@@ -132,7 +143,7 @@
 			}
 
 			// Encode the locked proofs into a token string for the event
-			const lockedTokenStr = encodeToken(result.proofs, decodedToken.mint, 'Bounty.ninja pledge');
+			const lockedTokenStr = await encodeToken(result.proofs, decodedToken.mint, 'Bounty.ninja pledge');
 			const actualAmount = getProofsAmount(result.proofs);
 
 			const template = pledgeBlueprint({

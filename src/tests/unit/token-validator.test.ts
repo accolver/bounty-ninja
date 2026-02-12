@@ -97,7 +97,7 @@ describe('TokenValidator', () => {
 	describe('verify — valid tokens', () => {
 		it('sets status to verified for valid cashuA token', async () => {
 			const token = 'cashuAvalidtoken123';
-			mockedDecodeToken.mockReturnValue(makeTokenInfo());
+			mockedDecodeToken.mockResolvedValue(makeTokenInfo());
 
 			tokenValidator.verify(token, MINT_URL);
 
@@ -109,7 +109,7 @@ describe('TokenValidator', () => {
 
 		it('sets status to verified for valid cashuB token', async () => {
 			const token = 'cashuBvalidtoken456';
-			mockedDecodeToken.mockReturnValue(makeTokenInfo());
+			mockedDecodeToken.mockResolvedValue(makeTokenInfo());
 
 			tokenValidator.verify(token, MINT_URL);
 
@@ -120,7 +120,7 @@ describe('TokenValidator', () => {
 
 		it('normalizes trailing slashes in mint URL comparison', async () => {
 			const token = 'cashuAvalidtoken789';
-			mockedDecodeToken.mockReturnValue(makeTokenInfo({ mint: MINT_URL_TRAILING }));
+			mockedDecodeToken.mockResolvedValue(makeTokenInfo({ mint: MINT_URL_TRAILING }));
 
 			tokenValidator.verify(token, MINT_URL);
 
@@ -135,7 +135,7 @@ describe('TokenValidator', () => {
 	describe('verify — invalid tokens', () => {
 		it('sets status to invalid when decodeToken returns null', async () => {
 			const token = 'cashuAgarbage';
-			mockedDecodeToken.mockReturnValue(null);
+			mockedDecodeToken.mockResolvedValue(null);
 
 			tokenValidator.verify(token, MINT_URL);
 
@@ -146,7 +146,7 @@ describe('TokenValidator', () => {
 
 		it('sets status to invalid for zero-amount token', async () => {
 			const token = 'cashuAzeroproofs';
-			mockedDecodeToken.mockReturnValue(makeTokenInfo({ amount: 0, proofs: [] }));
+			mockedDecodeToken.mockResolvedValue(makeTokenInfo({ amount: 0, proofs: [] }));
 
 			tokenValidator.verify(token, MINT_URL);
 
@@ -157,7 +157,7 @@ describe('TokenValidator', () => {
 
 		it('sets status to invalid for token with empty proofs', async () => {
 			const token = 'cashuAnoproofs';
-			mockedDecodeToken.mockReturnValue(makeTokenInfo({ proofs: [], amount: 0 }));
+			mockedDecodeToken.mockResolvedValue(makeTokenInfo({ proofs: [], amount: 0 }));
 
 			tokenValidator.verify(token, MINT_URL);
 
@@ -172,7 +172,7 @@ describe('TokenValidator', () => {
 	describe('verify — unverified tokens', () => {
 		it('sets status to unverified for non-cashu prefix', async () => {
 			const token = 'notacashutoken';
-			mockedDecodeToken.mockReturnValue(makeTokenInfo());
+			mockedDecodeToken.mockResolvedValue(makeTokenInfo());
 
 			tokenValidator.verify(token, MINT_URL);
 
@@ -183,7 +183,7 @@ describe('TokenValidator', () => {
 
 		it('sets status to unverified when mint URLs do not match', async () => {
 			const token = 'cashuAmismatchedmint';
-			mockedDecodeToken.mockReturnValue(makeTokenInfo({ mint: 'https://other-mint.example.com' }));
+			mockedDecodeToken.mockResolvedValue(makeTokenInfo({ mint: 'https://other-mint.example.com' }));
 
 			tokenValidator.verify(token, MINT_URL);
 
@@ -194,7 +194,7 @@ describe('TokenValidator', () => {
 
 		it('sets status to unverified when mint returns SPENT proofs', async () => {
 			const token = 'cashuAspenttoken';
-			mockedDecodeToken.mockReturnValue(makeTokenInfo());
+			mockedDecodeToken.mockResolvedValue(makeTokenInfo());
 			mockedGetWallet.mockResolvedValue(makeMockWallet(false) as any);
 
 			tokenValidator.verify(token, MINT_URL);
@@ -206,7 +206,7 @@ describe('TokenValidator', () => {
 
 		it('sets status to unverified when mint is unreachable after retries', async () => {
 			const token = 'cashuAunreachable';
-			mockedDecodeToken.mockReturnValue(makeTokenInfo());
+			mockedDecodeToken.mockResolvedValue(makeTokenInfo());
 			mockedGetWallet.mockRejectedValue(new Error('Connection refused'));
 
 			tokenValidator.verify(token, MINT_URL);
@@ -226,7 +226,7 @@ describe('TokenValidator', () => {
 		it('sets status to expired when P2PK locktime is in the past', async () => {
 			const pastLocktime = Math.floor(Date.now() / 1000) - 3600; // 1 hour ago
 			const token = 'cashuAexpiredtoken';
-			mockedDecodeToken.mockReturnValue(
+			mockedDecodeToken.mockResolvedValue(
 				makeTokenInfo({
 					proofs: [makeP2PKProof(pastLocktime)] as TokenInfo['proofs']
 				})
@@ -242,7 +242,7 @@ describe('TokenValidator', () => {
 		it('does not mark as expired when locktime is in the future', async () => {
 			const futureLocktime = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
 			const token = 'cashuAfuturelock';
-			mockedDecodeToken.mockReturnValue(
+			mockedDecodeToken.mockResolvedValue(
 				makeTokenInfo({
 					proofs: [makeP2PKProof(futureLocktime)] as TokenInfo['proofs']
 				})
@@ -261,7 +261,7 @@ describe('TokenValidator', () => {
 	describe('verify — caching', () => {
 		it('does not re-verify a cached token within TTL', async () => {
 			const token = 'cashuAcachedtoken';
-			mockedDecodeToken.mockReturnValue(makeTokenInfo());
+			mockedDecodeToken.mockResolvedValue(makeTokenInfo());
 
 			tokenValidator.verify(token, MINT_URL);
 
@@ -281,7 +281,7 @@ describe('TokenValidator', () => {
 
 		it('does not run duplicate concurrent verifications', async () => {
 			const token = 'cashuAduplicatecheck';
-			mockedDecodeToken.mockReturnValue(makeTokenInfo());
+			mockedDecodeToken.mockResolvedValue(makeTokenInfo());
 
 			// Call verify twice rapidly
 			tokenValidator.verify(token, MINT_URL);
@@ -302,7 +302,7 @@ describe('TokenValidator', () => {
 	describe('reset', () => {
 		it('clears all cached results', async () => {
 			const token = 'cashuAresettest';
-			mockedDecodeToken.mockReturnValue(makeTokenInfo());
+			mockedDecodeToken.mockResolvedValue(makeTokenInfo());
 
 			tokenValidator.verify(token, MINT_URL);
 
@@ -322,7 +322,7 @@ describe('TokenValidator', () => {
 	describe('P2PK secret parsing', () => {
 		it('handles non-JSON secrets gracefully', async () => {
 			const token = 'cashuAplainproof';
-			mockedDecodeToken.mockReturnValue(
+			mockedDecodeToken.mockResolvedValue(
 				makeTokenInfo({
 					proofs: [{ id: 'plain', amount: 50, secret: 'not-json', C: 'c' }] as TokenInfo['proofs']
 				})
@@ -345,7 +345,7 @@ describe('TokenValidator', () => {
 				}
 			]);
 			const token = 'cashuAnolocktime';
-			mockedDecodeToken.mockReturnValue(
+			mockedDecodeToken.mockResolvedValue(
 				makeTokenInfo({
 					proofs: [{ id: 'p2pk-no-lt', amount: 50, secret, C: 'c' }] as TokenInfo['proofs']
 				})
@@ -368,7 +368,7 @@ describe('TokenValidator', () => {
 				}
 			]);
 			const token = 'cashuAemptytags';
-			mockedDecodeToken.mockReturnValue(
+			mockedDecodeToken.mockResolvedValue(
 				makeTokenInfo({
 					proofs: [{ id: 'p2pk-empty', amount: 50, secret, C: 'c' }] as TokenInfo['proofs']
 				})

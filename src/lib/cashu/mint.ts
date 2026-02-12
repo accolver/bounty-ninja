@@ -5,9 +5,12 @@
  * Supports per-bounty mint overrides via mint URL parameter.
  *
  * @cashu/cashu-ts v3.x uses `Mint` and `Wallet` class names.
+ * The library is lazy-loaded via getCashu() to keep it out of the
+ * initial bundle.
  */
 
-import { Mint, Wallet } from '@cashu/cashu-ts';
+import type { Mint, Wallet } from '@cashu/cashu-ts';
+import { getCashu } from './lazy';
 import { getDefaultMint } from '$lib/utils/env';
 import { MintConnectionError } from './types';
 
@@ -43,11 +46,12 @@ function sleep(ms: number): Promise<void> {
  * @param mintUrl - The mint's base URL.
  * @returns A Mint instance.
  */
-function getMint(mintUrl: string): Mint {
+async function getMintInstance(mintUrl: string): Promise<Mint> {
 	const normalized = mintUrl.replace(/\/+$/, '');
 	let mint = mintCache.get(normalized);
 	if (!mint) {
-		mint = new Mint(normalized);
+		const cashu = await getCashu();
+		mint = new cashu.Mint(normalized);
 		mintCache.set(normalized, mint);
 	}
 	return mint;
@@ -87,6 +91,7 @@ async function initializeWallet(wallet: Wallet, mintUrl: string): Promise<void> 
  * Get a fully initialized CashuWallet for the given mint URL.
  *
  * - Creates and caches Mint + Wallet instances per URL.
+ * - Lazy-loads @cashu/cashu-ts on first call.
  * - Calls `wallet.loadMint()` with 3-retry, 2-second delay on failure.
  * - Returns the cached wallet on subsequent calls for the same URL.
  *
@@ -102,8 +107,9 @@ export async function getWallet(mintUrl?: string): Promise<Wallet> {
 		return cached;
 	}
 
-	const mint = getMint(url);
-	const wallet = new Wallet(mint, { unit: 'sat' });
+	const cashu = await getCashu();
+	const mint = await getMintInstance(url);
+	const wallet = new cashu.Wallet(mint, { unit: 'sat' });
 
 	await initializeWallet(wallet, url);
 
