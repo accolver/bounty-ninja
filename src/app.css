@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import 'tw-animate-css';
 
 @theme {
 	/* Tokyo Night Storm — Dark theme (default) */
@@ -19,6 +20,9 @@
 	--color-input: #414868;
 	--color-ring: #7aa2f7;
 	--color-accent: #7dcfff;
+	--color-accent-foreground: #1f2335;
+	--color-popover: #24283b;
+	--color-popover-foreground: #c0caf5;
 
 	/* Spacing and sizing */
 	--radius-sm: 0.25rem;
@@ -45,6 +49,9 @@
 	--color-input: #ffffff;
 	--color-ring: #2e7de9;
 	--color-accent: #007197;
+	--color-accent-foreground: #ffffff;
+	--color-popover: #ffffff;
+	--color-popover-foreground: #2e2e3e;
 }
 
 /* Reduced motion support */
