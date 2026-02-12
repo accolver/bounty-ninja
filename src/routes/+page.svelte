@@ -9,7 +9,13 @@
 	import { Slider } from '$lib/components/ui/slider';
 	import ArrowUpDown from '@lucide/svelte/icons/arrow-up-down';
 	import ListFilter from '@lucide/svelte/icons/list-filter';
+	import { fly } from 'svelte/transition';
+	import { flip } from 'svelte/animate';
 	import type { TaskSummary, TaskStatus } from '$lib/task/types';
+
+	// Animations only play after a user-initiated filter/sort change,
+	// not during the initial relay data stream.
+	let animate = $state(false);
 
 	let selectedTag = $state('');
 	let sortBy = $state<'reward' | 'newest' | 'solutions'>('reward');
@@ -31,6 +37,18 @@
 		if (showCompleted) set.add('completed');
 		if (showExpired) set.add('expired');
 		return set;
+	});
+
+	// Enable animations only after the user changes a filter/sort control,
+	// not while relay data is still streaming in on initial load.
+	let effectRan = false;
+	$effect(() => {
+		void [selectedTag, sortBy, showOpen, showInReview, showCompleted, showExpired, minSats];
+		if (!effectRan) {
+			effectRan = true;
+			return;
+		}
+		animate = true;
 	});
 
 	// Sats slider — minimum pledge threshold
@@ -175,9 +193,14 @@
 						: 'No tasks match the current filters.'}
 				/>
 			{:else}
-				<div class="divide-y divide-border/50">
+				<div>
 					{#each filteredTasks as task (task.id)}
-						<TaskListItem {task} />
+						<div
+							animate:flip={{ duration: animate ? 250 : 0 }}
+							out:fly={{ y: -10, duration: animate ? 150 : 0 }}
+						>
+							<TaskListItem {task} />
+						</div>
 					{/each}
 				</div>
 			{/if}
