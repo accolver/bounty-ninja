@@ -4,19 +4,19 @@
 
 The system SHALL provide a `SolutionForm.svelte` component at
 `src/lib/components/solution/SolutionForm.svelte` for submitting solutions to
-bounties. The form SHALL collect: markdown description (proof of work), optional
+tasks. The form SHALL collect: markdown description (proof of work), optional
 deliverable URL, and the anti-spam fee payment. The form SHALL use Svelte 5
 runes for all reactive state.
 
-#### Scenario: SolutionForm visibility based on bounty status
+#### Scenario: SolutionForm visibility based on task status
 
-- **WHEN** the bounty status is `open` or `in_review` and the user is
+- **WHEN** the task status is `open` or `in_review` and the user is
   authenticated
-- **THEN** the SolutionForm SHALL be visible on the bounty detail page
+- **THEN** the SolutionForm SHALL be visible on the task detail page
 
 #### Scenario: SolutionForm hidden for non-interactive states
 
-- **WHEN** the bounty status is `draft`, `completed`, `expired`, or `cancelled`
+- **WHEN** the task status is `draft`, `completed`, `expired`, or `cancelled`
 - **THEN** the SolutionForm SHALL NOT be rendered
 
 #### Scenario: SolutionForm hidden for unauthenticated users
@@ -31,15 +31,15 @@ runes for all reactive state.
 The system SHALL require every solution submission to include a Cashu token as
 an anti-spam fee. The fee amount MUST be between `PUBLIC_MIN_SUBMISSION_FEE`
 (default: 10 sats) and `PUBLIC_MAX_SUBMISSION_FEE` (default: 100 sats) as
-defined in environment variables. If the bounty specifies a `["fee", "<sats>"]`
+defined in environment variables. If the task specifies a `["fee", "<sats>"]`
 tag, the fee MUST match that exact amount. The anti-spam fee token is NOT
-P2PK-locked — it is immediately claimable by the bounty creator as compensation
+P2PK-locked — it is immediately claimable by the task creator as compensation
 for reviewing submissions. The fee is non-refundable regardless of vote outcome.
 See PRD Section 6.4.
 
 #### Scenario: Fee within valid range
 
-- **WHEN** the bounty specifies a fee of 21 sats via `["fee", "21"]` tag
+- **WHEN** the task specifies a fee of 21 sats via `["fee", "21"]` tag
 - **THEN** the SolutionForm SHALL require exactly 21 sats as the anti-spam fee
 - **AND** the fee amount SHALL be displayed to the user before submission
 
@@ -67,9 +67,9 @@ See PRD Section 6.4.
 - **AND** the solution SHALL still be visible but flagged as unverified per PRD
   Section 13.4
 
-#### Scenario: Bounty with no fee tag
+#### Scenario: Task with no fee tag
 
-- **WHEN** a bounty does not include a `["fee", "<sats>"]` tag
+- **WHEN** a task does not include a `["fee", "<sats>"]` tag
 - **THEN** the SolutionForm SHALL default to `PUBLIC_MIN_SUBMISSION_FEE` (10
   sats) as the required fee
 - **AND** SHALL allow the user to increase the fee up to
@@ -78,7 +78,7 @@ See PRD Section 6.4.
 ### Requirement: Anti-Spam Fee Token Creation
 
 The anti-spam fee token SHALL be a plain (non-P2PK-locked) Cashu token that the
-bounty creator can immediately claim. This differs from pledge tokens which are
+task creator can immediately claim. This differs from pledge tokens which are
 P2PK-locked.
 
 #### Scenario: Create unlocked anti-spam fee token
@@ -86,7 +86,7 @@ P2PK-locked.
 - **WHEN** the user submits a solution
 - **THEN** the system SHALL mint a Cashu token for the fee amount WITHOUT P2PK
   locking
-- **AND** the token SHALL be immediately claimable by anyone (the bounty creator
+- **AND** the token SHALL be immediately claimable by anyone (the task creator
   claims it as review compensation)
 - **AND** the encoded token SHALL be placed in the `["cashu", "<token>"]` tag of
   the Kind 73001 event
@@ -98,9 +98,9 @@ as defined in PRD Section 6.4:
 
 **Required tags:**
 
-- `["a", "37300:<bounty-creator-pubkey>:<d-tag>", "<relay-hint>"]` — bounty
+- `["a", "37300:<task-creator-pubkey>:<d-tag>", "<relay-hint>"]` — task
   reference
-- `["p", "<bounty-creator-pubkey>"]` — for notifications to the bounty creator
+- `["p", "<task-creator-pubkey>"]` — for notifications to the task creator
 - `["cashu", "<serialized-cashu-token>"]` — anti-spam fee token (NOT
   P2PK-locked)
 - `["client", "tasks.fyi"]` — application identifier
@@ -115,8 +115,8 @@ as defined in PRD Section 6.4:
 
 - **WHEN** a solution event is constructed
 - **THEN** the event MUST contain `a`, `p`, `cashu`, and `client` tags
-- **AND** the `a` tag SHALL reference the bounty's NIP-33 address
-- **AND** the `p` tag SHALL contain the bounty creator's pubkey
+- **AND** the `a` tag SHALL reference the task's NIP-33 address
+- **AND** the `p` tag SHALL contain the task creator's pubkey
 
 #### Scenario: Solution with deliverable URL
 
@@ -158,11 +158,11 @@ local `EventStore`.
   construct the Kind 73001 event, (3) sign via NIP-07, (4) add to `EventStore`
   optimistically, (5) publish to all relays
 - **AND** the solution SHALL appear in the `SolutionList` component immediately
-- **AND** the bounty's `solutionCount` SHALL increment
+- **AND** the task's `solutionCount` SHALL increment
 - **AND** a success toast SHALL display: "Solution submitted!"
 
-#### Scenario: Bounty status transition on first solution
+#### Scenario: Task status transition on first solution
 
-- **WHEN** a bounty in `open` status receives its first solution
-- **THEN** the bounty's derived status SHALL transition to `in_review`
-- **AND** the `BountyStatusBadge` SHALL update accordingly
+- **WHEN** a task in `open` status receives its first solution
+- **THEN** the task's derived status SHALL transition to `in_review`
+- **AND** the `TaskStatusBadge` SHALL update accordingly

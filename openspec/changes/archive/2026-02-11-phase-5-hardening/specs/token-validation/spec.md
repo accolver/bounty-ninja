@@ -7,7 +7,7 @@ A `TokenValidator` service SHALL be created at
 tokens embedded in Kind 73002 pledge events against the issuing mint. The
 service MUST expose reactive state for each token's verification status using
 Svelte 5 runes. Token verification MUST be lazy — triggered only when a pledge
-becomes visible in the viewport or when a user navigates to a bounty detail
+becomes visible in the viewport or when a user navigates to a task detail
 page.
 
 The validator MUST use `@cashu/cashu-ts` `CashuMint.check()` (or equivalent
@@ -18,7 +18,7 @@ hash to avoid redundant mint requests.
 #### Scenario: Valid token is verified against mint
 
 - **WHEN** a Kind 73002 pledge event containing a `cashu` tag is loaded into the
-  bounty detail view
+  task detail view
 - **THEN** the `TokenValidator` SHALL asynchronously contact the mint URL from
   the pledge's `mint` tag
 - **AND** verify the token proofs are spendable
@@ -29,7 +29,7 @@ hash to avoid redundant mint requests.
 - **WHEN** the mint responds that one or more proofs in the token have already
   been spent
 - **THEN** the pledge's verification status SHALL be set to `"invalid"`
-- **AND** the pledge amount SHALL NOT be included in the bounty's `totalPledged`
+- **AND** the pledge amount SHALL NOT be included in the task's `totalPledged`
   calculation
 - **AND** the UI SHALL display a warning badge: "This token has already been
   claimed"
@@ -84,7 +84,7 @@ re-verification SHALL occur on next access.
 #### Scenario: Cached result avoids redundant mint request
 
 - **WHEN** a pledge token was verified within the last 5 minutes
-- **AND** the user navigates away from and back to the bounty detail page
+- **AND** the user navigates away from and back to the task detail page
 - **THEN** the cached verification result SHALL be used without contacting the
   mint
 
@@ -97,14 +97,14 @@ re-verification SHALL occur on next access.
 ### Requirement: Pledge Display Integration
 
 The `PledgeItem.svelte` and `PledgeList.svelte` components MUST integrate with
-the `TokenValidator` to display verification badges. The `BountyCard.svelte`
+the `TokenValidator` to display verification badges. The `TaskCard.svelte`
 total pledged amount MUST only include pledges with `"verified"` or
 `"unverified"` status — never `"invalid"` pledges.
 
-#### Scenario: Bounty card shows adjusted total
+#### Scenario: Task card shows adjusted total
 
-- **WHEN** a bounty has 3 pledges: one verified (1000 sats), one unverified (500
+- **WHEN** a task has 3 pledges: one verified (1000 sats), one unverified (500
   sats), and one invalid (2000 sats)
-- **THEN** the `BountyCard` SHALL display a total of 1500 sats
-- **AND** the bounty detail page SHALL show all 3 pledges with their respective
+- **THEN** the `TaskCard` SHALL display a total of 1500 sats
+- **AND** the task detail page SHALL show all 3 pledges with their respective
   badges

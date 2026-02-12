@@ -1,22 +1,22 @@
 import { describe, it, expect } from 'vitest';
 import {
-	bountyBlueprint,
+	taskBlueprint,
 	pledgeBlueprint,
 	solutionBlueprint,
 	voteBlueprint,
 	payoutBlueprint,
-	type BountyBlueprintParams,
+	type TaskBlueprintParams,
 	type PledgeBlueprintParams,
 	type SolutionBlueprintParams,
 	type VoteBlueprintParams,
 	type PayoutBlueprintParams
-} from '$lib/bounty/blueprints';
-import { BOUNTY_KIND, PLEDGE_KIND, SOLUTION_KIND, VOTE_KIND, PAYOUT_KIND } from '$lib/bounty/kinds';
+} from '$lib/task/blueprints';
+import { TASK_KIND, PLEDGE_KIND, SOLUTION_KIND, VOTE_KIND, PAYOUT_KIND } from '$lib/task/kinds';
 import { CLIENT_TAG } from '$lib/utils/constants';
 
 const PUBKEY = 'a'.repeat(64);
 const OTHER_PUBKEY = 'b'.repeat(64);
-const BOUNTY_ADDRESS = `${BOUNTY_KIND}:${PUBKEY}:test-bounty-123`;
+const TASK_ADDRESS = `${TASK_KIND}:${PUBKEY}:test-task-123`;
 const EVENT_ID = 'e'.repeat(64);
 
 /** Helper to find a tag value in an event template */
@@ -34,66 +34,66 @@ function expectClientTag(tags: string[][]) {
 	expect(findTag(tags, 'client')).toBe(CLIENT_TAG);
 }
 
-// ── bountyBlueprint (Kind 37300) ────────────────────────────────────────────
+// ── taskBlueprint (Kind 37300) ────────────────────────────────────────────
 
-describe('bountyBlueprint', () => {
-	const baseParams: BountyBlueprintParams = {
-		dTag: 'test-bounty-abc123',
+describe('taskBlueprint', () => {
+	const baseParams: TaskBlueprintParams = {
+		dTag: 'test-task-abc123',
 		title: 'Fix the login bug',
 		description: 'Detailed description of the bug and expected behavior.',
 		rewardAmount: 50000
 	};
 
 	it('produces correct kind', () => {
-		const template = bountyBlueprint(baseParams);
-		expect(template.kind).toBe(BOUNTY_KIND);
+		const template = taskBlueprint(baseParams);
+		expect(template.kind).toBe(TASK_KIND);
 	});
 
 	it('includes required tags: d, title, reward, client', () => {
-		const template = bountyBlueprint(baseParams);
-		expect(findTag(template.tags, 'd')).toBe('test-bounty-abc123');
+		const template = taskBlueprint(baseParams);
+		expect(findTag(template.tags, 'd')).toBe('test-task-abc123');
 		expect(findTag(template.tags, 'title')).toBe('Fix the login bug');
 		expect(findTag(template.tags, 'reward')).toBe('50000');
 		expectClientTag(template.tags);
 	});
 
 	it('sets content to description', () => {
-		const template = bountyBlueprint(baseParams);
+		const template = taskBlueprint(baseParams);
 		expect(template.content).toBe('Detailed description of the bug and expected behavior.');
 	});
 
 	it('sets created_at to current timestamp', () => {
 		const before = Math.floor(Date.now() / 1000);
-		const template = bountyBlueprint(baseParams);
+		const template = taskBlueprint(baseParams);
 		const after = Math.floor(Date.now() / 1000);
 		expect(template.created_at).toBeGreaterThanOrEqual(before);
 		expect(template.created_at).toBeLessThanOrEqual(after);
 	});
 
 	it('includes topic tags when provided', () => {
-		const template = bountyBlueprint({ ...baseParams, tags: ['bug', 'frontend', 'auth'] });
+		const template = taskBlueprint({ ...baseParams, tags: ['bug', 'frontend', 'auth'] });
 		const tTags = findAllTags(template.tags, 't');
 		expect(tTags).toEqual(['bug', 'frontend', 'auth']);
 	});
 
 	it('includes deadline as expiration tag', () => {
 		const deadline = 1800000000;
-		const template = bountyBlueprint({ ...baseParams, deadline });
+		const template = taskBlueprint({ ...baseParams, deadline });
 		expect(findTag(template.tags, 'expiration')).toBe('1800000000');
 	});
 
 	it('includes mint URL when provided', () => {
-		const template = bountyBlueprint({ ...baseParams, mintUrl: 'https://mint.example.com' });
+		const template = taskBlueprint({ ...baseParams, mintUrl: 'https://mint.example.com' });
 		expect(findTag(template.tags, 'mint')).toBe('https://mint.example.com');
 	});
 
 	it('includes submission fee when provided', () => {
-		const template = bountyBlueprint({ ...baseParams, submissionFee: 25 });
+		const template = taskBlueprint({ ...baseParams, submissionFee: 25 });
 		expect(findTag(template.tags, 'fee')).toBe('25');
 	});
 
 	it('omits optional tags when not provided', () => {
-		const template = bountyBlueprint(baseParams);
+		const template = taskBlueprint(baseParams);
 		const tagNames = template.tags.map((t) => t[0]);
 		expect(tagNames).not.toContain('t');
 		expect(tagNames).not.toContain('expiration');
@@ -106,7 +106,7 @@ describe('bountyBlueprint', () => {
 
 describe('pledgeBlueprint', () => {
 	const baseParams: PledgeBlueprintParams = {
-		bountyAddress: BOUNTY_ADDRESS,
+		taskAddress: TASK_ADDRESS,
 		creatorPubkey: PUBKEY,
 		amount: 10000,
 		cashuToken: 'cashuA_test_token_abc',
@@ -120,7 +120,7 @@ describe('pledgeBlueprint', () => {
 
 	it('includes all required tags: a, p, amount, cashu, mint, client', () => {
 		const template = pledgeBlueprint(baseParams);
-		expect(findTag(template.tags, 'a')).toBe(BOUNTY_ADDRESS);
+		expect(findTag(template.tags, 'a')).toBe(TASK_ADDRESS);
 		expect(findTag(template.tags, 'p')).toBe(PUBKEY);
 		expect(findTag(template.tags, 'amount')).toBe('10000');
 		expect(findTag(template.tags, 'cashu')).toBe('cashuA_test_token_abc');
@@ -134,8 +134,8 @@ describe('pledgeBlueprint', () => {
 	});
 
 	it('sets content to message when provided', () => {
-		const template = pledgeBlueprint({ ...baseParams, message: 'Great bounty!' });
-		expect(template.content).toBe('Great bounty!');
+		const template = pledgeBlueprint({ ...baseParams, message: 'Great task!' });
+		expect(template.content).toBe('Great task!');
 	});
 
 	it('sets created_at to current timestamp', () => {
@@ -151,7 +151,7 @@ describe('pledgeBlueprint', () => {
 
 describe('solutionBlueprint', () => {
 	const baseParams: SolutionBlueprintParams = {
-		bountyAddress: BOUNTY_ADDRESS,
+		taskAddress: TASK_ADDRESS,
 		creatorPubkey: PUBKEY,
 		description: 'Here is my solution with full implementation.'
 	};
@@ -163,7 +163,7 @@ describe('solutionBlueprint', () => {
 
 	it('includes required tags: a, p, client', () => {
 		const template = solutionBlueprint(baseParams);
-		expect(findTag(template.tags, 'a')).toBe(BOUNTY_ADDRESS);
+		expect(findTag(template.tags, 'a')).toBe(TASK_ADDRESS);
 		expect(findTag(template.tags, 'p')).toBe(PUBKEY);
 		expectClientTag(template.tags);
 	});
@@ -206,7 +206,7 @@ describe('solutionBlueprint', () => {
 
 describe('voteBlueprint', () => {
 	const baseParams: VoteBlueprintParams = {
-		bountyAddress: BOUNTY_ADDRESS,
+		taskAddress: TASK_ADDRESS,
 		solutionId: EVENT_ID,
 		solutionAuthor: OTHER_PUBKEY,
 		choice: 'approve'
@@ -219,7 +219,7 @@ describe('voteBlueprint', () => {
 
 	it('includes required tags: a, e, p, vote, client', () => {
 		const template = voteBlueprint(baseParams);
-		expect(findTag(template.tags, 'a')).toBe(BOUNTY_ADDRESS);
+		expect(findTag(template.tags, 'a')).toBe(TASK_ADDRESS);
 		expect(findTag(template.tags, 'e')).toBe(EVENT_ID);
 		expect(findTag(template.tags, 'p')).toBe(OTHER_PUBKEY);
 		expect(findTag(template.tags, 'vote')).toBe('approve');
@@ -241,7 +241,7 @@ describe('voteBlueprint', () => {
 
 describe('payoutBlueprint', () => {
 	const baseParams: PayoutBlueprintParams = {
-		bountyAddress: BOUNTY_ADDRESS,
+		taskAddress: TASK_ADDRESS,
 		solutionId: EVENT_ID,
 		solverPubkey: OTHER_PUBKEY,
 		amount: 45000,
@@ -255,7 +255,7 @@ describe('payoutBlueprint', () => {
 
 	it('includes all required tags: a, e, p, amount, cashu, client', () => {
 		const template = payoutBlueprint(baseParams);
-		expect(findTag(template.tags, 'a')).toBe(BOUNTY_ADDRESS);
+		expect(findTag(template.tags, 'a')).toBe(TASK_ADDRESS);
 		expect(findTag(template.tags, 'e')).toBe(EVENT_ID);
 		expect(findTag(template.tags, 'p')).toBe(OTHER_PUBKEY);
 		expect(findTag(template.tags, 'amount')).toBe('45000');
@@ -280,8 +280,8 @@ describe('payoutBlueprint', () => {
 // ── Cross-cutting: client tag on all events ─────────────────────────────────
 
 describe('all blueprints include client tag', () => {
-	it('bountyBlueprint has client tag', () => {
-		const t = bountyBlueprint({
+	it('taskBlueprint has client tag', () => {
+		const t = taskBlueprint({
 			dTag: 'x',
 			title: 'x',
 			description: 'x',
@@ -292,7 +292,7 @@ describe('all blueprints include client tag', () => {
 
 	it('pledgeBlueprint has client tag', () => {
 		const t = pledgeBlueprint({
-			bountyAddress: 'x',
+			taskAddress: 'x',
 			creatorPubkey: 'x',
 			amount: 1,
 			cashuToken: 'x',
@@ -303,7 +303,7 @@ describe('all blueprints include client tag', () => {
 
 	it('solutionBlueprint has client tag', () => {
 		const t = solutionBlueprint({
-			bountyAddress: 'x',
+			taskAddress: 'x',
 			creatorPubkey: 'x',
 			description: 'x'
 		});
@@ -312,7 +312,7 @@ describe('all blueprints include client tag', () => {
 
 	it('voteBlueprint has client tag', () => {
 		const t = voteBlueprint({
-			bountyAddress: 'x',
+			taskAddress: 'x',
 			solutionId: 'x',
 			solutionAuthor: 'x',
 			choice: 'approve'
@@ -322,7 +322,7 @@ describe('all blueprints include client tag', () => {
 
 	it('payoutBlueprint has client tag', () => {
 		const t = payoutBlueprint({
-			bountyAddress: 'x',
+			taskAddress: 'x',
 			solutionId: 'x',
 			solverPubkey: 'x',
 			amount: 1,

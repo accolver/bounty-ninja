@@ -17,8 +17,8 @@ export function processRelayEvent(event: NostrEvent): void {
 }
 
 /**
- * Connect to all default relays from environment configuration.
- * Reads PUBLIC_DEFAULT_RELAYS, splits by comma, and opens connections.
+ * Connect to all configured relays (default + local dev relay if set).
+ * Reads PUBLIC_DEFAULT_RELAYS and PUBLIC_LOCAL_RELAY from environment.
  */
 export function connectDefaultRelays(): void {
 	const relayUrls = getDefaultRelays();

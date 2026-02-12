@@ -3,12 +3,12 @@
 ## 1. Search State Store
 
 - [x] 1.1 Create `src/lib/stores/search.svelte.ts` — class-based Svelte 5 runes
-      store with `$state` properties: `results` (`BountySummary[]`), `loading`
+      store with `$state` properties: `results` (`TaskSummary[]`), `loading`
       (boolean), `error` (string | null), `query` (string)
 - [x] 1.2 Implement NIP-50 search subscription — construct filter
       `{ kinds: [37300], search: "<query>", limit: 20 }` using
-      `searchBountiesFilter()` from `src/lib/bounty/filters.ts`, issue REQ to
-      `PUBLIC_SEARCH_RELAY` (default `wss://relay.nostr.band`)
+      `searchTasksFilter()` from `src/lib/task/filters.ts`, issue REQ to
+      `PUBLIC_SEARCH_RELAY` (default `wss://search.nos.today`)
 - [x] 1.3 Implement subscription cancellation — cancel any in-flight search
       subscription when a new query is issued
 - [x] 1.4 Implement client-side fallback — when search relay is unreachable or
@@ -18,7 +18,7 @@
       message
 - [x] 1.5 Implement query reset — when query is cleared, reset `results` to
       empty array and clear `error`
-- [x] 1.6 Add `searchBountiesFilter()` to `src/lib/bounty/filters.ts` if not
+- [x] 1.6 Add `searchTasksFilter()` to `src/lib/task/filters.ts` if not
       already present — returns a Nostr `Filter` with `kinds: [37300]` and
       `search` field
 - [x] 1.7 Write unit tests in `src/tests/unit/search-store.test.ts` — cover:
@@ -29,16 +29,16 @@
 
 - [x] 2.1 Create `src/lib/components/search/SearchBar.svelte` — text input with
       300ms debounce, two variants (`hero` and `compact` via prop),
-      `role="search"`, `aria-label="Search bounties"`, visually hidden `<label>`
+      `role="search"`, `aria-label="Search tasks"`, visually hidden `<label>`
 - [x] 2.2 Implement form submission — on Enter or submit button, navigate to
       `/search?q=<url-encoded-query>` via SvelteKit `goto()`
 - [x] 2.3 Implement loading indicator — display spinner/indicator while search
       store `loading` is `true`
 - [x] 2.4 Create `src/lib/components/search/SearchResults.svelte` — render
-      matching bounties as `BountyCard` components, display total result count,
+      matching tasks as `TaskCard` components, display total result count,
       show skeleton placeholders (minimum 3) during loading, show `EmptyState`
-      with message "No bounties found for '<query>'" when results are empty
-- [x] 2.5 Add filter controls to `SearchResults.svelte` — bounty status filter
+      with message "No tasks found for '<query>'" when results are empty
+- [x] 2.5 Add filter controls to `SearchResults.svelte` — task status filter
       (open, completed, all) and minimum reward amount filter; filters apply
       client-side to the search store results
 
@@ -125,13 +125,13 @@
 - [x] 9.1 Create `src/lib/components/layout/Sidebar.svelte` — rendered only at
       `lg:` breakpoint (1024px+), fixed width 256px on left side of two-column
       layout
-- [x] 9.2 Implement category/tag list — derive tags from `t` tags of bounty
-      events in `EventStore`, display tag name and bounty count per tag
+- [x] 9.2 Implement category/tag list — derive tags from `t` tags of task
+      events in `EventStore`, display tag name and task count per tag
 - [x] 9.3 Implement "Popular Tags" section — show top 10 most-used tags sorted
       by frequency
-- [x] 9.4 Implement category selection — clicking a tag filters home page bounty
+- [x] 9.4 Implement category selection — clicking a tag filters home page task
       list to matching `t` tag; visually highlight selected category
-- [x] 9.5 Implement "All" option — clears filter, shows all bounties
+- [x] 9.5 Implement "All" option — clears filter, shows all tasks
 
 ## 10. Responsive Layout — MobileNav
 
@@ -139,12 +139,12 @@
       of viewport, solid background with top border, hidden at `sm:` breakpoint
       (640px+)
 - [x] 10.2 Add navigation items — Home (`/`), Search (`/search`), Create
-      (`/bounty/new`), Settings (`/settings`); each with icon and label
+      (`/task/new`), Settings (`/settings`); each with icon and label
 - [x] 10.3 Implement active route highlighting — use `--primary` color token for
       active item
 - [x] 10.4 Enforce 44x44px minimum touch targets per WCAG 2.1 AA
 - [x] 10.5 Implement auth check on Create — prompt unauthenticated users to log
-      in via NIP-07 before navigating to `/bounty/new`
+      in via NIP-07 before navigating to `/task/new`
 
 ## 11. Responsive Layout — Root Layout & Header Updates
 
@@ -158,7 +158,7 @@
 - [x] 11.3 Implement mobile search overlay — tapping search icon expands
       full-width search input over Header; dismiss via close button or Escape
       key; Enter navigates to `/search?q=<query>`
-- [x] 11.4 Update `src/lib/components/bounty/BountyCard.svelte` — mobile:
+- [x] 11.4 Update `src/lib/components/task/TaskCard.svelte` — mobile:
       stacked vertical layout (title, status, tags, reward, time ago); desktop
       (640px+): horizontal layout with additional metadata (solution count,
       pledge count)
@@ -166,10 +166,10 @@
 ## 12. Home Page Updates
 
 - [x] 12.1 Update `src/routes/+page.svelte` — add hero-variant `SearchBar`
-      prominently above bounty list with placeholder "Search bounties..."
+      prominently above task list with placeholder "Search tasks..."
 - [x] 12.2 Add category filter tabs — "All" tab (default) plus tabs for common
       tags (development, design, documentation, writing); selecting a tab
-      filters bounty list by matching `t` tag client-side against `EventStore`
+      filters task list by matching `t` tag client-side against `EventStore`
 - [x] 12.3 Ensure hero search navigates to `/search?q=<query>` on Enter/submit
 
 ## 13. Branding Assets
@@ -187,9 +187,9 @@
 ## 14. Meta Tags & app.html
 
 - [x] 14.1 Update `src/app.html` — set `<title>` to "Tasks.fyi — Decentralized
-      Bounty Board"
+      Task Board"
 - [x] 14.2 Add Open Graph meta tags to `src/app.html` `<head>` — `og:title`,
-      `og:description` ("Post bounties, fund with bitcoin ecash, and pay solvers
+      `og:description` ("Post tasks, fund with bitcoin ecash, and pay solvers
       — all on Nostr. No middlemen, no accounts, no censorship."), `og:image`
       (`https://tasks.fyi/og-image.svg`), `og:url`, `og:type` (website),
       `og:site_name`
@@ -213,7 +213,7 @@
       started before test suite, stopped after all tests; configure app under
       test to connect to local relay via env var override
 - [x] 15.3 Implement test fixture seeding — seed local relay with sample
-      bounties, pledges, solutions via `nak event` CLI or direct WebSocket
+      tasks, pledges, solutions via `nak event` CLI or direct WebSocket
       publishing before tests run
 - [x] 15.4 Create mock NIP-07 signer helper — injectable via
       `page.addInitScript()`, implements `window.nostr` with `getPublicKey()`
@@ -227,17 +227,17 @@
 
 ## 16. E2E Tests
 
-- [x] 16.1 Create `src/tests/e2e/bounty-lifecycle.spec.ts` — full lifecycle:
-      navigate to `/bounty/new`, fill form (title, description, reward, tags,
-      fee), submit, verify bounty on home page, navigate to detail, fund with
+- [x] 16.1 Create `src/tests/e2e/task-lifecycle.spec.ts` — full lifecycle:
+      navigate to `/task/new`, fill form (title, description, reward, tags,
+      fee), submit, verify task on home page, navigate to detail, fund with
       mock Cashu pledge, verify status → open, submit solution with anti-spam
       fee, verify status → in_review, cast approval vote, verify tally updates,
       trigger payout, verify status → completed
-- [x] 16.2 Add bounty form validation test in `bounty-lifecycle.spec.ts` —
+- [x] 16.2 Add task form validation test in `task-lifecycle.spec.ts` —
       submit with empty title, verify validation error, verify no event
       published
 - [x] 16.3 Create `src/tests/e2e/search.spec.ts` — seed relay with multiple
-      bounties with distinct titles/tags, verify bounties on home page, type
+      tasks with distinct titles/tags, verify tasks on home page, type
       query in hero SearchBar, press Enter, verify navigation to
       `/search?q=<query>`, verify matching results displayed, apply status
       filter and verify update, click category tab on home page and verify
@@ -248,7 +248,7 @@
       Header, verify write actions available, navigate to `/settings` and verify
       settings load, log out and verify UI returns to unauthenticated state
 - [x] 16.5 Add unauthenticated restriction test in `auth.spec.ts` — navigate to
-      `/bounty/new` without auth, verify login prompt displayed instead of form
+      `/task/new` without auth, verify login prompt displayed instead of form
 - [x] 16.6 Add accessibility assertions to all E2E tests — verify `<main>`
       landmark on every page, all images have `alt`, all form inputs have
       labels, focus management after navigation, skip-to-content link present

@@ -2,7 +2,7 @@
  * Cashu payment layer types for Tasks.fyi.
  *
  * These types complement @cashu/cashu-ts types (Proof, Token, etc.)
- * with domain-specific structures for the bounty escrow workflow.
+ * with domain-specific structures for the task escrow workflow.
  */
 
 import type { Proof, Token } from '@cashu/cashu-ts';
@@ -48,9 +48,9 @@ export interface P2PKLockParams {
 // ── Escrow State ────────────────────────────────────────────────────────────
 
 /**
- * Lifecycle state of escrowed Cashu tokens within a bounty.
+ * Lifecycle state of escrowed Cashu tokens within a task.
  *
- * - `locked`   — Tokens are P2PK-locked to the bounty creator; not yet claimed.
+ * - `locked`   — Tokens are P2PK-locked to the task creator; not yet claimed.
  * - `claimed`  — Creator has swapped the locked tokens (proved ownership).
  * - `refunded` — Tokens were returned to the original funder (locktime expired).
  * - `expired`  — The lock's refund window has passed without action.

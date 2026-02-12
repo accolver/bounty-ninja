@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { accountState } from '$lib/nostr/account.svelte';
 	import { publishEvent } from '$lib/nostr/signer.svelte';
-	import { pledgeBlueprint } from '$lib/bounty/blueprints';
-	import { PLEDGE_KIND } from '$lib/bounty/kinds';
+	import { pledgeBlueprint } from '$lib/task/blueprints';
+	import { PLEDGE_KIND } from '$lib/task/kinds';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { getDefaultMint } from '$lib/utils/env';
 	import { rateLimiter } from '$lib/nostr/rate-limiter';
@@ -15,12 +15,12 @@
 	import { connectivity } from '$lib/stores/connectivity.svelte';
 
 	let {
-		bountyAddress,
+		taskAddress,
 		creatorPubkey,
 		mintUrl,
 		open = $bindable(false)
 	}: {
-		bountyAddress: string;
+		taskAddress: string;
 		creatorPubkey: string;
 		mintUrl: string | null;
 		open: boolean;
@@ -76,7 +76,7 @@
 			const cashuToken = `cashuA_pledge_${amount}_${Date.now()}`;
 
 			const template = pledgeBlueprint({
-				bountyAddress,
+				taskAddress,
 				creatorPubkey,
 				amount,
 				cashuToken,
@@ -112,9 +112,9 @@
 <Dialog.Root bind:open>
 	<Dialog.Content class="sm:max-w-md">
 		<Dialog.Header>
-			<Dialog.Title>Fund this bounty</Dialog.Title>
+			<Dialog.Title>Fund this task</Dialog.Title>
 			<Dialog.Description>
-				Pledge sats to increase the bounty reward and incentivize solutions.
+				Pledge sats to increase the task reward and incentivize solutions.
 			</Dialog.Description>
 		</Dialog.Header>
 
@@ -173,7 +173,7 @@
 					rows={2}
 					maxlength={280}
 					disabled={submitting}
-					placeholder="Leave a note for the bounty creator..."
+					placeholder="Leave a note for the task creator..."
 					class="border-border bg-white dark:bg-input/30 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-full rounded-md border px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
 				></textarea>
 				<p class="text-right text-xs text-muted-foreground">
@@ -189,7 +189,7 @@
 						<p class="text-sm font-medium text-warning">Bearer instrument warning</p>
 						<p class="text-xs text-foreground/80">
 							Cashu tokens are like cash. Once sent, they cannot be reversed. Ensure you trust this
-							bounty creator.
+							task creator.
 						</p>
 						<label class="flex items-start gap-2 cursor-pointer">
 							<input

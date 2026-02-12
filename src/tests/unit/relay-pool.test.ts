@@ -4,8 +4,7 @@ import { RelayPool } from 'applesauce-relay';
 // Mock the env module
 vi.mock('$env/dynamic/public', () => ({
 	env: {
-		PUBLIC_DEFAULT_RELAYS:
-			'wss://relay.damus.io,wss://nos.lol,wss://relay.nostr.band,wss://relay.primal.net'
+		PUBLIC_DEFAULT_RELAYS: 'wss://relay.damus.io,wss://nos.lol,wss://relay.primal.net'
 	}
 }));
 
@@ -33,8 +32,7 @@ describe('connectDefaultRelays', () => {
 
 		expect(relaySpy).toHaveBeenCalledWith('wss://relay.damus.io');
 		expect(relaySpy).toHaveBeenCalledWith('wss://nos.lol');
-		expect(relaySpy).toHaveBeenCalledWith('wss://relay.nostr.band');
 		expect(relaySpy).toHaveBeenCalledWith('wss://relay.primal.net');
-		expect(relaySpy).toHaveBeenCalledTimes(4);
+		expect(relaySpy).toHaveBeenCalledTimes(3);
 	});
 });

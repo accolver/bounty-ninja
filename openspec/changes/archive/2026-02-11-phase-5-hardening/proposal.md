@@ -56,11 +56,11 @@ production deployment configuration.
 
 ### Modified Capabilities
 
-- `bounty-display-components`: All components now validate event signatures
+- `task-display-components`: All components now validate event signatures
   before rendering
 - `cashu-payments`: Token amounts now verified against mint before display
 - `shared-components`: Markdown component hardened with XSS sanitization
-- `bounty-routes`: All route pages wrapped in ErrorBoundary
+- `task-routes`: All route pages wrapped in ErrorBoundary
 - `error-boundaries`: Coverage expanded to all routes
 
 ## Impact

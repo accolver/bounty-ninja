@@ -48,7 +48,7 @@ offline.
 - **WHEN** the application starts and cannot connect to any configured Nostr
   relay
 - **THEN** the application SHALL load events from the IndexedDB cache
-- **AND** display bounties, pledges, solutions, and votes from cached data
+- **AND** display tasks, pledges, solutions, and votes from cached data
 - **AND** a persistent banner SHALL appear at the top: "Offline — showing cached
   data. Reconnecting..."
 
@@ -71,15 +71,15 @@ offline.
 
 ### Requirement: Write Operation Queuing When Offline
 
-When the user attempts a write operation (create bounty, pledge, submit
+When the user attempts a write operation (create task, pledge, submit
 solution, vote) while offline, the application MUST inform the user that the
 action cannot be completed and SHALL NOT silently discard the input.
 
-#### Scenario: User attempts to create bounty while offline
+#### Scenario: User attempts to create task while offline
 
-- **WHEN** the user fills out the bounty creation form and clicks submit while
+- **WHEN** the user fills out the task creation form and clicks submit while
   offline
-- **THEN** the application SHALL display a toast: "You're offline. Your bounty
+- **THEN** the application SHALL display a toast: "You're offline. Your task
   will be published when connectivity is restored."
 - **AND** the form data SHALL be preserved (not cleared)
 - **AND** the form SHALL remain open so the user can retry when online

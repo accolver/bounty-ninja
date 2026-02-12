@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { VoteTally } from '$lib/bounty/types';
+	import type { VoteTally } from '$lib/task/types';
 
 	const { tally }: { tally: VoteTally } = $props();
 

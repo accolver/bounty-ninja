@@ -11,13 +11,13 @@ state.
 #### Scenario: VoteButton for eligible pledger
 
 - **WHEN** an authenticated user who has published at least one Kind 73002
-  pledge for the bounty views a solution
+  pledge for the task views a solution
 - **THEN** the VoteButton SHALL render enabled "Approve" and "Reject" buttons
 - **AND** the user's vote weight (their total pledge amount) SHALL be displayed
 
 #### Scenario: VoteButton for non-pledger
 
-- **WHEN** an authenticated user who has NOT pledged to the bounty views a
+- **WHEN** an authenticated user who has NOT pledged to the task views a
   solution
 - **THEN** the VoteButton SHALL render disabled buttons
 - **AND** SHALL display a tooltip: "Only funders can vote"
@@ -26,7 +26,7 @@ state.
 
 - **WHEN** an unauthenticated user views a solution
 - **THEN** the VoteButton SHALL render disabled buttons
-- **AND** SHALL display a tooltip: "Sign in and fund this bounty to vote"
+- **AND** SHALL display a tooltip: "Sign in and fund this task to vote"
 
 #### Scenario: VoteButton after user has already voted
 
@@ -39,7 +39,7 @@ state.
 ### Requirement: Voting Eligibility Enforcement
 
 Only pubkeys that have published at least one Kind 73002 pledge event for the
-specific bounty SHALL be eligible to vote. This is enforced client-side by
+specific task SHALL be eligible to vote. This is enforced client-side by
 checking the `EventStore` for matching pledge events. See PRD Section 6.5 and
 PRD Section 14.2.
 
@@ -52,13 +52,13 @@ limitation documented in PRD Section 22.1.
 
 - **WHEN** a Kind 1018 vote event is received
 - **THEN** the system SHALL look up the voter's pubkey in the set of Kind 73002
-  pledge events for the referenced bounty
+  pledge events for the referenced task
 - **AND** if the voter has no matching pledge, the vote SHALL be assigned zero
   weight and excluded from the tally
 
 #### Scenario: Multiple pledges from same pubkey
 
-- **WHEN** a voter has published multiple Kind 73002 pledges for the same bounty
+- **WHEN** a voter has published multiple Kind 73002 pledges for the same task
 - **THEN** the voter's total pledge amount SHALL be the sum of all their pledge
   amounts
 - **AND** the vote weight SHALL be `totalPledgeAmount` (linear)
@@ -70,7 +70,7 @@ defined in PRD Section 6.5:
 
 **Required tags:**
 
-- `["a", "37300:<bounty-creator-pubkey>:<d-tag>", "<relay-hint>"]` — bounty
+- `["a", "37300:<task-creator-pubkey>:<d-tag>", "<relay-hint>"]` — task
   reference
 - `["e", "<solution-event-id>", "<relay-hint>"]` — reference to the solution
   being voted on
@@ -85,7 +85,7 @@ defined in PRD Section 6.5:
 - **WHEN** a pledger clicks "Approve" on a solution
 - **THEN** the event SHALL include `["vote", "approve"]`
 - **AND** the `e` tag SHALL reference the solution's event ID
-- **AND** the `a` tag SHALL reference the bounty's NIP-33 address
+- **AND** the `a` tag SHALL reference the task's NIP-33 address
 
 #### Scenario: Reject vote event
 
@@ -119,11 +119,11 @@ canonical vote. Earlier votes SHALL be superseded. See PRD Section 6.5.
 
 Vote weight SHALL be calculated as `pledgeAmountInSats` (linear: 1 sat = 1 vote
 weight) per PRD Section 10.2. The tally SHALL use the `tallyVotes()` function
-from `src/lib/bounty/voting.ts`.
+from `src/lib/task/voting.ts`.
 
 #### Scenario: Vote weight calculation
 
-- **WHEN** a voter has pledged 10,000 sats to the bounty
+- **WHEN** a voter has pledged 10,000 sats to the task
 - **THEN** their vote weight SHALL be `10000`
 
 #### Scenario: Zero pledge amount
@@ -134,7 +134,7 @@ from `src/lib/bounty/voting.ts`.
 
 #### Scenario: Quorum determination
 
-- **WHEN** the total pledged amount for a bounty is 40,000 sats
+- **WHEN** the total pledged amount for a task is 40,000 sats
 - **THEN** the quorum threshold SHALL be `40000 * 0.5` = 20000
 - **AND** a solution is "approved" when total approve weight > total reject
   weight AND total approve weight >= 20000
@@ -149,7 +149,7 @@ Svelte 5 `$derived` runes.
 
 - **WHEN** a new Kind 1018 vote event is received from a relay subscription
 - **THEN** the event SHALL be added to the `EventStore`
-- **AND** the `bounty-detail.svelte.ts` store SHALL reactively recompute the
+- **AND** the `task-detail.svelte.ts` store SHALL reactively recompute the
   vote tally
 - **AND** the `VoteProgress` component SHALL re-render with updated
   approve/reject weights and quorum percentage
@@ -159,8 +159,8 @@ Svelte 5 `$derived` runes.
 - **WHEN** a solution's approve weight exceeds the quorum threshold and exceeds
   reject weight
 - **THEN** the `VoteResults` component SHALL display: "Solution approved!
-  Awaiting payout from bounty creator."
-- **AND** the bounty creator SHALL see a "Trigger Payout" button
+  Awaiting payout from task creator."
+- **AND** the task creator SHALL see a "Trigger Payout" button
 
 ### Requirement: Vote Publishing and Optimistic Update
 

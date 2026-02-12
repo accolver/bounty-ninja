@@ -1,7 +1,7 @@
 ## Context
 
 Tasks.fyi is a greenfield project — no application code exists yet. The goal is
-to build a decentralized, censorship-resistant bounty board powered by Nostr
+to build a decentralized, censorship-resistant task board powered by Nostr
 (for event storage and identity) and Cashu ecash (for trustless payments). The
 application is a client-side-only static SPA with zero backend infrastructure:
 all state is derived from Nostr relay subscriptions and cached locally in
@@ -11,7 +11,7 @@ Phase 1 (Foundation) establishes the project skeleton and proves that the core
 integration works: SvelteKit 2 serving a static SPA, Applesauce libraries
 connecting to Nostr relays, events flowing into a reactive store, NIP-07
 authentication via browser extensions, and the Tokyo Night visual theme applied
-globally. No bounty-specific business logic is implemented in this phase — the
+globally. No task-specific business logic is implemented in this phase — the
 focus is entirely on infrastructure, connectivity, and the layout shell.
 
 The technology stack is prescribed by the PRD and is non-negotiable: SvelteKit 2
@@ -49,15 +49,15 @@ primitives, and Bun as the sole package manager and runtime.
 
 ### Non-Goals
 
-- **Bounty data models and types** — `Bounty`, `Pledge`, `Solution`, `Vote`,
+- **Task data models and types** — `Task`, `Pledge`, `Solution`, `Vote`,
   `Payout` interfaces are Phase 2
-- **Bounty-specific Nostr filters** — filter builders for Kind
+- **Task-specific Nostr filters** — filter builders for Kind
   37300/73001/73002/1018/73004 are Phase 2
-- **Reactive bounty stores** — `BountyListStore`, `BountyDetailStore` bridging
+- **Reactive task stores** — `TaskListStore`, `TaskDetailStore` bridging
   EventStore to runes are Phase 2
-- **Bounty UI components** — `BountyCard`, `BountyDetail`, `BountyStatusBadge`,
+- **Task UI components** — `TaskCard`, `TaskDetail`, `TaskStatusBadge`,
   etc. are Phase 2
-- **Write operations** — creating bounties, pledging, submitting solutions,
+- **Write operations** — creating tasks, pledging, submitting solutions,
   voting, and payouts are Phase 3
 - **Cashu integration** — mint connection, token creation, P2PK locking are
   Phase 3
@@ -81,7 +81,7 @@ instance.
 **Rationale:** Applesauce's architecture is designed around a single EventStore
 that accumulates events from all sources. Multiple EventStore instances would
 fragment the event graph and break cross-referencing (e.g., looking up a
-bounty's pledges). The singleton pattern is the simplest way to guarantee this
+task's pledges). The singleton pattern is the simplest way to guarantee this
 in a client-side SPA where there is exactly one user session.
 
 ### Svelte 5 Runes for All Reactive State
@@ -169,7 +169,7 @@ client-side Nostr relay WebSocket connections.
 Vercel, GitHub Pages) with zero server infrastructure. This aligns with the
 decentralized ethos — the application itself has no backend that could be
 censored or taken down. The trade-off is no SSR for SEO, but the target audience
-discovers bounties through Nostr clients, not search engines.
+discovers tasks through Nostr clients, not search engines.
 
 ### Vite optimizeDeps Exclusions for Noble Libraries
 
@@ -216,7 +216,7 @@ appears unavailable.
 
 **Mitigation:** Detect `window.nostr` with retry/polling to handle late-loading
 extensions. Display a clear install prompt with links to nos2x and Alby when no
-extension is detected. Read-only browsing (viewing bounties, relay status) works
+extension is detected. Read-only browsing (viewing tasks, relay status) works
 without authentication. The target audience (Nostr users) is likely to already
 have an extension installed.
 

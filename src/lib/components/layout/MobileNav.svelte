@@ -3,6 +3,7 @@
 	import { accountState } from '$lib/nostr/account.svelte';
 	import { goto } from '$app/navigation';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { searchDialog } from '$lib/stores/search-dialog.svelte';
 	import HomeIcon from '@lucide/svelte/icons/house';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import PlusIcon from '@lucide/svelte/icons/plus';
@@ -13,18 +14,28 @@
 		label: string;
 		icon: typeof HomeIcon;
 		requiresAuth?: boolean;
+		action?: () => void;
 	}
 
 	const items: NavItem[] = [
 		{ href: '/', label: 'Home', icon: HomeIcon },
-		{ href: '/search', label: 'Search', icon: SearchIcon },
-		{ href: '/bounty/new', label: 'Create', icon: PlusIcon, requiresAuth: true },
+		{
+			href: '/search',
+			label: 'Search',
+			icon: SearchIcon,
+			action: () => (searchDialog.open = true)
+		},
+		{ href: '/task/new', label: 'Create', icon: PlusIcon, requiresAuth: true },
 		{ href: '/settings', label: 'Settings', icon: SettingsIcon }
 	];
 
 	function handleNav(item: NavItem) {
+		if (item.action) {
+			item.action();
+			return;
+		}
 		if (item.requiresAuth && !accountState.isLoggedIn) {
-			toastStore.info('Sign in with a Nostr extension to create a bounty');
+			toastStore.info('Sign in with a Nostr extension to create a task');
 			return;
 		}
 		goto(item.href);

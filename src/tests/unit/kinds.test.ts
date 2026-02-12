@@ -1,15 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import {
-	BOUNTY_KIND,
+	TASK_KIND,
 	SOLUTION_KIND,
 	PLEDGE_KIND,
 	VOTE_KIND,
 	PAYOUT_KIND
-} from '$lib/bounty/kinds';
+} from '$lib/task/kinds';
 
-describe('bounty event kinds', () => {
-	it('BOUNTY_KIND is 37300', () => {
-		expect(BOUNTY_KIND).toBe(37300);
+describe('task event kinds', () => {
+	it('TASK_KIND is 37300', () => {
+		expect(TASK_KIND).toBe(37300);
 	});
 
 	it('SOLUTION_KIND is 73001', () => {

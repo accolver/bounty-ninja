@@ -1,14 +1,14 @@
 ## Context
 
 Phases 1–3 of Tasks.fyi established the project foundation (Nostr connectivity,
-Applesauce EventStore, Tokyo Night theming), built the read-only bounty display
-layer (data models, reactive stores, bounty cards, detail pages), and
-implemented all write operations (bounty creation, Cashu pledging with P2PK
+Applesauce EventStore, Tokyo Night theming), built the read-only task display
+layer (data models, reactive stores, task cards, detail pages), and
+implemented all write operations (task creation, Cashu pledging with P2PK
 escrow, solution submission, linear weighted voting, and payout). The core
-bounty lifecycle is functional end-to-end.
+task lifecycle is functional end-to-end.
 
 Phase 4 addresses the gap between "functional" and "usable." Users currently
-have no way to search or discover bounties beyond scrolling the home page list.
+have no way to search or discover tasks beyond scrolling the home page list.
 There is no settings page for customizing relays, mints, or themes. The layout
 is not optimized for mobile devices. There are no E2E tests validating the full
 user journey, and the app lacks branding assets for social sharing. This phase
@@ -17,7 +17,7 @@ needed to make the app production-ready.
 
 ## Goals
 
-- **Search & Discovery**: Enable users to find bounties via NIP-50 full-text
+- **Search & Discovery**: Enable users to find tasks via NIP-50 full-text
   search on a dedicated search relay, with client-side fallback filtering when
   the relay is unavailable. Provide category/tag filtering on the home page and
   a dedicated search results page at `/search`.
@@ -32,7 +32,7 @@ needed to make the app production-ready.
   platforms.
 - **E2E Test Coverage**: Establish a Playwright E2E test suite using a local
   Nostr relay (`nak serve`), mock NIP-07 signer, and mock Cashu mint to validate
-  the full bounty lifecycle, search flow, and authentication flow.
+  the full task lifecycle, search flow, and authentication flow.
 
 ## Non-Goals
 
@@ -47,7 +47,7 @@ needed to make the app production-ready.
 - **Relay list discovery (NIP-65)**: Automatic relay list fetching from the
   user's Kind 10002 events is deferred. Users manually configure relays in
   settings.
-- **Notification system**: NIP-04 DM-based notifications for bounty updates are
+- **Notification system**: NIP-04 DM-based notifications for task updates are
   deferred.
 - **Advanced search features**: Faceted search, saved searches, search history,
   and search suggestions are out of scope for this phase.
@@ -57,7 +57,7 @@ needed to make the app production-ready.
 ### Decision: NIP-50 search with client-side fallback
 
 **Choice**: Issue NIP-50 search queries to a dedicated search relay
-(`PUBLIC_SEARCH_RELAY`, default `wss://relay.nostr.band`), falling back to
+(`PUBLIC_SEARCH_RELAY`, default `wss://search.nos.today`), falling back to
 client-side substring matching against cached EventStore events when the relay
 is unavailable.
 
@@ -72,7 +72,7 @@ albeit with reduced scope (only locally cached events).
 **Alternatives considered**:
 
 - _Client-side only search_: Rejected because it can only search events already
-  fetched and cached, missing the vast majority of bounties on the network.
+  fetched and cached, missing the vast majority of tasks on the network.
 - _DVM-based search (NIP-90)_: Rejected as overly complex for MVP and introduces
   additional trust dependencies.
 - _Multiple search relays_: Rejected for MVP simplicity. Can be added later by
@@ -158,7 +158,7 @@ need for a real mint in tests.
 
 **Severity**: Medium
 
-**Description**: The default search relay (`wss://relay.nostr.band`) may
+**Description**: The default search relay (`wss://search.nos.today`) may
 experience downtime, rate-limit requests, or change its NIP-50 support. If the
 search relay is unavailable, search degrades to client-side filtering which only
 covers locally cached events — a significantly reduced search scope.
@@ -183,16 +183,16 @@ gracefully handles `QuotaExceededError`. Settings are non-critical — the app
 falls back to defaults if localStorage is empty or cleared. A future enhancement
 could back up settings to a Nostr event (Kind 30078).
 
-### Risk: Mobile performance with large bounty lists
+### Risk: Mobile performance with large task lists
 
 **Severity**: Medium
 
-**Description**: Rendering a large number of bounty cards on mobile devices with
+**Description**: Rendering a large number of task cards on mobile devices with
 limited CPU and memory could cause jank, especially when combined with real-time
 relay subscriptions updating the list. The MobileNav and search overlay add
 additional DOM elements.
 
-**Mitigation**: The bounty list filter defaults to `limit: 50` events, capping
+**Mitigation**: The task list filter defaults to `limit: 50` events, capping
 the initial render. Svelte 5's fine-grained reactivity minimizes unnecessary
 re-renders. Virtual scrolling can be added as a future optimization if
 performance degrades. The `prefers-reduced-motion` media query disables

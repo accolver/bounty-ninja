@@ -1,7 +1,7 @@
 ## Why
 
 Tasks.fyi has a comprehensive PRD (Section 18, Phase 1) but zero application
-code exists. Before any bounty-specific features can be built, we need the
+code exists. Before any task-specific features can be built, we need the
 foundational project scaffold: SvelteKit initialization, dependency
 installation, Nostr relay connectivity via Applesauce, NIP-07 authentication,
 IndexedDB caching, and the basic layout shell with Tokyo Night theming. This is

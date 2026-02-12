@@ -1,24 +1,12 @@
 <script lang="ts">
 	import LoginButton from '$lib/components/auth/LoginButton.svelte';
 	import ProfileMenu from '$lib/components/auth/ProfileMenu.svelte';
-	import SearchBar from '$lib/components/search/SearchBar.svelte';
+	import SearchDialog from '$lib/components/search/SearchDialog.svelte';
 	import ThemeToggle from '$lib/components/shared/ThemeToggle.svelte';
 	import RelayIndicator from '$lib/components/shared/RelayIndicator.svelte';
 	import { accountState } from '$lib/nostr/account.svelte';
+	import { searchDialog } from '$lib/stores/search-dialog.svelte';
 	import SearchIcon from '@lucide/svelte/icons/search';
-	import XIcon from '@lucide/svelte/icons/x';
-
-	let showMobileSearch = $state(false);
-
-	function handleMobileSearchClose() {
-		showMobileSearch = false;
-	}
-
-	function handleMobileSearchKeydown(e: KeyboardEvent) {
-		if (e.key === 'Escape') {
-			showMobileSearch = false;
-		}
-	}
 </script>
 
 <header class="border-b border-border bg-card">
@@ -53,9 +41,20 @@
 			</a>
 		</div>
 
-		<!-- Center: Compact SearchBar (hidden on mobile) -->
+		<!-- Center: Search trigger (hidden on mobile) -->
 		<div class="hidden flex-1 justify-center px-4 sm:flex">
-			<SearchBar variant="compact" />
+			<button
+				type="button"
+				onclick={() => (searchDialog.open = true)}
+				class="flex w-full max-w-sm items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+				aria-label="Search tasks"
+			>
+				<SearchIcon class="size-4 shrink-0" />
+				<span class="flex-1 text-left">Search tasks...</span>
+				<kbd class="rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium">
+					⌘K
+				</kbd>
+			</button>
 		</div>
 
 		<!-- Right: Mobile search icon + relay indicator + theme toggle + auth -->
@@ -64,7 +63,7 @@
 			<button
 				type="button"
 				class="inline-flex items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:text-foreground sm:hidden"
-				onclick={() => (showMobileSearch = true)}
+				onclick={() => (searchDialog.open = true)}
 				aria-label="Open search"
 			>
 				<SearchIcon class="size-5" />
@@ -80,26 +79,6 @@
 			{/if}
 		</div>
 	</nav>
-
-	<!-- Mobile search overlay -->
-	{#if showMobileSearch}
-		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-		<div
-			class="absolute inset-x-0 top-0 z-50 flex items-center gap-2 border-b border-border bg-card px-4 py-3 sm:hidden"
-			onkeydown={handleMobileSearchKeydown}
-			role="search"
-		>
-			<div class="flex-1">
-				<SearchBar variant="compact" />
-			</div>
-			<button
-				type="button"
-				class="inline-flex shrink-0 items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:text-foreground"
-				onclick={handleMobileSearchClose}
-				aria-label="Close search"
-			>
-				<XIcon class="size-5" />
-			</button>
-		</div>
-	{/if}
 </header>
+
+<SearchDialog />

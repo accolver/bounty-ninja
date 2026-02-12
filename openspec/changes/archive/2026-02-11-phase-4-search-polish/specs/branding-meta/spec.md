@@ -8,8 +8,8 @@ apps, and link previews.
 
 The following meta tags SHALL be present in the `<head>` of `app.html`:
 
-- `<meta property="og:title" content="Tasks.fyi — Decentralized Bounty Board">`
-- `<meta property="og:description" content="Post bounties, fund with bitcoin ecash, and pay solvers — all on Nostr. No middlemen, no accounts, no censorship.">`
+- `<meta property="og:title" content="Tasks.fyi — Decentralized Task Board">`
+- `<meta property="og:description" content="Post tasks, fund with bitcoin ecash, and pay solvers — all on Nostr. No middlemen, no accounts, no censorship.">`
 - `<meta property="og:image" content="https://tasks.fyi/og-image.png">`
 - `<meta property="og:url" content="https://tasks.fyi">`
 - `<meta property="og:type" content="website">`
@@ -18,8 +18,8 @@ The following meta tags SHALL be present in the `<head>` of `app.html`:
 The following Twitter Card meta tags SHALL also be present:
 
 - `<meta name="twitter:card" content="summary_large_image">`
-- `<meta name="twitter:title" content="Tasks.fyi — Decentralized Bounty Board">`
-- `<meta name="twitter:description" content="Post bounties, fund with bitcoin ecash, and pay solvers — all on Nostr.">`
+- `<meta name="twitter:title" content="Tasks.fyi — Decentralized Task Board">`
+- `<meta name="twitter:description" content="Post tasks, fund with bitcoin ecash, and pay solvers — all on Nostr.">`
 - `<meta name="twitter:image" content="https://tasks.fyi/og-image.png">`
 
 A general `<meta name="description">` tag SHALL be present with the same
@@ -29,7 +29,7 @@ description text.
 
 - **WHEN** a user shares `https://tasks.fyi` on a social media platform
 - **THEN** the platform SHALL render a preview card with the title "Tasks.fyi —
-  Decentralized Bounty Board", the description, and the `og-image.png` image
+  Decentralized Task Board", the description, and the `og-image.png` image
 
 #### Scenario: Search engine indexing
 
@@ -109,7 +109,7 @@ background is acceptable.
 ### Requirement: HTML Document Title
 
 The `app.html` SHALL set the document `<title>` to "Tasks.fyi — Decentralized
-Bounty Board".
+Task Board".
 
 Individual pages MAY override the title using `<svelte:head>` to provide
 page-specific titles (e.g., "Search Results — Tasks.fyi", "Settings —
@@ -118,7 +118,7 @@ Tasks.fyi").
 #### Scenario: Default page title
 
 - **WHEN** a user loads the home page
-- **THEN** the browser tab title SHALL display "Tasks.fyi — Decentralized Bounty
+- **THEN** the browser tab title SHALL display "Tasks.fyi — Decentralized Task
   Board"
 
 #### Scenario: Search page title

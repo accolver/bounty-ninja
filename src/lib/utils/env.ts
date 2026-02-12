@@ -1,14 +1,26 @@
 import { env } from '$env/dynamic/public';
 
-/** Returns comma-separated default relay WebSocket URLs */
+/**
+ * Returns all relay WebSocket URLs the app should connect to.
+ * Includes PUBLIC_DEFAULT_RELAYS + PUBLIC_LOCAL_RELAY (if configured).
+ * The local relay is appended so seed data from `mise run seed` is visible.
+ */
 export function getDefaultRelays(): string[] {
 	const raw =
 		env.PUBLIC_DEFAULT_RELAYS ??
 		'wss://relay.damus.io,wss://nos.lol,wss://relay.primal.net,wss://relay.snort.social,wss://relay.nostr.net,wss://offchain.pub';
-	return raw
+	const relays = raw
 		.split(',')
 		.map((url) => url.trim())
 		.filter(Boolean);
+
+	// Include local dev relay if configured (e.g., ws://localhost:10547)
+	const local = env.PUBLIC_LOCAL_RELAY;
+	if (local && !relays.includes(local)) {
+		relays.push(local);
+	}
+
+	return relays;
 }
 
 /** Returns the default Cashu mint URL */
@@ -38,5 +50,5 @@ export function getMaxSubmissionFee(): number {
 
 /** Returns the NIP-50 search relay URL */
 export function getSearchRelay(): string {
-	return env.PUBLIC_SEARCH_RELAY ?? 'wss://relay.nostr.band';
+	return env.PUBLIC_SEARCH_RELAY ?? 'wss://search.nos.today';
 }

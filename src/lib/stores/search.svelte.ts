@@ -2,15 +2,15 @@ import type { Subscription } from 'rxjs';
 import { catchError, EMPTY } from 'rxjs';
 import { timeout, toArray } from 'rxjs/operators';
 import type { NostrEvent } from 'nostr-tools';
-import type { BountySummary } from '$lib/bounty/types';
+import type { TaskSummary } from '$lib/task/types';
 import { eventStore } from '$lib/nostr/event-store';
 import { pool } from '$lib/nostr/relay-pool';
 import { onlyEvents } from 'applesauce-relay';
 import { mapEventsToStore } from 'applesauce-core';
-import { parseBountySummary } from '$lib/bounty/helpers';
-import { searchBountiesFilter } from '$lib/bounty/filters';
+import { parseTaskSummary } from '$lib/task/helpers';
+import { searchTasksFilter } from '$lib/task/filters';
 import { getSearchRelay } from '$lib/utils/env';
-import { BOUNTY_KIND } from '$lib/bounty/kinds';
+import { TASK_KIND } from '$lib/task/kinds';
 
 /** Timeout in ms before falling back to client-side search */
 const SEARCH_RELAY_TIMEOUT = 5_000;
@@ -23,14 +23,14 @@ const SEARCH_RELAY_TIMEOUT = 5_000;
  * when the relay is unreachable or times out.
  */
 class SearchStore {
-	#results = $state<BountySummary[]>([]);
+	#results = $state<TaskSummary[]>([]);
 	#loading = $state(false);
 	#error = $state<string | null>(null);
 	#query = $state('');
 	#subscription: Subscription | null = null;
 
 	/** Current search results */
-	get results(): BountySummary[] {
+	get results(): TaskSummary[] {
 		return this.#results;
 	}
 
@@ -71,7 +71,7 @@ class SearchStore {
 		this.#loading = true;
 		this.#error = null;
 
-		const filter = searchBountiesFilter(trimmed);
+		const filter = searchTasksFilter(trimmed);
 		const searchRelayUrl = getSearchRelay();
 
 		try {
@@ -95,8 +95,8 @@ class SearchStore {
 				.subscribe({
 					next: (events: NostrEvent[]) => {
 						this.#results = events
-							.map(parseBountySummary)
-							.filter((s): s is BountySummary => s !== null);
+							.map(parseTaskSummary)
+							.filter((s): s is TaskSummary => s !== null);
 						this.#loading = false;
 					},
 					error: () => {
@@ -114,24 +114,22 @@ class SearchStore {
 	}
 
 	/**
-	 * Client-side fallback: filter EventStore bounty events by
+	 * Client-side fallback: filter EventStore task events by
 	 * case-insensitive substring match on title and tags.
 	 */
 	#fallbackSearch(query: string): void {
 		const lowerQuery = query.toLowerCase();
 
-		// Get current bounty events from EventStore via a one-shot timeline subscription
+		// Get current task events from EventStore via a one-shot timeline subscription
 		this.#cancelSubscription();
 
-		this.#subscription = eventStore.timeline({ kinds: [BOUNTY_KIND] }).subscribe({
+		this.#subscription = eventStore.timeline({ kinds: [TASK_KIND] }).subscribe({
 			next: (events: NostrEvent[]) => {
-				const summaries = events
-					.map(parseBountySummary)
-					.filter((s): s is BountySummary => s !== null);
+				const summaries = events.map(parseTaskSummary).filter((s): s is TaskSummary => s !== null);
 
-				this.#results = summaries.filter((bounty) => {
-					const titleMatch = bounty.title.toLowerCase().includes(lowerQuery);
-					const tagMatch = bounty.tags.some((tag) => tag.toLowerCase().includes(lowerQuery));
+				this.#results = summaries.filter((item) => {
+					const titleMatch = item.title.toLowerCase().includes(lowerQuery);
+					const tagMatch = item.tags.some((tag) => tag.toLowerCase().includes(lowerQuery));
 					return titleMatch || tagMatch;
 				});
 

@@ -13,7 +13,7 @@
       `37300:<hex>:<d-tag>`), `amount` (positive integer), `cashu` (non-empty),
       `mint` (valid URL); Kind 73001 requires `a` and non-empty `content`; Kind
       1018 requires `a`, `e`, `vote` (`"approve"` | `"reject"`); Kind 73004
-      requires `a`, `e`, and pubkey matching bounty creator
+      requires `a`, `e`, and pubkey matching task creator
 - [x] 1.3 Integrate signature verification at relay ingestion — wrap the relay
       subscription handler in `src/lib/nostr/relay-pool.ts` to call
       `validateEvent()` before `eventStore.add()`; silently discard invalid
@@ -21,16 +21,16 @@
 - [x] 1.4 Integrate signature verification at IndexedDB load — wrap the cache
       loader in `src/lib/nostr/cache.ts` to verify each event loaded from
       `nostr-idb`; delete events that fail verification from IndexedDB
-- [x] 1.5 Integrate tag validation into bounty/pledge/solution/vote parsing —
-      update `src/lib/bounty/helpers.ts` to call tag validators before
+- [x] 1.5 Integrate tag validation into task/pledge/solution/vote parsing —
+      update `src/lib/task/helpers.ts` to call tag validators before
       constructing domain objects; skip and log events with missing/invalid
       required tags
 - [x] 1.6 Add payout event authorization check — in the payout event parser,
-      verify Kind 73004 `pubkey` matches the bounty creator's pubkey; ignore
+      verify Kind 73004 `pubkey` matches the task creator's pubkey; ignore
       unauthorized payout events
-- [x] 1.7 Add vote-from-non-pledger filtering — in `src/lib/bounty/voting.ts`,
+- [x] 1.7 Add vote-from-non-pledger filtering — in `src/lib/task/voting.ts`,
       ensure Kind 1018 votes from pubkeys without a Kind 73002 pledge for the
-      referenced bounty have zero weight
+      referenced task have zero weight
 - [x] 1.8 Write unit tests `src/tests/unit/event-validator.test.ts` — test valid
       event passes, invalid signature rejected, malformed event rejected
 - [x] 1.9 Write unit tests `src/tests/unit/tag-validator.test.ts` — test each
@@ -61,13 +61,13 @@
       access after expiry
 - [x] 2.7 Integrate `TokenValidator` into
       `src/lib/components/pledge/PledgeItem.svelte` — trigger lazy verification
-      when pledge becomes visible (viewport intersection or bounty detail page
+      when pledge becomes visible (viewport intersection or task detail page
       load); display status badge ("Pending", "Verified", "Unverified",
       "Invalid", "Expired")
 - [x] 2.8 Integrate `TokenValidator` into
       `src/lib/components/pledge/PledgeList.svelte` — display verification
       badges per pledge
-- [x] 2.9 Update `src/lib/components/bounty/BountyCard.svelte` — adjust
+- [x] 2.9 Update `src/lib/components/task/TaskCard.svelte` — adjust
       `totalPledged` to include only `"verified"` and `"unverified"` pledges;
       exclude `"invalid"` pledges from the total
 - [x] 2.10 Write unit tests `src/tests/unit/token-validator.test.ts` — test
@@ -93,7 +93,7 @@
       insertion; ensure external links get `target="_blank"` and
       `rel="noopener noreferrer"`
 - [x] 3.4 Add input length validation to
-      `src/lib/components/bounty/BountyForm.svelte` — title max 200 chars,
+      `src/lib/components/task/TaskForm.svelte` — title max 200 chars,
       description max 50,000 chars; show validation error and block submission
       on exceed
 - [x] 3.5 Add input length validation to
@@ -114,10 +114,10 @@
       `canPublish(kind: number, dTag?: string): { allowed: boolean; remainingMs: number }`
       and `recordPublish(kind: number, dTag?: string): void`
 - [x] 4.2 Implement reduced cooldown for replaceable event updates — Kind 37300
-      with same `d` tag uses 10s cooldown instead of 30s; new bounties
+      with same `d` tag uses 10s cooldown instead of 30s; new tasks
       (different `d` tag) use standard 30s
 - [x] 4.3 Integrate rate limiter into
-      `src/lib/components/bounty/BountyForm.svelte` — check `canPublish()`
+      `src/lib/components/task/TaskForm.svelte` — check `canPublish()`
       before submit; disable button during cooldown; show countdown ("Wait 25s")
 - [x] 4.4 Integrate rate limiter into
       `src/lib/components/pledge/PledgeForm.svelte` — check before pledge
@@ -142,7 +142,7 @@
       age; evict to 90% of max (9,000) when exceeded; age-based eviction runs
       before count-based
 - [x] 5.2 Implement user event protection — never evict events authored by the
-      current user's pubkey or events related to bounties the user created or
+      current user's pubkey or events related to tasks the user created or
       pledged to
 - [x] 5.3 Implement non-blocking scheduling — run eviction via
       `requestIdleCallback` (or `setTimeout` fallback); schedule on startup
@@ -174,7 +174,7 @@
       components to use `loadCashuModule()`; show brief loading indicator while
       chunk downloads
 - [x] 6.3 Verify route-based code splitting — confirm Vite produces separate
-      chunks for `/`, `/bounty/[naddr]`, `/bounty/new`, `/profile/[npub]`,
+      chunks for `/`, `/task/[naddr]`, `/task/new`, `/profile/[npub]`,
       `/search`, `/settings`; adjust `vite.config.ts` `build.rollupOptions` if
       needed
 - [x] 6.4 Audit tree shaking — ensure all imports from `nostr-tools`, `rxjs`,
@@ -199,9 +199,9 @@
       handles errors gracefully — component should catch rendering errors,
       display user-friendly fallback, and offer retry
 - [x] 7.2 Wrap `src/routes/+page.svelte` (home page) in ErrorBoundary
-- [x] 7.3 Wrap `src/routes/bounty/[naddr]/+page.svelte` (bounty detail) in
+- [x] 7.3 Wrap `src/routes/task/[naddr]/+page.svelte` (task detail) in
       ErrorBoundary
-- [x] 7.4 Wrap `src/routes/bounty/new/+page.svelte` (create bounty) in
+- [x] 7.4 Wrap `src/routes/task/new/+page.svelte` (create task) in
       ErrorBoundary
 - [x] 7.5 Wrap `src/routes/profile/[npub]/+page.svelte` (profile) in
       ErrorBoundary
@@ -235,7 +235,7 @@
       30s; re-subscribe to active queries on reconnection; merge new events with
       cached data
 - [x] 8.9 Disable write operations when offline — all publish buttons
-      (BountyForm, PledgeForm, SolutionForm, VoteButton, payout) show offline
+      (TaskForm, PledgeForm, SolutionForm, VoteButton, payout) show offline
       message; preserve form data (do not clear)
 - [x] 8.10 Implement graceful feature degradation — search bar disabled with
       "Search unavailable offline" placeholder; profile pages show cached data
@@ -289,7 +289,7 @@
       present on all HTML responses; verify inline scripts blocked; verify relay
       WebSocket and mint HTTPS connections allowed
 - [x] 10.7 Verify XSS protection end-to-end — manually test known XSS payloads
-      in bounty description via the create form; confirm no script execution
+      in task description via the create form; confirm no script execution
 - [x] 10.8 Verify offline mode end-to-end — disconnect network; confirm cached
       data displays, offline banner appears, write operations disabled;
       reconnect and confirm "Back online" toast
@@ -297,4 +297,4 @@
       tampered signature to test relay; confirm it does not appear in the UI
 - [x] 10.10 Verify site accessible at `https://tasks.fyi` — confirm HTTPS
       enforced, `www` redirects, SPA routing works for deep links
-      (`/bounty/naddr1...`, `/profile/npub1...`)
+      (`/task/naddr1...`, `/profile/npub1...`)

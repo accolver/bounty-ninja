@@ -2,24 +2,24 @@
 
 ## Context
 
-Phases 1 and 2 delivered a read-only bounty board: the SvelteKit scaffold with
-Nostr relay connectivity (Phase 1) and the full bounty display UI with data
+Phases 1 and 2 delivered a read-only task board: the SvelteKit scaffold with
+Nostr relay connectivity (Phase 1) and the full task display UI with data
 models, reactive stores, and read-only components (Phase 2). Users can browse
-bounties, view pledges, solutions, and vote tallies — but cannot interact.
+tasks, view pledges, solutions, and vote tallies — but cannot interact.
 
 Phase 3 is the core product delivery. It adds all write operations that make
-Tasks.fyi a functional marketplace: creating bounties, funding with Cashu ecash,
+Tasks.fyi a functional marketplace: creating tasks, funding with Cashu ecash,
 submitting solutions with anti-spam fees, voting on solutions, and orchestrating
 payouts. This phase introduces the Cashu payment layer (`@cashu/cashu-ts`) and
 Nostr event publishing via Applesauce `EventFactory` with NIP-07 signing.
 
-After Phase 3, Tasks.fyi will be a fully functional — if unpolished — bounty
+After Phase 3, Tasks.fyi will be a fully functional — if unpolished — task
 board where the complete lifecycle (create → fund → solve → vote → payout) works
 end-to-end.
 
 ## Goals
 
-- Implement all CRUD operations for the bounty lifecycle: create bounties (Kind
+- Implement all CRUD operations for the task lifecycle: create tasks (Kind
   37300), fund with pledges (Kind 73002), submit solutions (Kind 73001), cast
   votes (Kind 1018), and orchestrate payouts (Kind 73004).
 - Build the Cashu payment layer: mint/wallet initialization, token
@@ -30,14 +30,14 @@ end-to-end.
 - Implement optimistic local updates so the UI reflects changes instantly
   without waiting for relay round-trips.
 - Add error boundaries for graceful degradation when individual components fail.
-- Wire up the create bounty page (`/bounty/new`) and update the bounty detail
+- Wire up the create task page (`/task/new`) and update the task detail
   page with interactive pledge, solution, and vote elements.
-- Write unit tests for P2PK operations and integration tests for bounty store
+- Write unit tests for P2PK operations and integration tests for task store
   reactivity and the pledge flow.
 
 ## Non-Goals
 
-- **Multi-mint support**: MVP uses a single configured Cashu mint per bounty.
+- **Multi-mint support**: MVP uses a single configured Cashu mint per task.
   Cross-mint swaps and multi-mint pledge aggregation are deferred to Phase 6.
 - **Automated payout on consensus**: The creator manually triggers payout after
   reviewing vote results. Automatic payout upon quorum is a post-MVP
@@ -57,7 +57,7 @@ end-to-end.
 ### 1. Applesauce EventFactory + Blueprints for Event Construction
 
 **Decision**: Use Applesauce's `EventFactory` with custom blueprint functions
-defined in `src/lib/bounty/blueprints.ts` to construct all five event kinds.
+defined in `src/lib/task/blueprints.ts` to construct all five event kinds.
 
 **Rationale**: EventFactory provides a clean separation between event
 construction and signing. Blueprints are pure functions that produce unsigned
@@ -85,7 +85,7 @@ when no signer is present, showing an install prompt instead.
 
 ### 3. P2PK Locking Strategy — Tokens Locked to Creator
 
-**Decision**: Pledge tokens are P2PK-locked to the bounty creator's pubkey. The
+**Decision**: Pledge tokens are P2PK-locked to the task creator's pubkey. The
 creator collects all pledge tokens, swaps them at the mint (proving ownership
 via their key), and creates new tokens P2PK-locked to the winning solver's
 pubkey.
@@ -109,15 +109,15 @@ signatures for MVP.
 
 **Decision**: Solution submissions require a Cashu token (10-100 sats) as an
 anti-spam fee. This token is NOT P2PK-locked — it is immediately claimable by
-the bounty creator. The fee is non-refundable regardless of vote outcome.
+the task creator. The fee is non-refundable regardless of vote outcome.
 
 **Rationale**: The fee serves two purposes: (1) deters spam submissions by
-imposing a cost, and (2) compensates the bounty creator for the effort of
+imposing a cost, and (2) compensates the task creator for the effort of
 reviewing submissions. Making it non-refundable and immediately claimable keeps
 the mechanism simple — no escrow needed for fees.
 
 **Range enforcement**: The fee must be between `PUBLIC_MIN_SUBMISSION_FEE` (10
-sats) and `PUBLIC_MAX_SUBMISSION_FEE` (100 sats). If the bounty specifies a
+sats) and `PUBLIC_MAX_SUBMISSION_FEE` (100 sats). If the task specifies a
 `["fee", "<sats>"]` tag, that exact amount is required.
 
 ### 5. Optimistic Local Updates
@@ -128,12 +128,12 @@ sats) and `PUBLIC_MAX_SUBMISSION_FEE` (100 sats). If the bounty specifies a
 **Rationale**: Relay round-trips can take 500ms-2s. Optimistic updates make the
 UI feel instant. Since the event is already signed (valid), the only failure
 mode is relay rejection — which is rare for well-formed events. The Svelte 5
-rune stores (`bounties.svelte.ts`, `bounty-detail.svelte.ts`) reactively
+rune stores (`tasks.svelte.ts`, `task-detail.svelte.ts`) reactively
 propagate the update to all consuming components.
 
 ### 6. Creator-Initiated Manual Payout
 
-**Decision**: Payout is triggered manually by the bounty creator after reviewing
+**Decision**: Payout is triggered manually by the task creator after reviewing
 vote results. There is no automatic payout when consensus is reached.
 
 **Rationale**: Automatic payout would require the creator's signing capability
@@ -156,9 +156,9 @@ clean.
 
 **Decision**: Wrap critical interactive sections (pledge, solution, vote) in
 `ErrorBoundary.svelte` components so a failure in one section doesn't crash the
-entire bounty detail page.
+entire task detail page.
 
-**Rationale**: The bounty detail page is complex — it renders pledge forms,
+**Rationale**: The task detail page is complex — it renders pledge forms,
 Cashu token operations, vote tallies, and markdown content. A runtime error in
 any of these should not prevent the user from viewing the rest of the page.
 
@@ -166,7 +166,7 @@ any of these should not prevent the user from viewing the rest of the page.
 
 ### 1. Creator as Single Point of Failure for Payout
 
-**Risk**: The bounty creator holds the P2PK key for all pledge tokens. If the
+**Risk**: The task creator holds the P2PK key for all pledge tokens. If the
 creator disappears, goes offline, or acts maliciously, pledged funds are locked
 until the refund locktime expires.
 
@@ -196,7 +196,7 @@ goes offline, pledged tokens may be lost or unclaimable.
 
 **Mitigation (MVP)**: Default to a well-known, reputable mint
 (`https://mint.minibits.cash/Bitcoin`). Allow users to override in settings.
-Display a trust warning before pledge creation. Single-mint-per-bounty
+Display a trust warning before pledge creation. Single-mint-per-task
 simplifies the trust model.
 
 **Mitigation (Post-MVP)**: Support multiple mints, allow user-selected mints,
@@ -204,7 +204,7 @@ implement mint health checks.
 
 ### 4. Token Double-Spend Risk
 
-**Risk**: A funder could pledge the same Cashu token to multiple bounties. The
+**Risk**: A funder could pledge the same Cashu token to multiple tasks. The
 token is valid when published but only the first swap at the mint will succeed.
 
 **Mitigation**: Tokens are verified during the payout swap process. If a token

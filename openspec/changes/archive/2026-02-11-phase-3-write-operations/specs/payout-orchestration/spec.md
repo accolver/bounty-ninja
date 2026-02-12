@@ -3,7 +3,7 @@
 ### Requirement: Creator-Initiated Payout Flow
 
 The system SHALL implement a creator-initiated manual payout flow. Only the
-bounty creator (the pubkey that published the Kind 37300 event) SHALL be able to
+task creator (the pubkey that published the Kind 37300 event) SHALL be able to
 trigger payout. The payout flow is described in PRD Section 6.6 and consists of
 five steps: (1) collect pledge tokens, (2) swap/consolidate at mint, (3) create
 solver-locked tokens, (4) publish Kind 73004, (5) solver claims tokens.
@@ -11,15 +11,15 @@ solver-locked tokens, (4) publish Kind 73004, (5) solver claims tokens.
 #### Scenario: Payout trigger visibility
 
 - **WHEN** a solution has reached consensus (approved via vote tally) and the
-  current user is the bounty creator
-- **THEN** a "Trigger Payout" button SHALL be displayed on the bounty detail
+  current user is the task creator
+- **THEN** a "Trigger Payout" button SHALL be displayed on the task detail
   page next to the approved solution
 
 #### Scenario: Payout trigger hidden for non-creators
 
-- **WHEN** the current user is NOT the bounty creator
+- **WHEN** the current user is NOT the task creator
 - **THEN** the "Trigger Payout" button SHALL NOT be rendered
-- **AND** the UI SHALL display: "Awaiting payout from bounty creator"
+- **AND** the UI SHALL display: "Awaiting payout from task creator"
 
 #### Scenario: Payout trigger hidden before consensus
 
@@ -28,14 +28,14 @@ solver-locked tokens, (4) publish Kind 73004, (5) solver claims tokens.
 
 ### Requirement: Pledge Token Collection
 
-When the bounty creator triggers payout, the system SHALL collect all valid
-Cashu tokens from Kind 73002 pledge events referencing the bounty.
+When the task creator triggers payout, the system SHALL collect all valid
+Cashu tokens from Kind 73002 pledge events referencing the task.
 
 #### Scenario: Collect all pledge tokens
 
 - **WHEN** the creator clicks "Trigger Payout"
 - **THEN** the system SHALL query the `EventStore` for all Kind 73002 events
-  with `["a", "<bounty-address>"]`
+  with `["a", "<task-address>"]`
 - **AND** SHALL extract the `["cashu", "<token>"]` tag from each pledge event
 - **AND** SHALL decode each token using `getDecodedToken()`
 
@@ -50,7 +50,7 @@ Cashu tokens from Kind 73002 pledge events referencing the bounty.
 
 ### Requirement: Token Swap and Consolidation at Mint
 
-The bounty creator SHALL swap the collected P2PK-locked pledge tokens at the
+The task creator SHALL swap the collected P2PK-locked pledge tokens at the
 Cashu mint. Since the tokens are locked to the creator's pubkey, the creator's
 NIP-07 signer provides the signing capability needed to unlock them during the
 swap.
@@ -105,7 +105,7 @@ as defined in PRD Section 6.6:
 
 **Required tags:**
 
-- `["a", "37300:<bounty-creator-pubkey>:<d-tag>", "<relay-hint>"]` — bounty
+- `["a", "37300:<task-creator-pubkey>:<d-tag>", "<relay-hint>"]` — task
   reference
 - `["e", "<solution-event-id>", "<relay-hint>"]` — winning solution reference
 - `["p", "<solver-pubkey>"]` — recipient (solver's pubkey)
@@ -161,25 +161,25 @@ update the local `EventStore`.
 - **THEN** the system SHALL: (1) collect pledge tokens, (2) swap at mint, (3)
   create solver-locked tokens, (4) construct Kind 73004 event, (5) sign via
   NIP-07, (6) add to `EventStore` optimistically, (7) publish to all relays
-- **AND** the bounty status SHALL transition to `completed`
+- **AND** the task status SHALL transition to `completed`
 - **AND** a success toast SHALL display: "Payout of N sats sent to solver!"
-- **AND** the `BountyStatusBadge` SHALL update to "Completed"
+- **AND** the `TaskStatusBadge` SHALL update to "Completed"
 
 #### Scenario: Payout event from non-creator ignored
 
-- **WHEN** a Kind 73004 event is received from a pubkey that is NOT the bounty
+- **WHEN** a Kind 73004 event is received from a pubkey that is NOT the task
   creator
 - **THEN** the system SHALL ignore the event per PRD Section 13.4
-- **AND** the bounty status SHALL NOT change
+- **AND** the task status SHALL NOT change
 
 ### Requirement: Solver Token Claim Notification
 
 After a Kind 73004 payout event is published, the solver SHALL see a
-notification on the bounty detail page indicating they have tokens to claim.
+notification on the task detail page indicating they have tokens to claim.
 
-#### Scenario: Solver views bounty after payout
+#### Scenario: Solver views task after payout
 
-- **WHEN** the solver (the pubkey in the payout's `p` tag) views the bounty
+- **WHEN** the solver (the pubkey in the payout's `p` tag) views the task
   detail page
 - **THEN** the UI SHALL display: "You have been awarded N sats! Claim your
   tokens."

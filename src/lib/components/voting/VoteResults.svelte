@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Solution, Payout } from '$lib/bounty/types';
+	import type { Solution, Payout } from '$lib/task/types';
 	import { nip19 } from 'nostr-tools';
 	import { formatNpub } from '$lib/utils/format';
 	import SatAmount from '$lib/components/shared/SatAmount.svelte';
@@ -17,7 +17,7 @@
 	);
 </script>
 
-<div class="rounded-lg border border-primary/30 bg-primary/5 p-4" aria-label="Bounty results">
+<div class="rounded-lg border border-primary/30 bg-primary/5 p-4" aria-label="Task results">
 	{#if winningSolution && solverNpub}
 		<div class="space-y-3">
 			<div class="flex items-center gap-2">

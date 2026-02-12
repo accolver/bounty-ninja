@@ -48,13 +48,13 @@ The Sidebar SHALL be rendered only on viewports 1024px and wider (`lg:`
 breakpoint).
 
 The Sidebar SHALL display a list of category/tag filters derived from the `t`
-tags of bounty events in the `EventStore`.
+tags of task events in the `EventStore`.
 
-Each category item SHALL display the tag name and a count of bounties with that
+Each category item SHALL display the tag name and a count of tasks with that
 tag.
 
-Selecting a category in the Sidebar SHALL filter the home page bounty list to
-show only bounties with the matching `t` tag.
+Selecting a category in the Sidebar SHALL filter the home page task list to
+show only tasks with the matching `t` tag.
 
 The Sidebar SHALL include a "Popular Tags" section showing the top 10 most-used
 tags sorted by frequency.
@@ -62,13 +62,13 @@ tags sorted by frequency.
 #### Scenario: Sidebar category selection
 
 - **WHEN** a user clicks "development" in the Sidebar on desktop
-- **THEN** the home page bounty list SHALL filter to show only bounties tagged
+- **THEN** the home page task list SHALL filter to show only tasks tagged
   "development"
 - **THEN** the selected category SHALL be visually highlighted
 
 #### Scenario: Sidebar tag counts
 
-- **WHEN** the EventStore contains bounties with tags ["development" x 5,
+- **WHEN** the EventStore contains tasks with tags ["development" x 5,
   "design" x 3, "writing" x 2]
 - **THEN** the Sidebar SHALL display "development (5)", "design (3)", "writing
   (2)"
@@ -86,7 +86,7 @@ The MobileNav SHALL be fixed to the bottom of the viewport with a solid
 background and a top border.
 
 The MobileNav SHALL contain navigation items for: Home (`/`), Search
-(`/search`), Create (`/bounty/new`), and Settings (`/settings`).
+(`/search`), Create (`/task/new`), and Settings (`/settings`).
 
 Each navigation item SHALL display an icon and a label.
 
@@ -113,7 +113,7 @@ navigation item per WCAG 2.1 AA guidelines.
 
 - **WHEN** an unauthenticated user taps the "Create" navigation item
 - **THEN** the application SHALL prompt the user to log in via NIP-07 before
-  navigating to `/bounty/new`
+  navigating to `/task/new`
 
 ### Requirement: Responsive Header
 
@@ -166,24 +166,24 @@ Success Criterion 2.5.5.
 - **THEN** all buttons and tappable elements SHALL have a minimum size of
   44x44px (including padding)
 
-### Requirement: Responsive Bounty Cards
+### Requirement: Responsive Task Cards
 
-`BountyCard.svelte` SHALL adapt its layout based on viewport width.
+`TaskCard.svelte` SHALL adapt its layout based on viewport width.
 
-On mobile, bounty cards SHALL use a stacked vertical layout with title, status
+On mobile, task cards SHALL use a stacked vertical layout with title, status
 badge, tags, reward amount, and time ago.
 
-On desktop, bounty cards SHALL use a horizontal layout with more information
+On desktop, task cards SHALL use a horizontal layout with more information
 visible (e.g., solution count, pledge count alongside reward).
 
-#### Scenario: Mobile bounty card
+#### Scenario: Mobile task card
 
 - **WHEN** the viewport is below 640px
-- **THEN** the BountyCard SHALL display in a compact vertical stack layout
+- **THEN** the TaskCard SHALL display in a compact vertical stack layout
 - **THEN** the card SHALL be full-width with appropriate padding
 
-#### Scenario: Desktop bounty card
+#### Scenario: Desktop task card
 
 - **WHEN** the viewport is 640px or wider
-- **THEN** the BountyCard SHALL display additional metadata inline (solution
+- **THEN** the TaskCard SHALL display additional metadata inline (solution
   count, pledge count)

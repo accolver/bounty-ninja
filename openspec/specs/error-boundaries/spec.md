@@ -36,21 +36,21 @@ content projection.
 ### Requirement: ErrorBoundary Placement
 
 The ErrorBoundary SHALL be used to wrap critical interactive sections of the
-bounty detail page to prevent a failure in one section from breaking the entire
+task detail page to prevent a failure in one section from breaking the entire
 page.
 
 #### Scenario: Pledge section error isolation
 
 - **WHEN** the PledgeForm or PledgeList component throws an error
 - **THEN** only the pledge section SHALL show the fallback UI
-- **AND** the bounty description, solution list, and vote sections SHALL remain
+- **AND** the task description, solution list, and vote sections SHALL remain
   functional
 
 #### Scenario: Solution section error isolation
 
 - **WHEN** the SolutionForm or SolutionList component throws an error
 - **THEN** only the solution section SHALL show the fallback UI
-- **AND** the bounty description, pledge list, and vote sections SHALL remain
+- **AND** the task description, pledge list, and vote sections SHALL remain
   functional
 
 #### Scenario: Vote section error isolation

@@ -1,4 +1,4 @@
-import { BOUNTY_KIND, SOLUTION_KIND, PLEDGE_KIND, VOTE_KIND, PAYOUT_KIND } from '$lib/bounty/kinds';
+import { TASK_KIND, SOLUTION_KIND, PLEDGE_KIND, VOTE_KIND, PAYOUT_KIND } from '$lib/task/kinds';
 
 /**
  * Result of a rate limit check.
@@ -12,7 +12,7 @@ export interface RateLimitResult {
 
 /** Per-kind cooldowns in milliseconds */
 const DEFAULT_COOLDOWNS: Record<number, number> = {
-	[BOUNTY_KIND]: 30_000, // 30s — creating a new bounty
+	[TASK_KIND]: 30_000, // 30s — creating a new task
 	[SOLUTION_KIND]: 60_000, // 60s — submitting a solution
 	[PLEDGE_KIND]: 10_000, // 10s — pledging funds
 	[VOTE_KIND]: 5_000, // 5s — casting a vote
@@ -87,12 +87,12 @@ export class RateLimiter {
 
 	/**
 	 * Get the cooldown duration for a given kind and dTag combination.
-	 * Kind 37300 (bounty) with a dTag that has been published before
+	 * Kind 37300 (task) with a dTag that has been published before
 	 * gets a reduced cooldown since it's an update, not a new creation.
 	 */
 	#getCooldown(kind: number, dTag?: string): number {
 		// Replaceable event update: reduced cooldown
-		if (kind === BOUNTY_KIND && dTag) {
+		if (kind === TASK_KIND && dTag) {
 			const updateKey = this.#makeKey(kind, dTag);
 			const hasExistingPublish = this.#lastPublish.has(updateKey);
 			if (hasExistingPublish) return REPLACEABLE_UPDATE_COOLDOWN;

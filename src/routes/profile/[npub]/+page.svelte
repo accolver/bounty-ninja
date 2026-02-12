@@ -3,12 +3,12 @@
 	import type { NostrEvent } from 'nostr-tools';
 	import { nip19 } from 'nostr-tools';
 	import { eventStore } from '$lib/nostr/event-store';
-	import { BOUNTY_KIND } from '$lib/bounty/kinds';
-	import { parseBountySummary } from '$lib/bounty/helpers';
+	import { TASK_KIND } from '$lib/task/kinds';
+	import { parseTaskSummary } from '$lib/task/helpers';
 	import { createProfileLoader } from '$lib/nostr/loaders/profile-loader';
-	import { createBountyByAuthorLoader } from '$lib/nostr/loaders/bounty-loader';
-	import type { BountySummary } from '$lib/bounty/types';
-	import BountyCard from '$lib/components/bounty/BountyCard.svelte';
+	import { createTaskByAuthorLoader } from '$lib/nostr/loaders/task-loader';
+	import type { TaskSummary } from '$lib/task/types';
+	import TaskCard from '$lib/components/task/TaskCard.svelte';
 	import LoadingSpinner from '$lib/components/shared/LoadingSpinner.svelte';
 	import EmptyState from '$lib/components/shared/EmptyState.svelte';
 	import ErrorBoundary from '$lib/components/shared/ErrorBoundary.svelte';
@@ -20,7 +20,7 @@
 	const npub = $derived(nip19.npubEncode(data.pubkey));
 
 	let profile = $state<Record<string, string> | null>(null);
-	let bounties = $state<BountySummary[]>([]);
+	let tasks = $state<TaskSummary[]>([]);
 	let loading = $state(true);
 
 	$effect(() => {
@@ -41,18 +41,18 @@
 			});
 		subs.push(profileSub);
 
-		// Subscribe to bounties by this author from EventStore
-		const bountySub = eventStore
-			.timeline({ kinds: [BOUNTY_KIND], authors: [data.pubkey] })
+		// Subscribe to tasks by this author from EventStore
+		const taskSub = eventStore
+			.timeline({ kinds: [TASK_KIND], authors: [data.pubkey] })
 			.subscribe((events: NostrEvent[]) => {
-				bounties = events.map(parseBountySummary).filter((s): s is BountySummary => s !== null);
+				tasks = events.map(parseTaskSummary).filter((s): s is TaskSummary => s !== null);
 				loading = false;
 			});
-		subs.push(bountySub);
+		subs.push(taskSub);
 
 		// Start relay loaders
 		subs.push(createProfileLoader([data.pubkey]));
-		subs.push(createBountyByAuthorLoader(data.pubkey));
+		subs.push(createTaskByAuthorLoader(data.pubkey));
 
 		// Timeout fallback
 		const timer = setTimeout(() => {
@@ -90,22 +90,22 @@
 			<p class="text-sm text-muted-foreground">{about}</p>
 		{/if}
 
-		<!-- Bounties by this author -->
+		<!-- Tasks by this author -->
 		<section>
 			<h2 class="mb-4 text-lg font-semibold text-foreground">
-				Bounties ({bounties.length})
+				Tasks ({tasks.length})
 			</h2>
 
-			{#if loading && bounties.length === 0}
+			{#if loading && tasks.length === 0}
 				<div class="flex items-center justify-center py-12">
 					<LoadingSpinner size="md" />
 				</div>
-			{:else if bounties.length === 0}
-				<EmptyState message="This user hasn't posted any bounties yet." />
+			{:else if tasks.length === 0}
+				<EmptyState message="This user hasn't posted any tasks yet." />
 			{:else}
 				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-					{#each bounties as bounty (bounty.id)}
-						<BountyCard {bounty} />
+					{#each tasks as task (task.id)}
+						<TaskCard {task} />
 					{/each}
 				</div>
 			{/if}

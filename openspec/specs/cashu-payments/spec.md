@@ -15,12 +15,12 @@ initialized on first Cashu operation.
 - **AND** a `CashuWallet` instance SHALL be created from that mint
 - **AND** subsequent operations SHALL reuse the same instances
 
-#### Scenario: Mint URL from bounty preference
+#### Scenario: Mint URL from task preference
 
-- **WHEN** a bounty specifies a `["mint", "<url>"]` tag
-- **THEN** pledge and solution operations for that bounty SHALL use the bounty's
+- **WHEN** a task specifies a `["mint", "<url>"]` tag
+- **THEN** pledge and solution operations for that task SHALL use the task's
   specified mint URL
-- **AND** if the bounty's mint differs from the default, a new
+- **AND** if the task's mint differs from the default, a new
   `CashuMint`/`CashuWallet` pair SHALL be created for that mint
 
 #### Scenario: Mint unreachable
@@ -64,22 +64,22 @@ tags MUST use Cashu v4 token encoding (`cashuA...` prefix).
 
 The system SHALL implement P2PK (Pay-to-Public-Key) locking in
 `src/lib/cashu/p2pk.ts` per Cashu NUT-11 specification. Pledge tokens MUST be
-locked to the bounty creator's pubkey so that only the creator can swap them at
+locked to the task creator's pubkey so that only the creator can swap them at
 the mint. Payout tokens MUST be re-locked to the winning solver's pubkey.
 
-#### Scenario: Lock pledge tokens to bounty creator
+#### Scenario: Lock pledge tokens to task creator
 
-- **WHEN** a funder creates a pledge for a bounty
+- **WHEN** a funder creates a pledge for a task
 - **THEN** the Cashu token SHALL be minted with a P2PK spending condition
-  locking it to the bounty creator's hex pubkey
+  locking it to the task creator's hex pubkey
 - **AND** the NUT-11 `P2PKSecret` SHALL specify the creator's pubkey as the
   required signer
-- **AND** only the bounty creator's corresponding private key SHALL be able to
+- **AND** only the task creator's corresponding private key SHALL be able to
   unlock (swap) the token at the mint
 
 #### Scenario: Lock payout tokens to solver
 
-- **WHEN** the bounty creator initiates payout to the winning solver
+- **WHEN** the task creator initiates payout to the winning solver
 - **THEN** the creator SHALL swap the collected pledge tokens at the mint
   (unlocking with their key)
 - **AND** SHALL create new tokens P2PK-locked to the solver's hex pubkey
@@ -102,15 +102,15 @@ payout, swapping tokens at the mint, and creating solver-locked payout tokens.
 
 - **WHEN** a funder specifies a pledge amount
 - **THEN** the system SHALL mint new Cashu tokens for the specified amount
-- **AND** SHALL apply P2PK lock to the bounty creator's pubkey
+- **AND** SHALL apply P2PK lock to the task creator's pubkey
 - **AND** SHALL encode the locked token for inclusion in the Kind 73002 event's
   `["cashu", "<token>"]` tag
 
 #### Scenario: Collect and swap pledge tokens for payout
 
-- **WHEN** the bounty creator initiates payout
+- **WHEN** the task creator initiates payout
 - **THEN** the system SHALL extract all `["cashu", "<token>"]` values from Kind
-  73002 pledge events for the bounty
+  73002 pledge events for the task
 - **AND** SHALL decode each token and swap/consolidate them at the mint using
   the creator's signing capability
 - **AND** SHALL create new consolidated tokens P2PK-locked to the solver's
@@ -148,5 +148,5 @@ the risk that tokens, once created, can be lost if not properly handled.
 
 - **WHEN** a user initiates a pledge operation
 - **THEN** the PledgeForm SHALL display a warning: "Cashu tokens are like cash.
-  Once sent, they cannot be reversed. Ensure you trust this bounty creator."
+  Once sent, they cannot be reversed. Ensure you trust this task creator."
 - **AND** the user MUST confirm before proceeding

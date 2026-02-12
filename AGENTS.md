@@ -4,10 +4,10 @@
 
 ## What Is This?
 
-**Tasks.fyi** is a decentralized, censorship-resistant bounty board / labor
-marketplace. Users post bounties as Nostr events, fund them with P2PK-locked
-Cashu ecash, submit solutions, vote on winners, and receive automatic payouts.
-Zero backend — entirely client-side.
+**Tasks.fyi** is a decentralized, censorship-resistant task board / labor
+marketplace. Users post tasks as Nostr events, fund them with P2PK-locked Cashu
+ecash, submit solutions, vote on winners, and receive automatic payouts. Zero
+backend — entirely client-side.
 
 **Domain:** <https://tasks.fyi>
 
@@ -99,13 +99,13 @@ Zero backend — entirely client-side.
 
 | Kind  | Type                      | Purpose             |
 | ----- | ------------------------- | ------------------- |
-| 37300 | Parameterized Replaceable | Bounty definition   |
+| 37300 | Parameterized Replaceable | Task definition     |
 | 73001 | Regular                   | Solution submission |
 | 73002 | Regular                   | Pledge (funding)    |
 | 1018  | Regular                   | Consensus vote      |
 | 73004 | Regular                   | Payout record       |
 
-### Bounty Lifecycle
+### Task Lifecycle
 
 `draft` → `open` → `in_review` → `completed` (side transitions: `expired`,
 `cancelled`)
@@ -117,12 +117,12 @@ All published events must include the tag `["client", "tasks.fyi"]`.
 ## File Conventions
 
 - **TypeScript files:** kebab-case (`relay-pool.ts`, `state-machine.ts`)
-- **Svelte components:** PascalCase (`BountyCard.svelte`, `PledgeForm.svelte`)
+- **Svelte components:** PascalCase (`TaskCard.svelte`, `PledgeForm.svelte`)
 - **Reactive modules:** `.svelte.ts` extension for files using runes
-  (`signer.svelte.ts`, `bounties.svelte.ts`)
+  (`signer.svelte.ts`, `tasks.svelte.ts`)
 - **Path alias:** `$lib` → `./src/lib`
 - **Component organization:** Domain-based directories under
-  `src/lib/components/` (bounty, pledge, solution, voting, auth, search, layout,
+  `src/lib/components/` (task, pledge, solution, voting, auth, search, layout,
   shared)
 - **Tests:** `src/tests/unit/`, `src/tests/integration/`, `src/tests/e2e/`
 

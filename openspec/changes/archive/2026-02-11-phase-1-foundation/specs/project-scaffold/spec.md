@@ -165,14 +165,14 @@ PRD Section 5:
 
 ### Requirement: Event Kind Constants
 
-`src/lib/bounty/kinds.ts` MUST export named constants for all five bounty event
-kinds as specified in PRD Section 6.1: `BOUNTY_KIND` (37300), `SOLUTION_KIND`
+`src/lib/task/kinds.ts` MUST export named constants for all five task event
+kinds as specified in PRD Section 6.1: `TASK_KIND` (37300), `SOLUTION_KIND`
 (73001), `PLEDGE_KIND` (73002), `VOTE_KIND` (1018), and `PAYOUT_KIND` (73004).
 
 #### Scenario: Kind constants match PRD values
 
-- **WHEN** `src/lib/bounty/kinds.ts` is imported
-- **THEN** `BOUNTY_KIND === 37300`
+- **WHEN** `src/lib/task/kinds.ts` is imported
+- **THEN** `TASK_KIND === 37300`
 - **AND** `SOLUTION_KIND === 73001`
 - **AND** `PLEDGE_KIND === 73002`
 - **AND** `VOTE_KIND === 1018`
@@ -182,7 +182,7 @@ kinds as specified in PRD Section 6.1: `BOUNTY_KIND` (37300), `SOLUTION_KIND`
 
 The project directory structure MUST follow the layout defined in PRD Section 5.
 All directories under `src/lib/` MUST exist: `nostr/`, `nostr/loaders/`,
-`bounty/`, `cashu/`, `stores/`, `components/layout/`, `components/bounty/`,
+`task/`, `cashu/`, `stores/`, `components/layout/`, `components/task/`,
 `components/pledge/`, `components/solution/`, `components/voting/`,
 `components/auth/`, `components/search/`, `components/shared/`, and `utils/`.
 The `src/routes/` directory MUST contain the root layout files and the home page
@@ -191,7 +191,7 @@ files.
 #### Scenario: Core directories exist
 
 - **WHEN** the `src/lib/` directory is listed
-- **THEN** subdirectories `nostr/`, `bounty/`, `stores/`, `components/`, and
+- **THEN** subdirectories `nostr/`, `task/`, `stores/`, `components/`, and
   `utils/` exist
 
 #### Scenario: Dev server starts without errors

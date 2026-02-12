@@ -1,6 +1,6 @@
 ## Why
 
-With core bounty operations complete (Phase 3), the app needs discovery features
+With core task operations complete (Phase 3), the app needs discovery features
 and UI polish to be production-ready. Phase 4 (PRD Section 18) adds NIP-50
 full-text search, category filtering, user settings management, responsive
 mobile layout, and branding assets. This phase transforms the app from
@@ -12,7 +12,7 @@ functional to usable.
   fallback to client-side filtering of cached events
 - Build SearchBar component with debounced input and search results page at
   `/search`
-- Build SearchResults component displaying matching bounties with status/reward
+- Build SearchResults component displaying matching tasks with status/reward
   filters
 - Build search state store bridging NIP-50 relay responses to Svelte 5 runes
 - Build Settings page at `/settings` with relay list management (add/remove,
@@ -25,7 +25,7 @@ functional to usable.
 - Update Header with integrated search bar and responsive design
 - Add Open Graph meta tags to `app.html` for social sharing previews
 - Create branding assets: favicon.ico, logo.svg, og-image.png placeholders
-- Write E2E tests with Playwright: full bounty lifecycle, search flow, NIP-07
+- Write E2E tests with Playwright: full task lifecycle, search flow, NIP-07
   auth
 - Configure Playwright with local relay (`nak serve`) and mock NIP-07
 
@@ -50,7 +50,7 @@ functional to usable.
 
 - `app-layout`: Header gains search bar, Sidebar added for desktop, MobileNav
   added for mobile
-- `bounty-routes`: Home page gains hero search bar and category tabs
+- `task-routes`: Home page gains hero search bar and category tabs
 - `reactive-stores`: New user-profile store added
 
 ## Impact

@@ -73,14 +73,14 @@ Required headers:
 
 The hosting platform MUST be configured to serve `index.html` for all routes
 that do not match a static file. This enables SvelteKit's client-side routing
-for paths like `/bounty/naddr1...` and `/profile/npub1...`.
+for paths like `/task/naddr1...` and `/profile/npub1...`.
 
-#### Scenario: Deep link to bounty detail page
+#### Scenario: Deep link to task detail page
 
-- **WHEN** a user navigates directly to `https://tasks.fyi/bounty/naddr1abc123`
+- **WHEN** a user navigates directly to `https://tasks.fyi/task/naddr1abc123`
 - **THEN** the server SHALL respond with `index.html`
 - **AND** SvelteKit's client-side router SHALL handle the route
-- **AND** the bounty detail page SHALL render correctly
+- **AND** the task detail page SHALL render correctly
 
 #### Scenario: 404 for truly missing resources
 

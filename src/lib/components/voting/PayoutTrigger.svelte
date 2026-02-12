@@ -1,10 +1,10 @@
 <script lang="ts">
-	import type { Solution, Pledge } from '$lib/bounty/types';
+	import type { Solution, Pledge } from '$lib/task/types';
 	import { nip19 } from 'nostr-tools';
 	import { accountState } from '$lib/nostr/account.svelte';
 	import { publishEvent } from '$lib/nostr/signer.svelte';
-	import { payoutBlueprint } from '$lib/bounty/blueprints';
-	import { PAYOUT_KIND } from '$lib/bounty/kinds';
+	import { payoutBlueprint } from '$lib/task/blueprints';
+	import { PAYOUT_KIND } from '$lib/task/kinds';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { rateLimiter } from '$lib/nostr/rate-limiter';
 	import { connectivity } from '$lib/stores/connectivity.svelte';
@@ -15,12 +15,12 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 
 	const {
-		bountyAddress,
+		taskAddress,
 		winningSolution,
 		pledges,
 		isCreator
 	}: {
-		bountyAddress: string;
+		taskAddress: string;
 		winningSolution: Solution | undefined;
 		pledges: Pledge[];
 		isCreator: boolean;
@@ -49,7 +49,7 @@
 
 	const formattedSolverNpub = $derived(solverNpub ? formatNpub(solverNpub) : null);
 
-	// Only render when user is the bounty creator and there's a winning solution
+	// Only render when user is the task creator and there's a winning solution
 	const canTriggerPayout = $derived(
 		accountState.isLoggedIn && isCreator && winningSolution !== undefined
 	);
@@ -71,7 +71,7 @@
 			const cashuToken = `cashuA_payout_${totalPledged}_${Date.now()}`;
 
 			const template = payoutBlueprint({
-				bountyAddress,
+				taskAddress,
 				solutionId: winningSolution.id,
 				solverPubkey: winningSolution.pubkey,
 				amount: totalPledged,
@@ -184,7 +184,7 @@
 						</svg>
 						<p class="text-xs text-warning">
 							This action cannot be undone. The Cashu tokens will be transferred to the solver.
-							Ensure the winning solution meets the bounty requirements.
+							Ensure the winning solution meets the task requirements.
 						</p>
 					</div>
 				</div>

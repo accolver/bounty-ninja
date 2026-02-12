@@ -42,8 +42,8 @@ relay URL.
 #### Scenario: Relay URLs are parsed from environment
 
 - **WHEN** `PUBLIC_DEFAULT_RELAYS` is set to
-  `"wss://relay.damus.io,wss://nos.lol,wss://relay.nostr.band,wss://relay.primal.net"`
-- **THEN** `connectDefaultRelays()` attempts connections to all four relay URLs
+  `"wss://relay.damus.io,wss://nos.lol,wss://relay.primal.net"`
+- **THEN** `connectDefaultRelays()` attempts connections to all three relay URLs
 - **AND** empty strings from trailing commas are filtered out
 
 ### Requirement: IndexedDB Event Cache
@@ -97,7 +97,7 @@ follow the Applesauce convention:
 
 The home page (`src/routes/+page.svelte`) MUST display raw events received from
 connected relays as a proof of connectivity. This is a temporary implementation
-that will be replaced with bounty cards in Phase 2. The page MUST subscribe to
+that will be replaced with task cards in Phase 2. The page MUST subscribe to
 recent events (e.g., Kind 1 text notes with a reasonable limit) and render them
 in a list showing the event `id` (truncated), `kind`, `created_at` (formatted),
 and `content` (truncated).

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" fill="none">
   <rect width="1200" height="630" fill="#1a1b26"/>
   <text x="600" y="270" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="700" fill="#c0caf5" text-anchor="middle">Tasks.fyi</text>
-  <text x="600" y="340" font-family="system-ui, -apple-system, sans-serif" font-size="28" fill="#a9b1d6" text-anchor="middle">Decentralized Bounty Board</text>
-  <text x="600" y="400" font-family="system-ui, -apple-system, sans-serif" font-size="20" fill="#565f89" text-anchor="middle">Post bounties. Fund with bitcoin ecash. Pay solvers. All on Nostr.</text>
+  <text x="600" y="340" font-family="system-ui, -apple-system, sans-serif" font-size="28" fill="#a9b1d6" text-anchor="middle">Decentralized Task Board</text>
+  <text x="600" y="400" font-family="system-ui, -apple-system, sans-serif" font-size="20" fill="#565f89" text-anchor="middle">Post tasks. Fund with bitcoin ecash. Pay solvers. All on Nostr.</text>
 </svg>

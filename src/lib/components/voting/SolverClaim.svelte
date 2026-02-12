@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Payout } from '$lib/bounty/types';
+	import type { Payout } from '$lib/task/types';
 	import { accountState } from '$lib/nostr/account.svelte';
 	import SatAmount from '$lib/components/shared/SatAmount.svelte';
 

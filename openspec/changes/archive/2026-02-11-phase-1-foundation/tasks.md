@@ -13,8 +13,8 @@
 - [x] 1.5 Verify `bun.lockb` exists and no `package-lock.json`, `yarn.lock`, or
       `pnpm-lock.yaml` are present
 - [x] 1.6 Create project directory structure under `src/lib/` — create empty
-      directories: `nostr/`, `nostr/loaders/`, `bounty/`, `cashu/`, `stores/`,
-      `components/layout/`, `components/bounty/`, `components/pledge/`,
+      directories: `nostr/`, `nostr/loaders/`, `task/`, `cashu/`, `stores/`,
+      `components/layout/`, `components/task/`, `components/pledge/`,
       `components/solution/`, `components/voting/`, `components/auth/`,
       `components/search/`, `components/shared/`, `utils/`
 - [x] 1.7 Create `src/tests/unit/`, `src/tests/integration/`, `src/tests/e2e/`
@@ -89,7 +89,7 @@
 - [x] 7.3 Create `src/lib/utils/format.ts` — implement `formatSats()`
       (locale-aware number formatting), `formatDate()` (human-readable date),
       and `formatNpub()` (truncated npub display, e.g., `npub1abc...xyz`)
-- [x] 7.4 Create `src/lib/bounty/kinds.ts` — export `BOUNTY_KIND` (37300),
+- [x] 7.4 Create `src/lib/task/kinds.ts` — export `TASK_KIND` (37300),
       `SOLUTION_KIND` (73001), `PLEDGE_KIND` (73002), `VOTE_KIND` (1018),
       `PAYOUT_KIND` (73004)
 

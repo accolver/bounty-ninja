@@ -10,15 +10,15 @@ sanitization -> DOM insertion. DOMPurify MUST be configured to strip all
 Event handler attributes (`onclick`, `onerror`, `onload`, etc.) MUST be stripped
 from all elements.
 
-#### Scenario: Script tag in bounty description is stripped
+#### Scenario: Script tag in task description is stripped
 
-- **WHEN** a bounty's `content` field contains `<script>alert('xss')</script>`
+- **WHEN** a task's `content` field contains `<script>alert('xss')</script>`
 - **THEN** the rendered output SHALL NOT contain any `<script>` element
 - **AND** no JavaScript SHALL execute
 
 #### Scenario: Image tag with onerror handler is sanitized
 
-- **WHEN** a bounty's `content` field contains
+- **WHEN** a task's `content` field contains
   `<img src="x" onerror="alert('xss')">`
 - **THEN** the rendered output SHALL contain the `<img>` tag with the `src`
   attribute
@@ -26,7 +26,7 @@ from all elements.
 
 #### Scenario: Markdown link with javascript protocol is neutralized
 
-- **WHEN** a bounty's `content` field contains
+- **WHEN** a task's `content` field contains
   `[click me](javascript:alert('xss'))`
 - **THEN** the rendered link SHALL NOT have an `href` starting with
   `javascript:`
@@ -34,13 +34,13 @@ from all elements.
 
 #### Scenario: Nested encoding attack is blocked
 
-- **WHEN** a bounty's `content` field contains double-encoded or nested XSS
+- **WHEN** a task's `content` field contains double-encoded or nested XSS
   payloads such as `<img src="x" onerror="&#x61;lert('xss')">`
 - **THEN** DOMPurify SHALL decode and strip the malicious attribute
 
 #### Scenario: Legitimate markdown renders correctly
 
-- **WHEN** a bounty's `content` field contains standard markdown (headings,
+- **WHEN** a task's `content` field contains standard markdown (headings,
   bold, italic, code blocks, links, images, lists, tables)
 - **THEN** all standard markdown elements SHALL render correctly
 - **AND** external image URLs SHALL render as `<img>` tags
@@ -71,28 +71,28 @@ DOMPurify SHALL be configured with the following options:
 
 #### Scenario: Iframe injection is blocked
 
-- **WHEN** a bounty's `content` field contains
+- **WHEN** a task's `content` field contains
   `<iframe src="https://evil.com"></iframe>`
 - **THEN** the `<iframe>` element SHALL be completely removed from the output
 
 ### Requirement: Input Validation for User-Submitted Content
 
-All user-submitted text fields (bounty title, bounty description, solution
+All user-submitted text fields (task title, task description, solution
 content, pledge message) MUST be validated for maximum length before event
-signing. The bounty title MUST NOT exceed 200 characters. The bounty description
+signing. The task title MUST NOT exceed 200 characters. The task description
 MUST NOT exceed 50,000 characters. Solution content MUST NOT exceed 100,000
 characters.
 
-#### Scenario: Bounty title exceeds maximum length
+#### Scenario: Task title exceeds maximum length
 
-- **WHEN** a user enters a bounty title longer than 200 characters
+- **WHEN** a user enters a task title longer than 200 characters
 - **THEN** the form SHALL display a validation error: "Title must be 200
   characters or less"
 - **AND** the form SHALL NOT allow submission
 
-#### Scenario: Bounty description at maximum length
+#### Scenario: Task description at maximum length
 
-- **WHEN** a user enters a bounty description of exactly 50,000 characters
+- **WHEN** a user enters a task description of exactly 50,000 characters
 - **THEN** the form SHALL accept the input without error
 
 ### Requirement: Content Security Policy Headers

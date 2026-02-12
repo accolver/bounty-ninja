@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { bountyList } from '$lib/stores/bounties.svelte';
+	import { taskList } from '$lib/stores/tasks.svelte';
 
 	let { selectedTag = $bindable('') }: { selectedTag?: string } = $props();
 
 	const tagCounts = $derived.by(() => {
 		const counts = new Map<string, number>();
-		for (const bounty of bountyList.items) {
-			for (const tag of bounty.tags) {
+		for (const item of taskList.items) {
+			for (const tag of item.tags) {
 				counts.set(tag, (counts.get(tag) ?? 0) + 1);
 			}
 		}

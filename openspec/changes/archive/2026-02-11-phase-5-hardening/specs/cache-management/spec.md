@@ -29,7 +29,7 @@ age.
 - **WHEN** the eviction process selects events for removal
 - **THEN** events authored by the currently logged-in user's pubkey SHALL NOT be
   evicted regardless of age or access recency
-- **AND** events that are part of an active bounty the user created or pledged
+- **AND** events that are part of an active task the user created or pledged
   to SHALL NOT be evicted
 
 ### Requirement: Cache Eviction Scheduling

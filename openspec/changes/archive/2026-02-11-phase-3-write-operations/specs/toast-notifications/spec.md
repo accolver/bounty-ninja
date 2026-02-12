@@ -72,7 +72,7 @@ toast store. The Toaster SHALL be mounted once in the root layout
 
 ### Requirement: Toast Integration with Write Operations
 
-All write operations (bounty creation, pledge, solution submission, vote
+All write operations (task creation, pledge, solution submission, vote
 casting, payout) SHALL use the toast store to provide user feedback. See PRD
 Section 13.
 
@@ -80,7 +80,7 @@ Section 13.
 
 - **WHEN** any event is successfully published to at least one relay
 - **THEN** a "success" toast SHALL be displayed with an operation-specific
-  message (e.g., "Bounty created!", "Pledge of N sats submitted!", "Solution
+  message (e.g., "Task created!", "Pledge of N sats submitted!", "Solution
   submitted!", "Vote submitted!", "Payout sent!")
 
 #### Scenario: Publish failure toast

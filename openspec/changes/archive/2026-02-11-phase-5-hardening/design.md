@@ -1,7 +1,7 @@
 ## Context
 
 Phases 1–4 of Tasks.fyi are complete: the application has Nostr relay
-connectivity, bounty data models and reactive stores, a full read-only UI, all
+connectivity, task data models and reactive stores, a full read-only UI, all
 write operations (create, fund, solve, vote, payout), NIP-50 search, category
 filtering, settings, and UI polish. The app is functionally complete as an MVP.
 
@@ -12,8 +12,8 @@ https://tasks.fyi. Specifically:
 - Nostr events from relays are rendered without signature verification — a
   malicious relay could inject fabricated events.
 - Cashu token amounts in pledge events are displayed at face value without mint
-  verification — double-spent or invalid tokens could inflate bounty totals.
-- Markdown content from bounty descriptions and solutions is rendered without
+  verification — double-spent or invalid tokens could inflate task totals.
+- Markdown content from task descriptions and solutions is rendered without
   XSS sanitization — a malicious user could inject scripts.
 - The JavaScript bundle includes all modules upfront, including the heavy
   `@cashu/cashu-ts` library, impacting initial load time.
@@ -47,12 +47,12 @@ Phase 5 addresses all of these gaps to make the application production-ready.
 
 ## Non-Goals
 
-- **New features**: No new user-facing features are added in Phase 5. The bounty
+- **New features**: No new user-facing features are added in Phase 5. The task
   lifecycle, search, settings, and all write operations remain unchanged.
 - **DVM / ContextVM integration**: Deferred to Phase 6 (post-MVP).
 - **Multi-mint Cashu support**: MVP continues to use a single configured mint.
 - **NIP-60 wallet UI**: Full in-app Cashu wallet management is out of scope.
-- **Notification system**: NIP-04 DMs for bounty updates are deferred.
+- **Notification system**: NIP-04 DMs for task updates are deferred.
 - **Server-side validation**: The app remains a static SPA with no backend. All
   validation is client-side.
 - **Relay-side rate limiting**: The rate limiter is client-side only; relay-side
@@ -63,18 +63,18 @@ Phase 5 addresses all of these gaps to make the application production-ready.
 ### D1: Lazy Token Validation with "Unverified" Badges
 
 **Decision**: Cashu token verification against the mint is performed lazily —
-only when a pledge becomes visible (bounty detail page load or viewport
+only when a pledge becomes visible (task detail page load or viewport
 intersection). Unverified pledges display an "Unverified pledge" badge rather
 than blocking the UI.
 
 **Rationale**: Eager validation of all pledge tokens on the home page would
-create excessive mint requests and slow down the bounty list. Most users
+create excessive mint requests and slow down the task list. Most users
 browsing the home page do not need proof-level verification of every pledge.
-Lazy validation provides security where it matters (bounty detail view) without
+Lazy validation provides security where it matters (task detail view) without
 degrading the browsing experience.
 
 **Trade-off**: Users on the home page see pledge totals that may include
-unverified amounts. The bounty detail page shows accurate, verified totals. This
+unverified amounts. The task detail page shows accurate, verified totals. This
 is acceptable because the home page is for discovery, not financial
 decision-making.
 
@@ -162,10 +162,10 @@ IndexedDB cache loader that calls `verifyEvent()` before `eventStore.add()`.
 
 **Decision**: The IndexedDB cache eviction policy uses LRU (Least Recently Used)
 ordering with explicit protection for the current user's events and events
-related to their active bounties.
+related to their active tasks.
 
 **Rationale**: Simple age-based eviction would delete events that the user
-actively cares about (their own bounties, pledges they made). LRU with user
+actively cares about (their own tasks, pledges they made). LRU with user
 protection ensures the cache remains useful for the user's primary workflows
 while still bounding storage growth.
 
@@ -178,7 +178,7 @@ configurable via the Settings page.
 cooldown periods. State is in-memory only (not persisted across page reloads).
 
 **Rationale**: Different event kinds have different legitimate publishing
-frequencies. Votes should be fast (5s cooldown), bounty creation should be
+frequencies. Votes should be fast (5s cooldown), task creation should be
 slower (30s cooldown). In-memory-only state prevents users from being locked out
 after a page refresh, which would be a poor UX for a client-side-only
 application.
@@ -187,13 +187,13 @@ application.
 
 ### R1: Token Validation Latency
 
-**Risk**: Cashu mint verification adds network latency to the bounty detail
+**Risk**: Cashu mint verification adds network latency to the task detail
 page. If the mint is slow or unreachable, pledge verification status may remain
 "pending" or "unverified" for extended periods.
 
 **Mitigation**: Lazy validation with cached results (5-minute TTL). The UI shows
 pledge amounts immediately with a "pending" badge, upgrading to "verified" or
-"unverified" as results arrive. The bounty detail page is usable before
+"unverified" as results arrive. The task detail page is usable before
 verification completes.
 
 ### R2: Service Worker Cache Invalidation

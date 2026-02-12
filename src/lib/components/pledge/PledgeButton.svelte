@@ -2,26 +2,26 @@
 	import { accountState } from '$lib/nostr/account.svelte';
 	import LoginButton from '$lib/components/auth/LoginButton.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import type { BountyStatus } from '$lib/bounty/types';
+	import type { TaskStatus } from '$lib/task/types';
 	import CoinsIcon from '@lucide/svelte/icons/coins';
 
 	const {
-		bountyStatus,
+		taskStatus,
 		onPledge
 	}: {
-		bountyStatus: BountyStatus;
+		taskStatus: TaskStatus;
 		onPledge: () => void;
 	} = $props();
 
 	const canPledge = $derived(
-		bountyStatus === 'draft' || bountyStatus === 'open' || bountyStatus === 'in_review'
+		taskStatus === 'draft' || taskStatus === 'open' || taskStatus === 'in_review'
 	);
 
 	const disabledReason = $derived(
 		!canPledge
-			? 'This bounty is no longer accepting pledges'
+			? 'This task is no longer accepting pledges'
 			: !accountState.isLoggedIn
-				? 'Sign in to fund this bounty'
+				? 'Sign in to fund this task'
 				: null
 	);
 </script>
@@ -39,13 +39,13 @@
 {:else if !accountState.isLoggedIn}
 	<!-- Authenticated required -->
 	<div class="flex flex-col items-start gap-2">
-		<p class="text-sm text-muted-foreground">Sign in to fund this bounty</p>
+		<p class="text-sm text-muted-foreground">Sign in to fund this task</p>
 		<LoginButton />
 	</div>
 {:else}
 	<!-- Ready to pledge -->
 	<Button onclick={onPledge} variant="default" size="lg">
 		<CoinsIcon class="size-4" />
-		Fund this bounty
+		Fund this task
 	</Button>
 {/if}

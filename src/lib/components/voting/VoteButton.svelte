@@ -1,29 +1,29 @@
 <script lang="ts">
-	import type { Solution, Vote, Pledge } from '$lib/bounty/types';
+	import type { Solution, Vote, Pledge } from '$lib/task/types';
 	import { accountState } from '$lib/nostr/account.svelte';
 	import { publishEvent } from '$lib/nostr/signer.svelte';
-	import { voteBlueprint } from '$lib/bounty/blueprints';
-	import { VOTE_KIND } from '$lib/bounty/kinds';
+	import { voteBlueprint } from '$lib/task/blueprints';
+	import { VOTE_KIND } from '$lib/task/kinds';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { rateLimiter } from '$lib/nostr/rate-limiter';
 	import { connectivity } from '$lib/stores/connectivity.svelte';
-	import { calculateVoteWeight } from '$lib/bounty/voting';
+	import { calculateVoteWeight } from '$lib/task/voting';
 	import SatAmount from '$lib/components/shared/SatAmount.svelte';
 	import LoadingSpinner from '$lib/components/shared/LoadingSpinner.svelte';
 
 	const {
-		bountyAddress,
+		taskAddress,
 		solution,
 		pledges,
 		existingVotes
 	}: {
-		bountyAddress: string;
+		taskAddress: string;
 		solution: Solution;
 		pledges: Pledge[];
 		existingVotes: Vote[];
 	} = $props();
 
-	// Calculate current user's total pledge amount for this bounty
+	// Calculate current user's total pledge amount for this task
 	const userPledgeAmount = $derived(
 		pledges.filter((p) => p.pubkey === accountState.pubkey).reduce((sum, p) => sum + p.amount, 0)
 	);
@@ -83,7 +83,7 @@
 		submitting = true;
 		try {
 			const template = voteBlueprint({
-				bountyAddress,
+				taskAddress,
 				solutionId: solution.id,
 				solutionAuthor: solution.pubkey,
 				choice

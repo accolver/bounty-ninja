@@ -7,7 +7,7 @@ vi.spyOn(console, 'warn').mockImplementation(() => {});
 
 const HEX_PUBKEY = 'b'.repeat(64);
 const HEX_EVENT_ID = 'a'.repeat(64);
-const VALID_A_TAG = `37300:${HEX_PUBKEY}:my-bounty`;
+const VALID_A_TAG = `37300:${HEX_PUBKEY}:my-task`;
 const VALID_MINT_URL = 'https://mint.example.com';
 
 /** Helper to create a mock NostrEvent with the given kind and tags. */
@@ -23,10 +23,10 @@ function makeEvent(kind: number, tags: string[][], content = ''): NostrEvent {
 	};
 }
 
-// ── Kind 37300 — Bounty ─────────────────────────────────────────────────────
+// ── Kind 37300 — Task ─────────────────────────────────────────────────────
 
-describe('validateEventTags — Kind 37300 (Bounty)', () => {
-	it('rejects bounty missing d tag', () => {
+describe('validateEventTags — Kind 37300 (Task)', () => {
+	it('rejects task missing d tag', () => {
 		const event = makeEvent(37300, [
 			['title', 'Fix the bug'],
 			['reward', '1000']
@@ -36,9 +36,9 @@ describe('validateEventTags — Kind 37300 (Bounty)', () => {
 		expect(result.errors).toContainEqual(expect.stringContaining("'d' tag"));
 	});
 
-	it('rejects bounty missing title and subject', () => {
+	it('rejects task missing title and subject', () => {
 		const event = makeEvent(37300, [
-			['d', 'bounty-1'],
+			['d', 'task-1'],
 			['reward', '1000']
 		]);
 		const result = validateEventTags(event);
@@ -46,9 +46,9 @@ describe('validateEventTags — Kind 37300 (Bounty)', () => {
 		expect(result.errors).toContainEqual(expect.stringContaining("'title' or 'subject'"));
 	});
 
-	it('rejects bounty with invalid reward (non-positive integer)', () => {
+	it('rejects task with invalid reward (non-positive integer)', () => {
 		const event = makeEvent(37300, [
-			['d', 'bounty-1'],
+			['d', 'task-1'],
 			['title', 'Fix the bug'],
 			['reward', '-5']
 		]);
@@ -57,9 +57,9 @@ describe('validateEventTags — Kind 37300 (Bounty)', () => {
 		expect(result.errors).toContainEqual(expect.stringContaining('positive integer'));
 	});
 
-	it('rejects bounty with zero reward', () => {
+	it('rejects task with zero reward', () => {
 		const event = makeEvent(37300, [
-			['d', 'bounty-1'],
+			['d', 'task-1'],
 			['title', 'Fix the bug'],
 			['reward', '0']
 		]);
@@ -68,9 +68,9 @@ describe('validateEventTags — Kind 37300 (Bounty)', () => {
 		expect(result.errors).toContainEqual(expect.stringContaining('positive integer'));
 	});
 
-	it('rejects bounty with non-numeric reward', () => {
+	it('rejects task with non-numeric reward', () => {
 		const event = makeEvent(37300, [
-			['d', 'bounty-1'],
+			['d', 'task-1'],
 			['title', 'Fix the bug'],
 			['reward', 'abc']
 		]);
@@ -78,9 +78,9 @@ describe('validateEventTags — Kind 37300 (Bounty)', () => {
 		expect(result.valid).toBe(false);
 	});
 
-	it('rejects bounty missing reward tag entirely', () => {
+	it('rejects task missing reward tag entirely', () => {
 		const event = makeEvent(37300, [
-			['d', 'bounty-1'],
+			['d', 'task-1'],
 			['title', 'Fix the bug']
 		]);
 		const result = validateEventTags(event);
@@ -88,9 +88,9 @@ describe('validateEventTags — Kind 37300 (Bounty)', () => {
 		expect(result.errors).toContainEqual(expect.stringContaining("'reward' tag"));
 	});
 
-	it('accepts valid bounty with title', () => {
+	it('accepts valid task with title', () => {
 		const event = makeEvent(37300, [
-			['d', 'bounty-1'],
+			['d', 'task-1'],
 			['title', 'Fix the bug'],
 			['reward', '1000']
 		]);
@@ -99,9 +99,9 @@ describe('validateEventTags — Kind 37300 (Bounty)', () => {
 		expect(result.errors).toHaveLength(0);
 	});
 
-	it('accepts valid bounty with subject instead of title', () => {
+	it('accepts valid task with subject instead of title', () => {
 		const event = makeEvent(37300, [
-			['d', 'bounty-1'],
+			['d', 'task-1'],
 			['subject', 'Fix the bug'],
 			['reward', '500']
 		]);

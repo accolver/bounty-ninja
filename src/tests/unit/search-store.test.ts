@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { EventStore } from 'applesauce-core';
 import { BehaviorSubject, Subject, NEVER } from 'rxjs';
 import type { NostrEvent } from 'nostr-tools';
-import { BOUNTY_KIND } from '$lib/bounty/kinds';
+import { TASK_KIND } from '$lib/task/kinds';
 
 // Mock the relay pool
 const mockSubscription = vi.fn();
@@ -28,7 +28,7 @@ vi.mock('$lib/nostr/event-store', () => ({
 
 // Mock the env module
 vi.mock('$lib/utils/env', () => ({
-	getSearchRelay: () => 'wss://relay.nostr.band',
+	getSearchRelay: () => 'wss://search.nos.today',
 	getDefaultRelays: () => ['wss://relay.damus.io'],
 	getDefaultMint: () => 'https://mint.test.com',
 	getAppName: () => 'Tasks.fyi',
@@ -50,7 +50,7 @@ vi.mock('applesauce-relay', () => ({
 	onlyEvents: () => (source: unknown) => source
 }));
 
-function makeBountyEvent(title: string, topicTags: string[] = ['development']): NostrEvent {
+function makeTaskEvent(title: string, topicTags: string[] = ['development']): NostrEvent {
 	const eventTags: string[][] = [
 		['d', 'test-d-tag'],
 		['title', title],
@@ -65,8 +65,8 @@ function makeBountyEvent(title: string, topicTags: string[] = ['development']): 
 		id: 'event-' + Math.random().toString(36).slice(2),
 		pubkey: 'pubkey123',
 		created_at: Math.floor(Date.now() / 1000),
-		kind: BOUNTY_KIND,
-		content: 'A test bounty description',
+		kind: TASK_KIND,
+		content: 'A test task description',
 		tags: eventTags,
 		sig: 'sig123'
 	};
@@ -92,7 +92,7 @@ describe('SearchStore', () => {
 			}
 		}));
 		vi.doMock('$lib/utils/env', () => ({
-			getSearchRelay: () => 'wss://relay.nostr.band',
+			getSearchRelay: () => 'wss://search.nos.today',
 			getDefaultRelays: () => ['wss://relay.damus.io'],
 			getDefaultMint: () => 'https://mint.test.com',
 			getAppName: () => 'Tasks.fyi',
@@ -151,8 +151,8 @@ describe('SearchStore', () => {
 			throw new Error('Connection failed');
 		});
 
-		const bountyEvent = makeBountyEvent('Cashu Integration');
-		const events$ = new BehaviorSubject<NostrEvent[]>([bountyEvent]);
+		const taskEvent = makeTaskEvent('Cashu Integration');
+		const events$ = new BehaviorSubject<NostrEvent[]>([taskEvent]);
 		mockTimeline.mockReturnValue(events$);
 
 		const { searchStore } = SearchStoreModule;
@@ -169,8 +169,8 @@ describe('SearchStore', () => {
 			throw new Error('Connection failed');
 		});
 
-		const matchingEvent = makeBountyEvent('Bitcoin Lightning');
-		const nonMatchingEvent = makeBountyEvent('React Components');
+		const matchingEvent = makeTaskEvent('Bitcoin Lightning');
+		const nonMatchingEvent = makeTaskEvent('React Components');
 		const events$ = new BehaviorSubject<NostrEvent[]>([matchingEvent, nonMatchingEvent]);
 		mockTimeline.mockReturnValue(events$);
 
@@ -186,8 +186,8 @@ describe('SearchStore', () => {
 			throw new Error('Connection failed');
 		});
 
-		const matchingEvent = makeBountyEvent('Some Bounty', ['design']);
-		const nonMatchingEvent = makeBountyEvent('Other Bounty', ['development']);
+		const matchingEvent = makeTaskEvent('Some Task', ['design']);
+		const nonMatchingEvent = makeTaskEvent('Other Task', ['development']);
 		const events$ = new BehaviorSubject<NostrEvent[]>([matchingEvent, nonMatchingEvent]);
 		mockTimeline.mockReturnValue(events$);
 
@@ -195,7 +195,7 @@ describe('SearchStore', () => {
 		searchStore.search('design');
 
 		expect(searchStore.results.length).toBe(1);
-		expect(searchStore.results[0].title).toBe('Some Bounty');
+		expect(searchStore.results[0].title).toBe('Some Task');
 	});
 
 	it('returns empty results when no matches found', () => {
@@ -203,7 +203,7 @@ describe('SearchStore', () => {
 			throw new Error('Connection failed');
 		});
 
-		const events$ = new BehaviorSubject<NostrEvent[]>([makeBountyEvent('Unrelated Bounty')]);
+		const events$ = new BehaviorSubject<NostrEvent[]>([makeTaskEvent('Unrelated Task')]);
 		mockTimeline.mockReturnValue(events$);
 
 		const { searchStore } = SearchStoreModule;
@@ -241,7 +241,7 @@ describe('SearchStore', () => {
 		mockRelay.mockImplementation(() => {
 			throw new Error('Connection failed');
 		});
-		const events$ = new BehaviorSubject<NostrEvent[]>([makeBountyEvent('Test Bounty')]);
+		const events$ = new BehaviorSubject<NostrEvent[]>([makeTaskEvent('Test Task')]);
 		mockTimeline.mockReturnValue(events$);
 
 		searchStore.search('test');

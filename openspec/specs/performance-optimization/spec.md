@@ -36,14 +36,14 @@ pledge details, or initiating a payout).
 
 #### Scenario: Cashu module loads on pledge interaction
 
-- **WHEN** a user clicks "Fund this bounty" to open the PledgeForm
+- **WHEN** a user clicks "Fund this task" to open the PledgeForm
 - **THEN** the Cashu module chunk SHALL be dynamically imported
 - **AND** a brief loading indicator SHALL be shown while the module loads
 - **AND** subsequent Cashu interactions SHALL use the already-loaded module
 
 #### Scenario: Cashu module loads for token validation
 
-- **WHEN** a user navigates to a bounty detail page with pledges
+- **WHEN** a user navigates to a task detail page with pledges
 - **THEN** the Cashu module SHALL be dynamically imported to enable token
   validation
 - **AND** pledge amounts SHALL display with "pending" verification status until
@@ -55,16 +55,16 @@ Each SvelteKit route page SHALL be a separate chunk. The Vite build MUST produce
 separate chunks for:
 
 - Home page (`/`)
-- Bounty detail page (`/bounty/[naddr]`)
-- Create bounty page (`/bounty/new`)
+- Task detail page (`/task/[naddr]`)
+- Create task page (`/task/new`)
 - Profile page (`/profile/[npub]`)
 - Search page (`/search`)
 - Settings page (`/settings`)
 
 #### Scenario: Navigating to a new route loads only that route's chunk
 
-- **WHEN** a user navigates from the home page to a bounty detail page
-- **THEN** only the bounty detail chunk SHALL be loaded (not the create bounty
+- **WHEN** a user navigates from the home page to a task detail page
+- **THEN** only the task detail chunk SHALL be loaded (not the create task
   or settings chunks)
 
 ### Requirement: Precompressed Static Assets

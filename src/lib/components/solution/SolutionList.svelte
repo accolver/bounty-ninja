@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Solution, Vote } from '$lib/bounty/types';
+	import type { Solution, Vote } from '$lib/task/types';
 	import SolutionItem from './SolutionItem.svelte';
 	import EmptyState from '$lib/components/shared/EmptyState.svelte';
 

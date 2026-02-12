@@ -92,7 +92,7 @@ port).
 The relay SHALL be started before the test suite and stopped after all tests
 complete.
 
-Test fixture events (sample bounties, pledges, solutions) SHALL be seeded to the
+Test fixture events (sample tasks, pledges, solutions) SHALL be seeded to the
 local relay before tests run using `nak event` CLI commands or direct WebSocket
 publishing.
 
@@ -109,37 +109,37 @@ configuration).
 - **THEN** each test run SHALL start with a clean relay state (relay restarted
   or events cleared)
 
-### Requirement: Bounty Lifecycle E2E Test
+### Requirement: Task Lifecycle E2E Test
 
 The application SHALL include an E2E test at
-`src/tests/e2e/bounty-lifecycle.spec.ts` that validates the full bounty
+`src/tests/e2e/task-lifecycle.spec.ts` that validates the full task
 lifecycle: create → fund → submit solution → vote → payout.
 
 The test SHALL:
 
-1. Navigate to `/bounty/new` and fill in the bounty creation form (title,
+1. Navigate to `/task/new` and fill in the task creation form (title,
    description, reward, tags, fee)
-2. Submit the form and verify the bounty appears on the home page
-3. Navigate to the bounty detail page and verify all fields are displayed
+2. Submit the form and verify the task appears on the home page
+3. Navigate to the task detail page and verify all fields are displayed
    correctly
-4. Fund the bounty by creating a pledge (using mock Cashu tokens)
-5. Verify the bounty status transitions from "draft" to "open"
+4. Fund the task by creating a pledge (using mock Cashu tokens)
+5. Verify the task status transitions from "draft" to "open"
 6. Submit a solution with an anti-spam fee
-7. Verify the bounty status transitions to "in_review"
+7. Verify the task status transitions to "in_review"
 8. Cast an approval vote on the solution
 9. Verify the vote tally updates
-10. Trigger payout and verify the bounty status transitions to "completed"
+10. Trigger payout and verify the task status transitions to "completed"
 
 #### Scenario: Full lifecycle passes
 
-- **WHEN** the bounty lifecycle E2E test executes against the local relay with
+- **WHEN** the task lifecycle E2E test executes against the local relay with
   mock NIP-07 and mock Cashu mint
 - **THEN** all steps SHALL complete without errors
-- **THEN** the final bounty status SHALL be "completed"
+- **THEN** the final task status SHALL be "completed"
 
-#### Scenario: Bounty creation form validation
+#### Scenario: Task creation form validation
 
-- **WHEN** the test submits the bounty form with an empty title
+- **WHEN** the test submits the task form with an empty title
 - **THEN** the form SHALL display a validation error and NOT publish an event
 
 ### Requirement: Search Flow E2E Test
@@ -149,20 +149,20 @@ validates the search and discovery flow.
 
 The test SHALL:
 
-1. Seed the local relay with multiple bounties with distinct titles and tags
-2. Navigate to the home page and verify bounties are displayed
+1. Seed the local relay with multiple tasks with distinct titles and tags
+2. Navigate to the home page and verify tasks are displayed
 3. Type a search query into the hero SearchBar
 4. Press Enter and verify navigation to `/search?q=<query>`
-5. Verify that search results display matching bounties
+5. Verify that search results display matching tasks
 6. Apply a status filter and verify results update
 7. Click a category tab on the home page and verify filtering works
 8. Verify the empty state is shown for a query with no matches
 
 #### Scenario: Search returns results
 
-- **WHEN** the test searches for a term that matches seeded bounty titles
-- **THEN** the search results page SHALL display the matching bounties
-- **THEN** non-matching bounties SHALL NOT appear in the results
+- **WHEN** the test searches for a term that matches seeded task titles
+- **THEN** the search results page SHALL display the matching tasks
+- **THEN** non-matching tasks SHALL NOT appear in the results
 
 #### Scenario: Search empty state
 
@@ -178,7 +178,7 @@ The test SHALL:
 
 1. Load the home page without the mock NIP-07 signer and verify the "Login"
    button is displayed
-2. Verify that write actions (create bounty, pledge, submit solution, vote) are
+2. Verify that write actions (create task, pledge, submit solution, vote) are
    disabled or prompt for login
 3. Inject the mock NIP-07 signer and click "Login"
 4. Verify the user's profile information (npub or display name) appears in the
@@ -196,8 +196,8 @@ The test SHALL:
 
 #### Scenario: Unauthenticated restrictions
 
-- **WHEN** the test attempts to navigate to `/bounty/new` without authentication
-- **THEN** the page SHALL display a login prompt instead of the bounty creation
+- **WHEN** the test attempts to navigate to `/task/new` without authentication
+- **THEN** the page SHALL display a login prompt instead of the task creation
   form
 
 ### Requirement: Accessibility E2E Checks

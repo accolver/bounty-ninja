@@ -26,14 +26,14 @@ factory SHALL be created lazily on first write operation, not at app startup.
 ### Requirement: Event Blueprint Registration
 
 The system SHALL define Applesauce EventFactory blueprints in
-`src/lib/bounty/blueprints.ts` for all five bounty event kinds: Kind 37300
-(bounty), Kind 73002 (pledge), Kind 73001 (solution), Kind 1018 (vote), and Kind
+`src/lib/task/blueprints.ts` for all five task event kinds: Kind 37300
+(task), Kind 73002 (pledge), Kind 73001 (solution), Kind 1018 (vote), and Kind
 73004 (payout). Each blueprint MUST produce a valid unsigned Nostr event with
 the correct `kind`, `tags`, and `content` fields as specified in PRD Section 6.
 
-#### Scenario: Bounty blueprint produces correct event structure
+#### Scenario: Task blueprint produces correct event structure
 
-- **WHEN** the bounty blueprint is invoked with title, description, reward,
+- **WHEN** the task blueprint is invoked with title, description, reward,
   tags, deadline, mint URL, and submission fee
 - **THEN** the resulting unsigned event SHALL have `kind: 37300`
 - **AND** SHALL include tags: `["d", "<unique-id>"]`, `["title", "<title>"]`,
@@ -114,8 +114,8 @@ updates instantly without waiting for relay round-trips. See PRD Section 7.4.
 - **WHEN** an event is successfully signed
 - **THEN** the event SHALL be added to `eventStore` via `eventStore.add(signed)`
   immediately
-- **AND** the Svelte 5 rune-based stores (`bounties.svelte.ts`,
-  `bounty-detail.svelte.ts`) SHALL reactively update
+- **AND** the Svelte 5 rune-based stores (`tasks.svelte.ts`,
+  `task-detail.svelte.ts`) SHALL reactively update
 - **AND** the UI SHALL reflect the new event within the same render cycle
 
 #### Scenario: Rollback on total publish failure

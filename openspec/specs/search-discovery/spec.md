@@ -10,15 +10,15 @@ The store SHALL be implemented as a class-based Svelte 5 runes store using
 `$state` and `$derived` for reactivity.
 
 The store SHALL connect to the relay specified by the `PUBLIC_SEARCH_RELAY`
-environment variable (default: `wss://relay.nostr.band`) to issue NIP-50 search
+environment variable (default: `wss://search.nos.today`) to issue NIP-50 search
 subscriptions.
 
 The store SHALL construct Nostr filters with the `search` field set to the
-user's query string and `kinds` set to `[37300]` (bounty events only), as
-defined in `searchBountiesFilter()` from `src/lib/bounty/filters.ts`.
+user's query string and `kinds` set to `[37300]` (task events only), as
+defined in `searchTasksFilter()` from `src/lib/task/filters.ts`.
 
 The store SHALL expose the following reactive properties: `results` (array of
-`BountySummary`), `loading` (boolean), `error` (string or null), and `query`
+`TaskSummary`), `loading` (boolean), `error` (string or null), and `query`
 (current search string).
 
 The store SHALL cancel any in-flight search subscription when a new query is
@@ -29,7 +29,7 @@ issued.
 - **WHEN** a user submits a search query and the search relay supports NIP-50
 - **THEN** the store SHALL issue a REQ with
   `{ kinds: [37300], search: "<query>", limit: 20 }` to `PUBLIC_SEARCH_RELAY`
-- **THEN** the store SHALL parse returned events into `BountySummary` objects
+- **THEN** the store SHALL parse returned events into `TaskSummary` objects
   and expose them via the `results` property
 - **THEN** the `loading` property SHALL transition from `true` to `false` upon
   receiving EOSE
@@ -39,7 +39,7 @@ issued.
 - **WHEN** the search relay is unreachable or does not respond within 5 seconds
 - **THEN** the store SHALL fall back to client-side filtering of events already
   cached in the Applesauce `EventStore`
-- **THEN** the client-side filter SHALL match the query string against bounty
+- **THEN** the client-side filter SHALL match the query string against task
   `title` and `tags` fields (case-insensitive substring match)
 - **THEN** the `error` property SHALL be set to a descriptive message indicating
   fallback mode
@@ -68,7 +68,7 @@ The SearchBar SHALL navigate to `/search?q=<encoded-query>` on form submission
 (Enter key or submit button).
 
 The SearchBar SHALL be accessible with `role="search"`, an associated `<label>`
-(visually hidden if needed), and `aria-label="Search bounties"`.
+(visually hidden if needed), and `aria-label="Search tasks"`.
 
 #### Scenario: User types a search query
 
@@ -92,16 +92,16 @@ The SearchBar SHALL be accessible with `role="search"`, an associated `<label>`
 ### Requirement: Search Results Page
 
 The application SHALL provide a search results page at
-`src/routes/search/+page.svelte` that displays bounties matching the user's
+`src/routes/search/+page.svelte` that displays tasks matching the user's
 query.
 
 The page load function at `src/routes/search/+page.ts` SHALL read the `q` query
 parameter from the URL and initialize the search store with that query.
 
 The SearchResults component at `src/lib/components/search/SearchResults.svelte`
-SHALL render matching bounties as `BountyCard` components.
+SHALL render matching tasks as `TaskCard` components.
 
-The search results page SHALL provide filter controls for: bounty status (open,
+The search results page SHALL provide filter controls for: task status (open,
 completed, all) and minimum reward amount.
 
 The search results page SHALL display the total number of results found.
@@ -110,7 +110,7 @@ The search results page SHALL display the total number of results found.
 
 - **WHEN** a user navigates to `/search?q=lightning` and selects status filter
   "open"
-- **THEN** the page SHALL display only bounties matching "lightning" that have
+- **THEN** the page SHALL display only tasks matching "lightning" that have
   status `draft` or `open`
 - **THEN** the result count SHALL reflect the filtered total
 
@@ -122,9 +122,9 @@ The search results page SHALL display the total number of results found.
 
 #### Scenario: Search results empty state
 
-- **WHEN** no bounties match the search query
+- **WHEN** no tasks match the search query
 - **THEN** the page SHALL display an `EmptyState` component with the message "No
-  bounties found for '<query>'" and a suggestion to try different keywords
+  tasks found for '<query>'" and a suggestion to try different keywords
 
 #### Scenario: Direct URL access
 
@@ -135,14 +135,14 @@ The search results page SHALL display the total number of results found.
 ### Requirement: Home Page Category Filtering
 
 The home page SHALL display category filter tabs derived from the `t` tags of
-cached bounty events.
+cached task events.
 
-The category tabs SHALL include an "All" tab (default, showing all bounties)
+The category tabs SHALL include an "All" tab (default, showing all tasks)
 plus tabs for the most common tags (e.g., "development", "design",
 "documentation", "writing").
 
-Selecting a category tab SHALL filter the displayed bounty list to only show
-bounties with a matching `t` tag.
+Selecting a category tab SHALL filter the displayed task list to only show
+tasks with a matching `t` tag.
 
 Category filtering SHALL be performed client-side against events in the
 Applesauce `EventStore`.
@@ -150,21 +150,21 @@ Applesauce `EventStore`.
 #### Scenario: Category tab selection
 
 - **WHEN** a user clicks the "development" category tab on the home page
-- **THEN** only bounties with a `["t", "development"]` tag SHALL be displayed
+- **THEN** only tasks with a `["t", "development"]` tag SHALL be displayed
 - **THEN** the "development" tab SHALL be visually highlighted as active
 
 #### Scenario: All tab resets filter
 
 - **WHEN** a user clicks the "All" category tab
-- **THEN** all bounties SHALL be displayed regardless of tags
+- **THEN** all tasks SHALL be displayed regardless of tags
 
 ### Requirement: Home Page Hero Search
 
 The home page SHALL display a hero-variant SearchBar component prominently above
-the bounty list.
+the task list.
 
 The hero SearchBar SHALL be visually larger than the Header SearchBar and
-include placeholder text "Search bounties...".
+include placeholder text "Search tasks...".
 
 #### Scenario: Hero search interaction
 

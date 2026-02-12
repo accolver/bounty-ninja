@@ -1,8 +1,8 @@
 /**
- * Escrow operations for the Tasks.fyi bounty lifecycle.
+ * Escrow operations for the Tasks.fyi task lifecycle.
  *
  * Handles the full flow of Cashu token escrow:
- * 1. Pledger creates P2PK-locked tokens for the bounty creator
+ * 1. Pledger creates P2PK-locked tokens for the task creator
  * 2. Creator collects pledge tokens from Kind 73002 events
  * 3. Creator swaps locked tokens (proves ownership via private key)
  * 4. Creator creates new P2PK-locked tokens for the winning solver
@@ -19,14 +19,14 @@ import { createP2PKLock } from './p2pk';
 import { getWallet } from './mint';
 
 /**
- * Create a P2PK-locked pledge token for a bounty.
+ * Create a P2PK-locked pledge token for a task.
  *
  * This is called by a pledger who already has Cashu proofs (from their wallet).
- * The proofs are swapped at the mint for new proofs locked to the bounty
+ * The proofs are swapped at the mint for new proofs locked to the task
  * creator's public key, ensuring only the creator can claim them.
  *
  * @param proofs - The pledger's spendable proofs to lock.
- * @param creatorPubkey - Hex-encoded public key of the bounty creator.
+ * @param creatorPubkey - Hex-encoded public key of the task creator.
  * @param mintUrl - Optional mint URL override. Uses default mint if omitted.
  * @returns MintResult with the P2PK-locked proofs on success.
  */
@@ -124,7 +124,7 @@ export function collectPledgeTokens(pledgeEvents: NostrEvent[]): DecodedPledge[]
 /**
  * Swap P2PK-locked pledge tokens at the mint.
  *
- * Called by the bounty creator to claim pledged tokens. The creator
+ * Called by the task creator to claim pledged tokens. The creator
  * must hold the private key corresponding to the P2PK lock. The
  * wallet's NIP-07 signer or provided private key is used to prove
  * ownership during the swap.
@@ -218,7 +218,7 @@ export async function swapPledgeTokens(
 /**
  * Create new P2PK-locked tokens for the winning solver.
  *
- * Called by the bounty creator after consensus voting determines a winner.
+ * Called by the task creator after consensus voting determines a winner.
  * The creator's unlocked proofs are swapped for new proofs locked to
  * the solver's public key.
  *
@@ -286,7 +286,7 @@ export async function createPayoutToken(
  * @returns Encoded Cashu token string.
  */
 export function encodePayoutToken(proofs: Proof[], mintUrl: string): string {
-	return encodeToken(proofs, mintUrl, 'Tasks.fyi bounty payout');
+	return encodeToken(proofs, mintUrl, 'Tasks.fyi task payout');
 }
 
 /**

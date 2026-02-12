@@ -20,8 +20,8 @@ test.describe('Authentication', () => {
 		await expect(signInMsg).toBeVisible();
 	});
 
-	test('unauthenticated user cannot access bounty creation', async ({ page }) => {
-		await page.goto('/bounty/new');
+	test('unauthenticated user cannot access task creation', async ({ page }) => {
+		await page.goto('/task/new');
 		await page.waitForTimeout(1000);
 
 		// Should show "Sign in" text or Login button instead of form
@@ -82,7 +82,7 @@ test.describe('Authentication', () => {
 	});
 
 	test('every page has main landmark', async ({ page }) => {
-		const routes = ['/', '/search', '/settings', '/bounty/new'];
+		const routes = ['/', '/search', '/settings', '/task/new'];
 
 		for (const route of routes) {
 			await page.goto(route);
