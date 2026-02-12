@@ -5,7 +5,10 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { errorMonitor } from '$lib/stores/error-monitor.svelte';
+	import { cacheMonitor } from '$lib/nostr/cache-monitor.svelte';
 	import { getDefaultRelays, getDefaultMint } from '$lib/utils/env';
+	import { isValidRelayUrl } from '$lib/utils/relay-validation';
 	import { onMount } from 'svelte';
 
 	const SETTINGS_KEY = 'bounty.ninja:settings';
@@ -59,42 +62,12 @@
 
 	let cacheLimits = $state(loadCacheLimits());
 	let clearingCache = $state(false);
-
-	// Cache monitor state — lazy loaded to avoid blocking page render
-	let cacheEventCount = $state(0);
-	let cacheEstimatedSize = $state('0 B');
-	let cacheMonitorInterval: ReturnType<typeof setInterval> | null = null;
-
-	async function refreshCacheStats() {
-		try {
-			const { getCacheEventCount, estimateCacheSize } = await import('$lib/nostr/cache-eviction');
-			const [count, size] = await Promise.all([getCacheEventCount(), estimateCacheSize()]);
-			cacheEventCount = count;
-			cacheEstimatedSize = formatBytes(size);
-		} catch {
-			// Cache stats unavailable — not critical
-		}
-	}
-
-	function formatBytes(bytes: number): string {
-		if (bytes === 0) return '0 B';
-		const units = ['B', 'KB', 'MB', 'GB'];
-		const k = 1024;
-		const i = Math.floor(Math.log(bytes) / Math.log(k));
-		const unitIndex = Math.min(i, units.length - 1);
-		const value = bytes / Math.pow(k, unitIndex);
-		return `${value.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
-	}
+	let errorLogOpen = $state(false);
 
 	onMount(() => {
-		// Initial refresh
-		void refreshCacheStats();
-		// Periodic refresh
-		cacheMonitorInterval = setInterval(() => {
-			void refreshCacheStats();
-		}, 30_000);
+		cacheMonitor.startMonitoring(30_000);
 		return () => {
-			if (cacheMonitorInterval) clearInterval(cacheMonitorInterval);
+			cacheMonitor.stopMonitoring();
 		};
 	});
 
@@ -115,7 +88,7 @@
 			const db = getDatabase();
 			if (db) {
 				await deleteAllEvents(db);
-				await refreshCacheStats();
+				await cacheMonitor.refresh();
 				toastStore.success('Cache cleared successfully');
 			} else {
 				toastStore.error('Cache database not initialized');
@@ -130,8 +103,9 @@
 
 	function addRelay() {
 		const url = newRelay.trim();
-		if (!url.startsWith('wss://') && !url.startsWith('ws://')) {
-			relayError = 'Relay URL must start with wss:// or ws://';
+		const validation = isValidRelayUrl(url);
+		if (!validation.valid) {
+			relayError = validation.error ?? 'Invalid relay URL';
 			return;
 		}
 		if (settings.relays.includes(url)) {
@@ -181,7 +155,7 @@
 		}
 		// Update theme-color meta tag for browser chrome
 		const meta = document.querySelector('meta[name="theme-color"]');
-		if (meta) meta.setAttribute('content', isDark ? '#1f2335' : '#f0f0f3');
+		if (meta) meta.setAttribute('content', isDark ? '#141A1D' : '#EDEEE8');
 	}
 </script>
 
@@ -278,6 +252,89 @@
 				</div>
 			</div>
 
+			<!-- Error Log (only visible when errors exist) -->
+			{#if errorMonitor.hasErrors}
+				<div class="space-y-4 rounded-lg border border-border bg-card p-6">
+					<div class="flex items-center justify-between">
+						<button
+							onclick={() => (errorLogOpen = !errorLogOpen)}
+							class="flex items-center gap-2 text-lg font-semibold text-foreground"
+							aria-expanded={errorLogOpen}
+							aria-controls="error-log-list"
+						>
+							<span
+								class="inline-block transition-transform {errorLogOpen
+									? 'rotate-90'
+									: ''}"
+								aria-hidden="true">&#9654;</span
+							>
+							Error Log ({errorMonitor.count})
+						</button>
+						<Button
+							variant="ghost"
+							size="sm"
+							onclick={() => {
+								errorMonitor.clear();
+								toastStore.success('Error log cleared');
+							}}
+							class="text-destructive hover:text-destructive"
+						>
+							Clear errors
+						</Button>
+					</div>
+
+					{#if errorLogOpen}
+						<ul
+							id="error-log-list"
+							class="max-h-80 space-y-2 overflow-y-auto"
+							aria-label="Captured errors"
+						>
+							{#each errorMonitor.entries as entry}
+								<li class="rounded-md border border-border bg-background p-3">
+									<div class="flex items-start justify-between gap-2">
+										<span
+											class="inline-block rounded px-1.5 py-0.5 text-xs font-medium {entry.type ===
+											'error'
+												? 'bg-destructive/20 text-destructive'
+												: entry.type === 'unhandled-rejection'
+													? 'bg-warning/20 text-warning'
+													: 'bg-muted text-muted-foreground'}"
+										>
+											{entry.type}
+										</span>
+										<time
+											class="shrink-0 text-xs text-muted-foreground"
+											datetime={new Date(entry.timestamp).toISOString()}
+										>
+											{new Date(entry.timestamp).toLocaleTimeString()}
+										</time>
+									</div>
+									<p class="mt-1 break-all font-mono text-sm text-foreground">
+										{entry.message}
+									</p>
+									{#if entry.source}
+										<p class="mt-0.5 break-all text-xs text-muted-foreground">
+											{entry.source}
+										</p>
+									{/if}
+									{#if entry.stack}
+										<details class="mt-1">
+											<summary
+												class="cursor-pointer text-xs text-muted-foreground hover:text-foreground"
+											>
+												Stack trace
+											</summary>
+											<pre
+												class="mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-all rounded bg-background p-2 text-xs text-muted-foreground">{entry.stack}</pre>
+										</details>
+									{/if}
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</div>
+			{/if}
+
 			<!-- Cache Management -->
 			<div class="space-y-4 rounded-lg border border-border bg-card p-6">
 				<h2 class="text-lg font-semibold text-foreground">Cache Management</h2>
@@ -287,13 +344,13 @@
 					<div class="rounded-md border border-border bg-background p-3">
 						<p class="text-xs text-muted-foreground">Cached Events</p>
 						<p class="text-lg font-semibold text-foreground">
-							{cacheEventCount.toLocaleString()}
+							{cacheMonitor.eventCount.toLocaleString()}
 						</p>
 					</div>
 					<div class="rounded-md border border-border bg-background p-3">
 						<p class="text-xs text-muted-foreground">Estimated Size</p>
 						<p class="text-lg font-semibold text-foreground">
-							{cacheEstimatedSize}
+							{cacheMonitor.estimatedSizeFormatted}
 						</p>
 					</div>
 				</div>

@@ -7,6 +7,7 @@
 	import OfflineBanner from '$lib/components/shared/OfflineBanner.svelte';
 	import { connectDefaultRelays } from '$lib/nostr/relay-pool';
 	import { initCache } from '$lib/nostr/cache';
+	import { errorMonitor } from '$lib/stores/error-monitor.svelte';
 
 	let { children } = $props();
 
@@ -14,6 +15,14 @@
 	$effect(() => {
 		connectDefaultRelays();
 		initCache();
+	});
+
+	// Register global error handlers in production
+	$effect(() => {
+		if (import.meta.env.PROD) {
+			const cleanup = errorMonitor.init();
+			return cleanup;
+		}
 	});
 </script>
 

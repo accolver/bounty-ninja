@@ -6,6 +6,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { errorMonitor } from '$lib/stores/error-monitor.svelte';
 	import CircleXIcon from '@lucide/svelte/icons/circle-x';
 	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
 
@@ -27,6 +28,11 @@
 
 		// Notify via toast
 		toastStore.error(`Component error: ${err.message}`);
+
+		// Capture in error monitor for debugging
+		errorMonitor.capture(err.message, 'boundary', {
+			stack: err.stack
+		});
 
 		// Forward to consumer callback if provided
 		onError?.(err);
