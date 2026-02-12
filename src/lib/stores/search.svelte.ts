@@ -12,29 +12,28 @@ import { searchTasksFilter } from '$lib/task/filters';
 import { getSearchRelay } from '$lib/utils/env';
 import { TASK_KIND } from '$lib/task/kinds';
 
-/** Timeout in ms before falling back to client-side search */
+/** Timeout in ms for the NIP-50 relay enhancement */
 const SEARCH_RELAY_TIMEOUT = 5_000;
 
 /**
  * Reactive search store using Svelte 5 runes.
  *
- * Attempts NIP-50 full-text search via a dedicated search relay.
- * Falls back to client-side substring matching on EventStore events
- * when the relay is unreachable or times out.
+ * Local-first: immediately searches the in-memory EventStore for instant results,
+ * then enhances with NIP-50 relay results when they arrive.
  */
 class SearchStore {
 	#results = $state<TaskSummary[]>([]);
 	#loading = $state(false);
 	#error = $state<string | null>(null);
 	#query = $state('');
-	#subscription: Subscription | null = null;
+	#relaySubscription: Subscription | null = null;
 
 	/** Current search results */
 	get results(): TaskSummary[] {
 		return this.#results;
 	}
 
-	/** Whether a search is in progress */
+	/** Whether a relay search is in progress (local results already shown) */
 	get loading(): boolean {
 		return this.#loading;
 	}
@@ -50,14 +49,14 @@ class SearchStore {
 	}
 
 	/**
-	 * Execute a search query.
+	 * Execute a search query with local-first strategy.
 	 *
-	 * 1. Cancels any in-flight subscription
-	 * 2. Tries NIP-50 relay search with a 5s timeout
-	 * 3. Falls back to client-side EventStore filtering on timeout/error
+	 * 1. Immediately searches the local EventStore (instant)
+	 * 2. Fires off a NIP-50 relay search in parallel
+	 * 3. Merges relay results in when they arrive (deduped by event id)
 	 */
 	search(query: string): void {
-		this.#cancelSubscription();
+		this.#cancelRelaySubscription();
 		this.#query = query;
 
 		const trimmed = query.trim();
@@ -68,64 +67,28 @@ class SearchStore {
 			return;
 		}
 
-		this.#loading = true;
 		this.#error = null;
 
-		const filter = searchTasksFilter(trimmed);
-		const searchRelayUrl = getSearchRelay();
+		// 1. Instant local search
+		this.#localSearch(trimmed);
 
-		try {
-			const relay = pool.relay(searchRelayUrl);
-
-			this.#subscription = relay
-				.subscription(filter)
-				.pipe(
-					onlyEvents(),
-					mapEventsToStore(eventStore),
-					// Collect all events until the relay closes the subscription (EOSE),
-					// but bail out after SEARCH_RELAY_TIMEOUT ms if nothing completes.
-					timeout(SEARCH_RELAY_TIMEOUT),
-					toArray(),
-					catchError(() => {
-						// Timeout or relay error — fall back to client-side filtering
-						this.#fallbackSearch(trimmed);
-						return EMPTY;
-					})
-				)
-				.subscribe({
-					next: (events: NostrEvent[]) => {
-						this.#results = events
-							.map(parseTaskSummary)
-							.filter((s): s is TaskSummary => s !== null);
-						this.#loading = false;
-					},
-					error: () => {
-						// Should not reach here due to catchError, but handle defensively
-						this.#fallbackSearch(trimmed);
-					},
-					complete: () => {
-						this.#loading = false;
-					}
-				});
-		} catch {
-			// pool.relay() can throw if the URL is invalid
-			this.#fallbackSearch(trimmed);
-		}
+		// 2. Async relay enhancement
+		this.#relaySearch(trimmed);
 	}
 
 	/**
-	 * Client-side fallback: filter EventStore task events by
+	 * Synchronous client-side search: filter EventStore task events by
 	 * case-insensitive substring match on title and tags.
+	 * Results appear immediately.
 	 */
-	#fallbackSearch(query: string): void {
+	#localSearch(query: string): void {
 		const lowerQuery = query.toLowerCase();
 
-		// Get current task events from EventStore via a one-shot timeline subscription
-		this.#cancelSubscription();
-
-		this.#subscription = eventStore.timeline({ kinds: [TASK_KIND] }).subscribe({
+		const localSub = eventStore.timeline({ kinds: [TASK_KIND] }).subscribe({
 			next: (events: NostrEvent[]) => {
-				const summaries = events.map(parseTaskSummary).filter((s): s is TaskSummary => s !== null);
+				const summaries = events
+					.map(parseTaskSummary)
+					.filter((s): s is TaskSummary => s !== null);
 
 				this.#results = summaries.filter((item) => {
 					const titleMatch = item.title.toLowerCase().includes(lowerQuery);
@@ -133,29 +96,81 @@ class SearchStore {
 					return titleMatch || tagMatch;
 				});
 
-				this.#loading = false;
-				this.#error = null;
-
-				// Unsubscribe after first emission — we only need a snapshot
-				this.#cancelSubscription();
+				// One-shot: unsubscribe after first emission
+				localSub.unsubscribe();
 			},
-			error: (err: unknown) => {
-				this.#error = err instanceof Error ? err.message : 'Search failed';
-				this.#loading = false;
-				this.#results = [];
+			error: () => {
+				// Local search failed — results stay empty, relay may still deliver
+				localSub.unsubscribe();
 			}
 		});
 	}
 
-	/** Cancel any in-flight relay or EventStore subscription */
-	#cancelSubscription(): void {
-		this.#subscription?.unsubscribe();
-		this.#subscription = null;
+	/**
+	 * Async NIP-50 relay search. Merges results into existing local results,
+	 * deduplicating by event id. Silently gives up on timeout/error.
+	 */
+	#relaySearch(query: string): void {
+		const filter = searchTasksFilter(query);
+		const searchRelayUrl = getSearchRelay();
+
+		this.#loading = true;
+
+		try {
+			const relay = pool.relay(searchRelayUrl);
+
+			this.#relaySubscription = relay
+				.subscription(filter)
+				.pipe(
+					onlyEvents(),
+					mapEventsToStore(eventStore),
+					timeout(SEARCH_RELAY_TIMEOUT),
+					toArray(),
+					catchError(() => {
+						// Timeout or relay error — local results already shown, just stop
+						this.#loading = false;
+						return EMPTY;
+					})
+				)
+				.subscribe({
+					next: (events: NostrEvent[]) => {
+						const relaySummaries = events
+							.map(parseTaskSummary)
+							.filter((s): s is TaskSummary => s !== null);
+
+						// Merge relay results with existing local results, deduped by id
+						const existingIds = new Set(this.#results.map((r) => r.id));
+						const newResults = relaySummaries.filter((s) => !existingIds.has(s.id));
+
+						if (newResults.length > 0) {
+							this.#results = [...this.#results, ...newResults];
+						}
+
+						this.#loading = false;
+					},
+					error: () => {
+						// Should not reach here due to catchError
+						this.#loading = false;
+					},
+					complete: () => {
+						this.#loading = false;
+					}
+				});
+		} catch {
+			// pool.relay() can throw if the URL is invalid — local results already shown
+			this.#loading = false;
+		}
+	}
+
+	/** Cancel any in-flight relay subscription */
+	#cancelRelaySubscription(): void {
+		this.#relaySubscription?.unsubscribe();
+		this.#relaySubscription = null;
 	}
 
 	/** Reset all state to initial values */
 	clear(): void {
-		this.#cancelSubscription();
+		this.#cancelRelaySubscription();
 		this.#results = [];
 		this.#loading = false;
 		this.#error = null;
