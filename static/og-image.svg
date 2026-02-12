@@ -1,6 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" fill="none">
-  <rect width="1200" height="630" fill="#1a1b26"/>
-  <text x="600" y="270" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="700" fill="#c0caf5" text-anchor="middle">Tasks.fyi</text>
-  <text x="600" y="340" font-family="system-ui, -apple-system, sans-serif" font-size="28" fill="#a9b1d6" text-anchor="middle">Decentralized Task Board</text>
-  <text x="600" y="400" font-family="system-ui, -apple-system, sans-serif" font-size="20" fill="#565f89" text-anchor="middle">Post tasks. Fund with bitcoin ecash. Pay solvers. All on Nostr.</text>
+  <!-- Background: Mandalorian dark -->
+  <rect width="1200" height="630" fill="#141A1D"/>
+
+  <!-- Subtle border accent -->
+  <rect x="40" y="40" width="1120" height="550" rx="16" fill="none" stroke="#2A3439" stroke-width="2"/>
+
+  <!-- Target/bounty icon above text -->
+  <circle cx="600" cy="200" r="48" stroke="#6B9E7E" stroke-width="3" fill="none"/>
+  <circle cx="600" cy="200" r="28" stroke="#6B9E7E" stroke-width="2" fill="none"/>
+  <circle cx="600" cy="200" r="10" fill="#C49A3C"/>
+  <line x1="600" y1="148" x2="600" y2="172" stroke="#6B9E7E" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="600" y1="228" x2="600" y2="252" stroke="#6B9E7E" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="548" y1="200" x2="572" y2="200" stroke="#6B9E7E" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="628" y1="200" x2="652" y2="200" stroke="#6B9E7E" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Title -->
+  <text x="600" y="330" font-family="system-ui, -apple-system, sans-serif" font-size="64" font-weight="700" fill="#C8CED2" text-anchor="middle">bounty<tspan fill="#6B9E7E">.ninja</tspan></text>
+
+  <!-- Subtitle -->
+  <text x="600" y="390" font-family="system-ui, -apple-system, sans-serif" font-size="28" fill="#7B8890" text-anchor="middle">Decentralized Bounty Board</text>
+
+  <!-- Description -->
+  <text x="600" y="440" font-family="system-ui, -apple-system, sans-serif" font-size="20" fill="#4D8B7A" text-anchor="middle">Post tasks. Fund with bitcoin. Solve for sats. Powered by Nostr + Cashu.</text>
+
+  <!-- Bottom accent line -->
+  <rect x="480" y="490" width="240" height="3" rx="1.5" fill="#C49A3C" opacity="0.6"/>
 </svg>
