@@ -1,6 +1,6 @@
 ## Context
 
-Phases 1–3 of Tasks.fyi established the project foundation (Nostr connectivity,
+Phases 1–3 of Bounty.ninja established the project foundation (Nostr connectivity,
 Applesauce EventStore, Tokyo Night theming), built the read-only task display
 layer (data models, reactive stores, task cards, detail pages), and
 implemented all write operations (task creation, Cashu pledging with P2PK
@@ -81,8 +81,8 @@ albeit with reduced scope (only locally cached events).
 ### Decision: localStorage for user preferences
 
 **Choice**: Persist user settings (relay list, preferred mint, theme) to
-`localStorage` as a JSON object under the key `tasks.fyi:settings`. Theme
-preference stored separately under `tasks.fyi:theme` for synchronous access in
+`localStorage` as a JSON object under the key `bounty.ninja:settings`. Theme
+preference stored separately under `bounty.ninja:theme` for synchronous access in
 `app.html`.
 
 **Rationale**: localStorage is synchronous, universally available in browsers,

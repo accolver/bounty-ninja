@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { NostrEvent } from 'nostr-tools';
-import { calculateVoteWeight, tallyVotes } from '$lib/task/voting';
-import type { Vote } from '$lib/task/types';
+import { calculateVoteWeight, tallyVotes } from '$lib/bounty/voting';
+import type { Vote } from '$lib/bounty/types';
 
 function mockEvent(overrides: Partial<NostrEvent> = {}): NostrEvent {
 	return {
@@ -21,7 +21,7 @@ function mockVote(overrides: Partial<Vote> = {}): Vote {
 		event: mockEvent(),
 		id: 'a'.repeat(64),
 		pubkey: 'b'.repeat(64),
-		taskAddress: '37300:pub:task',
+		bountyAddress: '37300:pub:bounty',
 		solutionId: 'solution1'.padEnd(64, '0'),
 		choice: 'approve',
 		pledgeAmount: 0,

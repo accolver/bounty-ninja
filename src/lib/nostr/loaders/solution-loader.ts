@@ -4,14 +4,14 @@ import { eventStore } from '$lib/nostr/event-store';
 import { onlyEvents } from 'applesauce-relay';
 import { mapEventsToStore } from 'applesauce-core';
 import { getDefaultRelays } from '$lib/utils/env';
-import { solutionsForTaskFilter } from '$lib/task/filters';
+import { solutionsForBountyFilter } from '$lib/bounty/filters';
 
 /**
  * Create a loader that subscribes to solution events (Kind 73001)
- * for a specific task address from all default relays.
+ * for a specific bounty address from all default relays.
  */
-export function createSolutionLoader(taskAddress: string): { unsubscribe(): void } {
-	const filter = solutionsForTaskFilter(taskAddress);
+export function createSolutionLoader(bountyAddress: string): { unsubscribe(): void } {
+	const filter = solutionsForBountyFilter(bountyAddress);
 	const relayUrls = getDefaultRelays();
 	const subscriptions: Subscription[] = [];
 

@@ -3,12 +3,12 @@
 	import type { NostrEvent } from 'nostr-tools';
 	import { nip19 } from 'nostr-tools';
 	import { eventStore } from '$lib/nostr/event-store';
-	import { TASK_KIND } from '$lib/task/kinds';
-	import { parseTaskSummary } from '$lib/task/helpers';
+	import { BOUNTY_KIND } from '$lib/bounty/kinds';
+	import { parseBountySummary } from '$lib/bounty/helpers';
 	import { createProfileLoader } from '$lib/nostr/loaders/profile-loader';
-	import { createTaskByAuthorLoader } from '$lib/nostr/loaders/task-loader';
-	import type { TaskSummary } from '$lib/task/types';
-	import TaskCard from '$lib/components/task/TaskCard.svelte';
+	import { createBountyByAuthorLoader } from '$lib/nostr/loaders/bounty-loader';
+	import type { BountySummary } from '$lib/bounty/types';
+	import BountyCard from '$lib/components/bounty/BountyCard.svelte';
 	import LoadingSpinner from '$lib/components/shared/LoadingSpinner.svelte';
 	import EmptyState from '$lib/components/shared/EmptyState.svelte';
 	import ErrorBoundary from '$lib/components/shared/ErrorBoundary.svelte';
@@ -20,7 +20,7 @@
 	const npub = $derived(nip19.npubEncode(data.pubkey));
 
 	let profile = $state<Record<string, string> | null>(null);
-	let tasks = $state<TaskSummary[]>([]);
+	let bounties = $state<BountySummary[]>([]);
 	let loading = $state(true);
 
 	$effect(() => {
@@ -41,18 +41,18 @@
 			});
 		subs.push(profileSub);
 
-		// Subscribe to tasks by this author from EventStore
-		const taskSub = eventStore
-			.timeline({ kinds: [TASK_KIND], authors: [data.pubkey] })
+		// Subscribe to bounties by this author from EventStore
+		const bountySub = eventStore
+			.timeline({ kinds: [BOUNTY_KIND], authors: [data.pubkey] })
 			.subscribe((events: NostrEvent[]) => {
-				tasks = events.map(parseTaskSummary).filter((s): s is TaskSummary => s !== null);
+				bounties = events.map(parseBountySummary).filter((s): s is BountySummary => s !== null);
 				loading = false;
 			});
-		subs.push(taskSub);
+		subs.push(bountySub);
 
 		// Start relay loaders
 		subs.push(createProfileLoader([data.pubkey]));
-		subs.push(createTaskByAuthorLoader(data.pubkey));
+		subs.push(createBountyByAuthorLoader(data.pubkey));
 
 		// Timeout fallback
 		const timer = setTimeout(() => {
@@ -72,7 +72,7 @@
 </script>
 
 <svelte:head>
-	<title>{displayName} - Tasks.fyi</title>
+	<title>{displayName} - Bounty.ninja</title>
 </svelte:head>
 
 <ErrorBoundary>
@@ -90,22 +90,22 @@
 			<p class="text-sm text-muted-foreground">{about}</p>
 		{/if}
 
-		<!-- Tasks by this author -->
+		<!-- Bounties by this author -->
 		<section>
 			<h2 class="mb-4 text-lg font-semibold text-foreground">
-				Tasks ({tasks.length})
+				Bounties ({bounties.length})
 			</h2>
 
-			{#if loading && tasks.length === 0}
+			{#if loading && bounties.length === 0}
 				<div class="flex items-center justify-center py-12">
 					<LoadingSpinner size="md" />
 				</div>
-			{:else if tasks.length === 0}
-				<EmptyState message="This user hasn't posted any tasks yet." />
+			{:else if bounties.length === 0}
+				<EmptyState message="This user hasn't posted any bounties yet." />
 			{:else}
 				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-					{#each tasks as task (task.id)}
-						<TaskCard {task} />
+					{#each bounties as bounty (bounty.id)}
+						<BountyCard {bounty} />
 					{/each}
 				</div>
 			{/if}

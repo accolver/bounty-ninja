@@ -1,8 +1,8 @@
 /**
- * Singleton CashuMint and CashuWallet initialization for Tasks.fyi.
+ * Singleton CashuMint and CashuWallet initialization for Bounty.ninja.
  *
  * Provides lazy-initialized wallet instances with retry logic.
- * Supports per-task mint overrides via mint URL parameter.
+ * Supports per-bounty mint overrides via mint URL parameter.
  *
  * @cashu/cashu-ts v3.x uses `Mint` and `Wallet` class names.
  */

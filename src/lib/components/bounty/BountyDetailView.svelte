@@ -1,12 +1,12 @@
 <script lang="ts">
-	import type { TaskDetail } from '$lib/task/types';
-	import { tallyVotes } from '$lib/task/voting';
-	import { TASK_KIND } from '$lib/task/kinds';
+	import type { BountyDetail } from '$lib/bounty/types';
+	import { tallyVotes } from '$lib/bounty/voting';
+	import { BOUNTY_KIND } from '$lib/bounty/kinds';
 	import { accountState } from '$lib/nostr/account.svelte';
 	import { nip19 } from 'nostr-tools';
-	import TaskStatusBadge from './TaskStatusBadge.svelte';
-	import TaskTags from './TaskTags.svelte';
-	import TaskTimer from './TaskTimer.svelte';
+	import BountyStatusBadge from './BountyStatusBadge.svelte';
+	import BountyTags from './BountyTags.svelte';
+	import BountyTimer from './BountyTimer.svelte';
 	import SatAmount from '$lib/components/shared/SatAmount.svelte';
 	import TimeAgo from '$lib/components/shared/TimeAgo.svelte';
 	import Markdown from '$lib/components/shared/Markdown.svelte';
@@ -23,14 +23,14 @@
 	import SolverClaim from '$lib/components/voting/SolverClaim.svelte';
 	import { formatNpub } from '$lib/utils/format';
 
-	const { detail }: { detail: TaskDetail } = $props();
+	const { detail }: { detail: BountyDetail } = $props();
 
 	const creatorNpub = $derived(nip19.npubEncode(detail.pubkey));
 
-	/** NIP-33 task address: kind:pubkey:d-tag */
-	const taskAddress = $derived(`${TASK_KIND}:${detail.pubkey}:${detail.dTag}`);
+	/** NIP-33 bounty address: kind:pubkey:d-tag */
+	const bountyAddress = $derived(`${BOUNTY_KIND}:${detail.pubkey}:${detail.dTag}`);
 
-	/** Whether the current user is the task creator */
+	/** Whether the current user is the bounty creator */
 	const isCreator = $derived(accountState.pubkey === detail.pubkey);
 
 	/** Build a map of pubkey → total pledge amount for voting */
@@ -63,8 +63,8 @@
 	<!-- Header -->
 	<header class="space-y-4">
 		<div class="flex flex-wrap items-center gap-3">
-			<TaskStatusBadge status={detail.status} />
-			<TaskTimer deadline={detail.deadline} />
+			<BountyStatusBadge status={detail.status} />
+			<BountyTimer deadline={detail.deadline} />
 			<TimeAgo timestamp={detail.createdAt} />
 		</div>
 
@@ -86,7 +86,7 @@
 	<!-- Reward & Pledges summary -->
 	<section
 		class="flex flex-wrap gap-6 rounded-lg border border-border bg-card p-4"
-		aria-label="Task funding"
+		aria-label="Bounty funding"
 	>
 		<div class="space-y-1">
 			<p class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Reward</p>
@@ -105,7 +105,7 @@
 	</section>
 
 	<!-- Description -->
-	<section aria-label="Task description">
+	<section aria-label="Bounty description">
 		<h2 class="mb-3 text-lg font-semibold text-foreground">Description</h2>
 		<div class="rounded-lg border border-border bg-card p-4">
 			<Markdown content={detail.description} />
@@ -116,7 +116,7 @@
 	{#if detail.tags.length > 0}
 		<section aria-label="Tags">
 			<h2 class="mb-3 text-lg font-semibold text-foreground">Tags</h2>
-			<TaskTags tags={detail.tags} />
+			<BountyTags tags={detail.tags} />
 		</section>
 	{/if}
 
@@ -131,9 +131,10 @@
 			</div>
 			<PledgeList pledges={detail.pledges} />
 			<PledgeForm
-				{taskAddress}
+				{bountyAddress}
 				creatorPubkey={detail.pubkey}
 				mintUrl={detail.mintUrl}
+				deadline={detail.deadline}
 				bind:open={pledgeFormOpen}
 			/>
 		</section>
@@ -191,11 +192,11 @@
 								</div>
 							{/if}
 
-							<!-- Vote buttons (only when task is in_review) -->
+							<!-- Vote buttons (only when bounty is in_review) -->
 							{#if detail.status === 'in_review' || detail.status === 'open'}
 								<div class="border-t border-border pt-3">
 									<VoteButton
-										{taskAddress}
+										{bountyAddress}
 										{solution}
 										pledges={detail.pledges}
 										existingVotes={votes}
@@ -207,7 +208,7 @@
 							{#if tally.isApproved}
 								<div class="rounded-md border border-success/40 bg-success/10 p-2 text-center">
 									<p class="text-sm font-medium text-success">
-										Solution approved! Awaiting payout from task creator.
+										Solution approved! Awaiting payout from bounty creator.
 									</p>
 								</div>
 							{/if}
@@ -219,7 +220,7 @@
 			<!-- Solution submission form -->
 			<div class="mt-4">
 				<SolutionForm
-					{taskAddress}
+					{bountyAddress}
 					creatorPubkey={detail.pubkey}
 					taskStatus={detail.status}
 					requiredFee={detail.submissionFee}
@@ -235,10 +236,10 @@
 			<section aria-label="Payout">
 				<h2 class="mb-3 text-lg font-semibold text-foreground">Payout</h2>
 				{#if isCreator}
-					<PayoutTrigger {taskAddress} {winningSolution} pledges={detail.pledges} {isCreator} />
+					<PayoutTrigger {bountyAddress} {winningSolution} pledges={detail.pledges} {isCreator} />
 				{:else}
 					<div class="rounded-lg border border-border bg-card p-4 text-center">
-						<p class="text-sm text-muted-foreground">Awaiting payout from task creator.</p>
+						<p class="text-sm text-muted-foreground">Awaiting payout from bounty creator.</p>
 					</div>
 				{/if}
 			</section>

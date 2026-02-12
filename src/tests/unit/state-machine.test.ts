@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { NostrEvent } from 'nostr-tools';
-import { deriveTaskStatus } from '$lib/task/state-machine';
+import { deriveBountyStatus } from '$lib/bounty/state-machine';
 
 function mockEvent(overrides: Partial<NostrEvent> = {}): NostrEvent {
 	return {
@@ -17,23 +17,23 @@ function mockEvent(overrides: Partial<NostrEvent> = {}): NostrEvent {
 
 const NOW = 1700000000;
 
-describe('deriveTaskStatus', () => {
+describe('deriveBountyStatus', () => {
 	it('returns "draft" when there are no related events', () => {
 		const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
-		expect(deriveTaskStatus(taskEvt, [], [], [], [], NOW)).toBe('draft');
+		expect(deriveBountyStatus(taskEvt, [], [], [], [], NOW)).toBe('draft');
 	});
 
 	it('returns "open" when there are pledges but no solutions', () => {
 		const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
 		const pledge = mockEvent({ kind: 73002 });
-		expect(deriveTaskStatus(taskEvt, [pledge], [], [], [], NOW)).toBe('open');
+		expect(deriveBountyStatus(taskEvt, [pledge], [], [], [], NOW)).toBe('open');
 	});
 
 	it('returns "in_review" when there are solutions', () => {
 		const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
 		const pledge = mockEvent({ kind: 73002 });
 		const solution = mockEvent({ kind: 73001 });
-		expect(deriveTaskStatus(taskEvt, [pledge], [solution], [], [], NOW)).toBe('in_review');
+		expect(deriveBountyStatus(taskEvt, [pledge], [solution], [], [], NOW)).toBe('in_review');
 	});
 
 	it('returns "completed" when there are payouts', () => {
@@ -41,14 +41,14 @@ describe('deriveTaskStatus', () => {
 		const pledge = mockEvent({ kind: 73002 });
 		const solution = mockEvent({ kind: 73001 });
 		const payout = mockEvent({ kind: 73004 });
-		expect(deriveTaskStatus(taskEvt, [pledge], [solution], [payout], [], NOW)).toBe('completed');
+		expect(deriveBountyStatus(taskEvt, [pledge], [solution], [payout], [], NOW)).toBe('completed');
 	});
 
 	it('returns "cancelled" when there are delete events', () => {
 		const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
 		const pledge = mockEvent({ kind: 73002 });
 		const deleteEvent = mockEvent({ kind: 5 });
-		expect(deriveTaskStatus(taskEvt, [pledge], [], [], [deleteEvent], NOW)).toBe('cancelled');
+		expect(deriveBountyStatus(taskEvt, [pledge], [], [], [deleteEvent], NOW)).toBe('cancelled');
 	});
 
 	it('returns "expired" when expiration is in the past', () => {
@@ -59,7 +59,7 @@ describe('deriveTaskStatus', () => {
 				['expiration', '1699999999']
 			]
 		});
-		expect(deriveTaskStatus(taskEvt, [], [], [], [], NOW)).toBe('expired');
+		expect(deriveBountyStatus(taskEvt, [], [], [], [], NOW)).toBe('expired');
 	});
 
 	it('does not return "expired" when expiration is in the future', () => {
@@ -71,7 +71,7 @@ describe('deriveTaskStatus', () => {
 			]
 		});
 		const pledge = mockEvent({ kind: 73002 });
-		expect(deriveTaskStatus(taskEvt, [pledge], [], [], [], NOW)).toBe('open');
+		expect(deriveBountyStatus(taskEvt, [pledge], [], [], [], NOW)).toBe('open');
 	});
 
 	it('returns "expired" when expiration equals now exactly', () => {
@@ -82,7 +82,7 @@ describe('deriveTaskStatus', () => {
 				['expiration', String(NOW)]
 			]
 		});
-		expect(deriveTaskStatus(taskEvt, [], [], [], [], NOW)).toBe('expired');
+		expect(deriveBountyStatus(taskEvt, [], [], [], [], NOW)).toBe('expired');
 	});
 
 	// Priority order tests
@@ -91,7 +91,7 @@ describe('deriveTaskStatus', () => {
 			const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
 			const payout = mockEvent({ kind: 73004 });
 			const deleteEvent = mockEvent({ kind: 5 });
-			expect(deriveTaskStatus(taskEvt, [], [], [payout], [deleteEvent], NOW)).toBe('cancelled');
+			expect(deriveBountyStatus(taskEvt, [], [], [payout], [deleteEvent], NOW)).toBe('cancelled');
 		});
 
 		it('completed takes priority over expired', () => {
@@ -103,7 +103,7 @@ describe('deriveTaskStatus', () => {
 				]
 			});
 			const payout = mockEvent({ kind: 73004 });
-			expect(deriveTaskStatus(taskEvt, [], [], [payout], [], NOW)).toBe('completed');
+			expect(deriveBountyStatus(taskEvt, [], [], [payout], [], NOW)).toBe('completed');
 		});
 
 		it('expired takes priority over in_review', () => {
@@ -115,14 +115,14 @@ describe('deriveTaskStatus', () => {
 				]
 			});
 			const solution = mockEvent({ kind: 73001 });
-			expect(deriveTaskStatus(taskEvt, [], [solution], [], [], NOW)).toBe('expired');
+			expect(deriveBountyStatus(taskEvt, [], [solution], [], [], NOW)).toBe('expired');
 		});
 
 		it('in_review takes priority over open', () => {
 			const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
 			const pledge = mockEvent({ kind: 73002 });
 			const solution = mockEvent({ kind: 73001 });
-			expect(deriveTaskStatus(taskEvt, [pledge], [solution], [], [], NOW)).toBe('in_review');
+			expect(deriveBountyStatus(taskEvt, [pledge], [solution], [], [], NOW)).toBe('in_review');
 		});
 
 		it('cancelled takes priority over everything', () => {
@@ -138,7 +138,7 @@ describe('deriveTaskStatus', () => {
 			const payout = mockEvent({ kind: 73004 });
 			const deleteEvent = mockEvent({ kind: 5 });
 			expect(
-				deriveTaskStatus(taskEvt, [pledge], [solution], [payout], [deleteEvent], NOW)
+				deriveBountyStatus(taskEvt, [pledge], [solution], [payout], [deleteEvent], NOW)
 			).toBe('cancelled');
 		});
 	});
@@ -146,7 +146,7 @@ describe('deriveTaskStatus', () => {
 	describe('edge cases', () => {
 		it('handles missing expiration tag gracefully', () => {
 			const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
-			expect(deriveTaskStatus(taskEvt, [], [], [], [], NOW)).toBe('draft');
+			expect(deriveBountyStatus(taskEvt, [], [], [], [], NOW)).toBe('draft');
 		});
 
 		it('handles malformed expiration tag', () => {
@@ -158,7 +158,7 @@ describe('deriveTaskStatus', () => {
 				]
 			});
 			// Malformed expiration should be treated as no expiration
-			expect(deriveTaskStatus(taskEvt, [], [], [], [], NOW)).toBe('draft');
+			expect(deriveBountyStatus(taskEvt, [], [], [], [], NOW)).toBe('draft');
 		});
 
 		it('handles empty expiration tag value', () => {
@@ -166,7 +166,7 @@ describe('deriveTaskStatus', () => {
 				kind: 37300,
 				tags: [['expiration']]
 			});
-			expect(deriveTaskStatus(taskEvt, [], [], [], [], NOW)).toBe('draft');
+			expect(deriveBountyStatus(taskEvt, [], [], [], [], NOW)).toBe('draft');
 		});
 
 		it('uses current time when now is not provided', () => {
@@ -179,13 +179,13 @@ describe('deriveTaskStatus', () => {
 				]
 			});
 			// Should not be expired since expiration is far in the future
-			expect(deriveTaskStatus(taskEvt, [], [], [], [])).toBe('draft');
+			expect(deriveBountyStatus(taskEvt, [], [], [], [])).toBe('draft');
 		});
 
 		it('returns "in_review" with solutions but no pledges', () => {
 			const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
 			const solution = mockEvent({ kind: 73001 });
-			expect(deriveTaskStatus(taskEvt, [], [solution], [], [], NOW)).toBe('in_review');
+			expect(deriveBountyStatus(taskEvt, [], [solution], [], [], NOW)).toBe('in_review');
 		});
 	});
 });

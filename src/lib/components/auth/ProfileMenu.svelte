@@ -150,7 +150,7 @@
 					</a>
 
 					<a
-						href="/task/new"
+						href="/bounty/new"
 						onclick={close}
 						class="flex items-center gap-2 px-3 py-2 text-sm text-card-foreground transition-colors hover:bg-muted focus-visible:bg-muted"
 						role="menuitem"
@@ -165,7 +165,7 @@
 						>
 							<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
 						</svg>
-						Create Task
+						Create Bounty
 					</a>
 				</div>
 

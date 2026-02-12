@@ -1,26 +1,38 @@
 <script lang="ts">
-	import type { Solution, Pledge } from '$lib/task/types';
+	import type { Solution, Pledge } from '$lib/bounty/types';
 	import { nip19 } from 'nostr-tools';
 	import { accountState } from '$lib/nostr/account.svelte';
 	import { publishEvent } from '$lib/nostr/signer.svelte';
-	import { payoutBlueprint } from '$lib/task/blueprints';
-	import { PAYOUT_KIND } from '$lib/task/kinds';
+	import { payoutBlueprint } from '$lib/bounty/blueprints';
+	import { PAYOUT_KIND } from '$lib/bounty/kinds';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { rateLimiter } from '$lib/nostr/rate-limiter';
 	import { connectivity } from '$lib/stores/connectivity.svelte';
 	import { formatNpub } from '$lib/utils/format';
+	import {
+		collectPledgeTokens,
+		swapPledgeTokens,
+		createPayoutToken,
+		encodePayoutToken,
+		checkPledgeProofsSpendable
+	} from '$lib/cashu/escrow';
+	import { getWallet } from '$lib/cashu/mint';
+	import { getProofsAmount } from '$lib/cashu/token';
+	import { MintConnectionError, DoubleSpendError } from '$lib/cashu/types';
 	import SatAmount from '$lib/components/shared/SatAmount.svelte';
 	import LoadingSpinner from '$lib/components/shared/LoadingSpinner.svelte';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
+	import ShieldAlertIcon from '@lucide/svelte/icons/shield-alert';
 
 	const {
-		taskAddress,
+		bountyAddress,
 		winningSolution,
 		pledges,
 		isCreator
 	}: {
-		taskAddress: string;
+		bountyAddress: string;
 		winningSolution: Solution | undefined;
 		pledges: Pledge[];
 		isCreator: boolean;
@@ -28,6 +40,11 @@
 
 	let showConfirm = $state(false);
 	let processing = $state(false);
+	let step = $state<'confirm' | 'key-entry' | 'processing'>('confirm');
+	let nsecInput = $state('');
+	let nsecError = $state('');
+	let spendableCount = $state<number | null>(null);
+	let statusMessage = $state('');
 
 	// ── Rate limit state ────────────────────────────────────────
 	let rateLimitRemaining = $state(0);
@@ -49,13 +66,90 @@
 
 	const formattedSolverNpub = $derived(solverNpub ? formatNpub(solverNpub) : null);
 
-	// Only render when user is the task creator and there's a winning solution
 	const canTriggerPayout = $derived(
 		accountState.isLoggedIn && isCreator && winningSolution !== undefined
 	);
 
+	// ── Nsec decoding ───────────────────────────────────────────
+	let privkeyHex = $derived.by(() => {
+		const trimmed = nsecInput.trim();
+		if (!trimmed) return '';
+
+		// Try nsec1... format
+		if (trimmed.startsWith('nsec1')) {
+			try {
+				const decoded = nip19.decode(trimmed);
+				if (decoded.type === 'nsec') {
+					return Buffer.from(decoded.data).toString('hex');
+				}
+			} catch {
+				return '';
+			}
+		}
+
+		// Try raw 64-char hex
+		if (/^[0-9a-f]{64}$/i.test(trimmed)) {
+			return trimmed.toLowerCase();
+		}
+
+		return '';
+	});
+
+	$effect(() => {
+		const trimmed = nsecInput.trim();
+		if (!trimmed) {
+			nsecError = '';
+			return;
+		}
+		if (!privkeyHex) {
+			nsecError = 'Invalid key — enter an nsec1... or 64-char hex private key';
+		} else {
+			nsecError = '';
+		}
+	});
+
+	const isKeyValid = $derived(privkeyHex.length === 64);
+
+	function openDialog() {
+		step = 'confirm';
+		nsecInput = '';
+		nsecError = '';
+		spendableCount = null;
+		statusMessage = '';
+		showConfirm = true;
+	}
+
+	function goToKeyEntry() {
+		step = 'key-entry';
+
+		// Check spendability in background
+		checkSpendable();
+	}
+
+	async function checkSpendable() {
+		try {
+			const decoded = collectPledgeTokens(pledges.map((p) => p.event));
+			if (decoded.length === 0) {
+				spendableCount = 0;
+				return;
+			}
+
+			const mintUrl = decoded[0].mint;
+			const wallet = await getWallet(mintUrl);
+			const results = await checkPledgeProofsSpendable(decoded, wallet);
+			let count = 0;
+			for (const [, ok] of results) {
+				if (ok) count++;
+			}
+			spendableCount = count;
+		} catch {
+			// Non-critical — don't block the flow
+			spendableCount = null;
+		}
+	}
+
 	async function handlePayout() {
-		if (!winningSolution || processing) return;
+		if (!winningSolution || processing || !isKeyValid) return;
 
 		// Rate limit check
 		const rateCheck = rateLimiter.canPublish(PAYOUT_KIND);
@@ -65,27 +159,77 @@
 			return;
 		}
 
+		// Capture the private key and immediately clear the input
+		const creatorPrivkey = privkeyHex;
+		nsecInput = '';
+
 		processing = true;
+		step = 'processing';
+
 		try {
-			// For MVP: create a placeholder payout token
-			const cashuToken = `cashuA_payout_${totalPledged}_${Date.now()}`;
+			// Step 1: Collect pledge tokens from events
+			statusMessage = 'Collecting pledge tokens...';
+			const decodedPledges = collectPledgeTokens(pledges.map((p) => p.event));
+			if (decodedPledges.length === 0) {
+				toastStore.error('No valid pledge tokens found');
+				return;
+			}
+
+			// Step 2: Connect to mint
+			statusMessage = 'Connecting to mint...';
+			const mintUrl = decodedPledges[0].mint;
+			const wallet = await getWallet(mintUrl);
+
+			// Step 3: Swap P2PK-locked proofs using creator's private key
+			statusMessage = 'Unlocking pledge tokens...';
+			const swapResult = await swapPledgeTokens(decodedPledges, wallet, creatorPrivkey);
+
+			if (!swapResult.success) {
+				toastStore.error(swapResult.error ?? 'Failed to unlock pledge tokens');
+				return;
+			}
+
+			// Step 4: Create solver-locked payout token
+			statusMessage = 'Creating payout token for solver...';
+			const payoutResult = await createPayoutToken(
+				swapResult.sendProofs,
+				winningSolution.pubkey,
+				wallet
+			);
+
+			if (!payoutResult.success) {
+				toastStore.error(payoutResult.error ?? 'Failed to create payout token');
+				return;
+			}
+
+			// Step 5: Encode and publish payout event
+			statusMessage = 'Publishing payout event...';
+			const payoutTokenStr = encodePayoutToken(payoutResult.proofs, mintUrl);
+			const payoutAmount = getProofsAmount(payoutResult.proofs);
 
 			const template = payoutBlueprint({
-				taskAddress,
+				bountyAddress,
 				solutionId: winningSolution.id,
 				solverPubkey: winningSolution.pubkey,
-				amount: totalPledged,
-				cashuToken
+				amount: payoutAmount,
+				cashuToken: payoutTokenStr
 			});
 
 			await publishEvent(template);
 			rateLimiter.recordPublish(PAYOUT_KIND);
-			toastStore.success(`Payout of ${totalPledged.toLocaleString()} sats sent to solver!`);
+			toastStore.success(`Payout of ${payoutAmount.toLocaleString()} sats sent to solver!`);
 			showConfirm = false;
 		} catch (err) {
-			toastStore.error(err instanceof Error ? err.message : 'Payout failed');
+			if (err instanceof DoubleSpendError) {
+				toastStore.error('Pledge tokens have already been spent');
+			} else if (err instanceof MintConnectionError) {
+				toastStore.error('Could not connect to the Cashu mint. Please try again.');
+			} else {
+				toastStore.error(err instanceof Error ? err.message : 'Payout failed');
+			}
 		} finally {
 			processing = false;
+			statusMessage = '';
 		}
 	}
 </script>
@@ -98,7 +242,7 @@
 		<Button
 			variant="default"
 			class="w-full bg-success text-background hover:bg-success/90"
-			onclick={() => (showConfirm = true)}
+			onclick={openDialog}
 			disabled={processing || !connectivity.online || isRateLimited}
 		>
 			<svg
@@ -121,93 +265,146 @@
 			{/if}
 		</Button>
 
-		<!-- Confirmation dialog -->
+		<!-- Multi-step payout dialog -->
 		<Dialog.Root bind:open={showConfirm}>
 			<Dialog.Content>
 				<Dialog.Header>
-					<Dialog.Title>Confirm Payout</Dialog.Title>
+					<Dialog.Title>
+						{#if step === 'confirm'}Confirm Payout
+						{:else if step === 'key-entry'}Enter Private Key
+						{:else}Processing Payout{/if}
+					</Dialog.Title>
 					<Dialog.Description>
-						Review the payout details before confirming. This action is irreversible.
+						{#if step === 'confirm'}
+							Review the payout details before proceeding.
+						{:else if step === 'key-entry'}
+							Your private key is needed to unlock the escrowed pledge tokens.
+						{:else}
+							Swapping tokens at the mint...
+						{/if}
 					</Dialog.Description>
 				</Dialog.Header>
 
-				<div class="space-y-4 py-2">
-					<!-- Winning solution summary -->
-					<div class="rounded-md border border-border bg-card p-3 space-y-2">
-						<h4 class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-							Winning Solution
-						</h4>
-						<p class="text-sm text-foreground line-clamp-3">
-							{winningSolution?.description.slice(0, 200)}{winningSolution &&
-							winningSolution.description.length > 200
-								? '...'
-								: ''}
-						</p>
-					</div>
+				<!-- Step 1: Confirm -->
+				{#if step === 'confirm'}
+					<div class="space-y-4 py-2">
+						<div class="rounded-md border border-border bg-card p-3 space-y-2">
+							<h4 class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+								Winning Solution
+							</h4>
+							<p class="text-sm text-foreground line-clamp-3">
+								{winningSolution?.description.slice(0, 200)}{winningSolution &&
+								winningSolution.description.length > 200
+									? '...'
+									: ''}
+							</p>
+						</div>
 
-					<!-- Solver -->
-					<div class="flex items-center justify-between text-sm">
-						<span class="text-muted-foreground">Solver</span>
-						{#if solverNpub}
-							<a
-								href="/profile/{solverNpub}"
-								class="font-medium text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-							>
-								{formattedSolverNpub}
-							</a>
-						{/if}
-					</div>
+						<div class="flex items-center justify-between text-sm">
+							<span class="text-muted-foreground">Solver</span>
+							{#if solverNpub}
+								<a
+									href="/profile/{solverNpub}"
+									class="font-medium text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+								>
+									{formattedSolverNpub}
+								</a>
+							{/if}
+						</div>
 
-					<!-- Payout amount -->
-					<div class="flex items-center justify-between text-sm">
-						<span class="text-muted-foreground">Payout Amount</span>
-						<SatAmount amount={totalPledged} />
-					</div>
+						<div class="flex items-center justify-between text-sm">
+							<span class="text-muted-foreground">Payout Amount</span>
+							<SatAmount amount={totalPledged} />
+						</div>
 
-					<!-- Warning -->
-					<div
-						class="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 p-3"
-						role="alert"
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							viewBox="0 0 20 20"
-							fill="currentColor"
-							class="mt-0.5 h-4 w-4 shrink-0 text-warning"
-							aria-hidden="true"
+						<div
+							class="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 p-3"
+							role="alert"
 						>
-							<path
-								fill-rule="evenodd"
-								d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"
-								clip-rule="evenodd"
-							/>
-						</svg>
-						<p class="text-xs text-warning">
-							This action cannot be undone. The Cashu tokens will be transferred to the solver.
-							Ensure the winning solution meets the task requirements.
-						</p>
+							<TriangleAlertIcon class="mt-0.5 size-4 shrink-0 text-warning" />
+							<p class="text-xs text-warning">
+								This action cannot be undone. The Cashu tokens will be transferred to the solver.
+								Ensure the winning solution meets the bounty requirements.
+							</p>
+						</div>
 					</div>
-				</div>
 
-				<Dialog.Footer>
-					<Button variant="outline" onclick={() => (showConfirm = false)} disabled={processing}>
-						Cancel
-					</Button>
-					<Button
-						class="bg-success text-background hover:bg-success/90"
-						onclick={handlePayout}
-						disabled={processing || !connectivity.online}
-					>
-						{#if processing}
-							<LoadingSpinner size="sm" />
-							Processing...
-						{:else if !connectivity.online}
-							Offline
-						{:else}
-							Confirm Payout
+					<Dialog.Footer>
+						<Button variant="outline" onclick={() => (showConfirm = false)}>Cancel</Button>
+						<Button
+							class="bg-success text-background hover:bg-success/90"
+							onclick={goToKeyEntry}
+							disabled={!connectivity.online}
+						>
+							Continue
+						</Button>
+					</Dialog.Footer>
+
+					<!-- Step 2: Key entry -->
+				{:else if step === 'key-entry'}
+					<div class="space-y-4 py-2">
+						<!-- Security warning -->
+						<div
+							class="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3"
+							role="alert"
+						>
+							<ShieldAlertIcon class="mt-0.5 size-4 shrink-0 text-destructive" />
+							<div class="space-y-1">
+								<p class="text-xs font-medium text-destructive">Private key required</p>
+								<p class="text-xs text-foreground/80">
+									Your private key is used to sign the P2PK-locked pledge tokens. It is held in
+									memory only for the swap operation and immediately cleared. It is never stored or
+									transmitted.
+								</p>
+							</div>
+						</div>
+
+						<!-- Nsec input -->
+						<div class="space-y-2">
+							<label for="payout-nsec" class="text-sm font-medium text-foreground">
+								Private Key
+							</label>
+							<input
+								id="payout-nsec"
+								type="password"
+								bind:value={nsecInput}
+								autocomplete="off"
+								spellcheck={false}
+								placeholder="nsec1... or hex private key"
+								class="font-mono text-xs border-border bg-white dark:bg-input/30 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-full rounded-md border px-3 py-2 shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]"
+							/>
+							{#if nsecError}
+								<p class="text-xs text-destructive" role="alert">{nsecError}</p>
+							{/if}
+						</div>
+
+						<!-- Spendability check result -->
+						{#if spendableCount !== null}
+							<p class="text-xs text-muted-foreground">
+								{spendableCount} of {pledges.length} pledge token{pledges.length === 1 ? '' : 's'} verified
+								as spendable.
+							</p>
 						{/if}
-					</Button>
-				</Dialog.Footer>
+					</div>
+
+					<Dialog.Footer>
+						<Button variant="outline" onclick={() => (step = 'confirm')}>Back</Button>
+						<Button
+							class="bg-success text-background hover:bg-success/90"
+							onclick={handlePayout}
+							disabled={!isKeyValid || !connectivity.online}
+						>
+							Sign & Send Payout
+						</Button>
+					</Dialog.Footer>
+
+					<!-- Step 3: Processing -->
+				{:else}
+					<div class="flex flex-col items-center gap-3 py-6">
+						<LoadingSpinner size="lg" />
+						<p class="text-sm text-muted-foreground">{statusMessage}</p>
+					</div>
+				{/if}
 			</Dialog.Content>
 		</Dialog.Root>
 	</div>

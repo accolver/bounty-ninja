@@ -1,10 +1,10 @@
 import type { Subscription } from 'rxjs';
 import { combineLatest } from 'rxjs';
 import type { NostrEvent } from 'nostr-tools';
-import type { TaskDetail } from '$lib/task/types';
+import type { BountyDetail } from '$lib/bounty/types';
 import { eventStore } from '$lib/nostr/event-store';
-import { parseTaskDetail } from '$lib/task/helpers';
-import { PLEDGE_KIND, SOLUTION_KIND, VOTE_KIND, PAYOUT_KIND } from '$lib/task/kinds';
+import { parseBountyDetail } from '$lib/bounty/helpers';
+import { PLEDGE_KIND, SOLUTION_KIND, VOTE_KIND, PAYOUT_KIND } from '$lib/bounty/kinds';
 import { pool } from '$lib/nostr/relay-pool';
 import { onlyEvents } from 'applesauce-relay';
 import { mapEventsToStore } from 'applesauce-core';
@@ -15,20 +15,20 @@ import { createVoteLoader } from '$lib/nostr/loaders/vote-loader';
 import { createProfileLoader } from '$lib/nostr/loaders/profile-loader';
 
 /**
- * Reactive store for a single task's full detail.
+ * Reactive store for a single bounty's full detail.
  * Subscribes to multiple EventStore timelines and composes them
- * into a single TaskDetail object.
+ * into a single BountyDetail object.
  */
-export class TaskDetailStore {
-	#task = $state<TaskDetail | null>(null);
+export class BountyDetailStore {
+	#bounty = $state<BountyDetail | null>(null);
 	#loading = $state(true);
 	#error = $state<string | null>(null);
 	#combinedSub: Subscription | null = null;
 	#relaySubs: Array<{ unsubscribe(): void }> = [];
 
-	/** The full task detail, or null if not loaded */
-	get task(): TaskDetail | null {
-		return this.#task;
+	/** The full bounty detail, or null if not loaded */
+	get bounty(): BountyDetail | null {
+		return this.#bounty;
 	}
 
 	/** Whether the initial load is still in progress */
@@ -42,32 +42,32 @@ export class TaskDetailStore {
 	}
 
 	/**
-	 * Load a task and all related events.
+	 * Load a bounty and all related events.
 	 * Cleans up any previous subscriptions first.
 	 */
-	load(taskAddress: string, kind: number, pubkey: string, dTag: string) {
+	load(bountyAddress: string, kind: number, pubkey: string, dTag: string) {
 		this.destroy();
 		this.#loading = true;
 		this.#error = null;
 
 		// Subscribe to EventStore timelines for all related event kinds
-		const task$ = eventStore.replaceable(kind, pubkey, dTag);
-		const pledges$ = eventStore.timeline({ kinds: [PLEDGE_KIND], '#a': [taskAddress] });
-		const solutions$ = eventStore.timeline({ kinds: [SOLUTION_KIND], '#a': [taskAddress] });
-		const votes$ = eventStore.timeline({ kinds: [VOTE_KIND], '#a': [taskAddress] });
-		const payouts$ = eventStore.timeline({ kinds: [PAYOUT_KIND], '#a': [taskAddress] });
+		const bounty$ = eventStore.replaceable(kind, pubkey, dTag);
+		const pledges$ = eventStore.timeline({ kinds: [PLEDGE_KIND], '#a': [bountyAddress] });
+		const solutions$ = eventStore.timeline({ kinds: [SOLUTION_KIND], '#a': [bountyAddress] });
+		const votes$ = eventStore.timeline({ kinds: [VOTE_KIND], '#a': [bountyAddress] });
+		const payouts$ = eventStore.timeline({ kinds: [PAYOUT_KIND], '#a': [bountyAddress] });
 
-		this.#combinedSub = combineLatest([task$, pledges$, solutions$, votes$, payouts$]).subscribe({
-			next: ([taskEvent, pledgeEvents, solutionEvents, voteEvents, payoutEvents]: [
+		this.#combinedSub = combineLatest([bounty$, pledges$, solutions$, votes$, payouts$]).subscribe({
+			next: ([bountyEvent, pledgeEvents, solutionEvents, voteEvents, payoutEvents]: [
 				NostrEvent | undefined,
 				NostrEvent[],
 				NostrEvent[],
 				NostrEvent[],
 				NostrEvent[]
 			]) => {
-				if (taskEvent) {
-					this.#task = parseTaskDetail(
-						taskEvent,
+				if (bountyEvent) {
+					this.#bounty = parseBountyDetail(
+						bountyEvent,
 						pledgeEvents,
 						solutionEvents,
 						voteEvents,
@@ -78,22 +78,22 @@ export class TaskDetailStore {
 				this.#loading = false;
 			},
 			error: (err: unknown) => {
-				this.#error = err instanceof Error ? err.message : 'Failed to load task details';
+				this.#error = err instanceof Error ? err.message : 'Failed to load bounty details';
 				this.#loading = false;
 			}
 		});
 
 		// Start relay loaders to feed events into EventStore
-		this.#relaySubs.push(createPledgeLoader(taskAddress));
-		this.#relaySubs.push(createSolutionLoader(taskAddress));
-		this.#relaySubs.push(createVoteLoader(taskAddress));
+		this.#relaySubs.push(createPledgeLoader(bountyAddress));
+		this.#relaySubs.push(createSolutionLoader(bountyAddress));
+		this.#relaySubs.push(createVoteLoader(bountyAddress));
 		this.#relaySubs.push(createProfileLoader([pubkey]));
 
-		// Also load the task event itself from relays via a direct subscription
-		this.#loadTaskFromRelays(kind, pubkey, dTag);
+		// Also load the bounty event itself from relays via a direct subscription
+		this.#loadBountyFromRelays(kind, pubkey, dTag);
 	}
 
-	#loadTaskFromRelays(kind: number, pubkey: string, dTag: string) {
+	#loadBountyFromRelays(kind: number, pubkey: string, dTag: string) {
 		const filter = { kinds: [kind], authors: [pubkey], '#d': [dTag] };
 		const relayUrls = getDefaultRelays();
 

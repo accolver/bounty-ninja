@@ -1,7 +1,7 @@
 ## Why
 
 Phases 1-2 delivered a read-only task board. Phase 3 (PRD Section 18) is the
-core product — implementing all write operations that make Tasks.fyi a
+core product — implementing all write operations that make Bounty.ninja a
 functional marketplace: creating tasks, funding with Cashu ecash, submitting
 solutions with anti-spam fees, voting on solutions, and orchestrating payouts.
 This phase introduces the Cashu payment layer and Nostr event publishing via

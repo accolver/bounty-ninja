@@ -1,8 +1,8 @@
 /**
- * Escrow operations for the Tasks.fyi task lifecycle.
+ * Escrow operations for the Bounty.ninja bounty lifecycle.
  *
  * Handles the full flow of Cashu token escrow:
- * 1. Pledger creates P2PK-locked tokens for the task creator
+ * 1. Pledger creates P2PK-locked tokens for the bounty creator
  * 2. Creator collects pledge tokens from Kind 73002 events
  * 3. Creator swaps locked tokens (proves ownership via private key)
  * 4. Creator creates new P2PK-locked tokens for the winning solver
@@ -19,21 +19,29 @@ import { createP2PKLock } from './p2pk';
 import { getWallet } from './mint';
 
 /**
- * Create a P2PK-locked pledge token for a task.
+ * Create a P2PK-locked pledge token for a bounty.
  *
  * This is called by a pledger who already has Cashu proofs (from their wallet).
- * The proofs are swapped at the mint for new proofs locked to the task
+ * The proofs are swapped at the mint for new proofs locked to the bounty
  * creator's public key, ensuring only the creator can claim them.
  *
+ * When locktime and refundPubkey are provided, the pledge includes a refund
+ * path: if the creator doesn't pay out before the bounty deadline, the pledger
+ * can reclaim the tokens using their own key.
+ *
  * @param proofs - The pledger's spendable proofs to lock.
- * @param creatorPubkey - Hex-encoded public key of the task creator.
+ * @param creatorPubkey - Hex-encoded public key of the bounty creator.
  * @param mintUrl - Optional mint URL override. Uses default mint if omitted.
+ * @param locktime - Optional Unix timestamp (bounty deadline) after which refund keys can spend.
+ * @param refundPubkey - Optional pledger's hex pubkey for refund after locktime.
  * @returns MintResult with the P2PK-locked proofs on success.
  */
 export async function createPledgeToken(
 	proofs: Proof[],
 	creatorPubkey: string,
-	mintUrl?: string
+	mintUrl?: string,
+	locktime?: number,
+	refundPubkey?: string
 ): Promise<MintResult> {
 	if (proofs.length === 0) {
 		return { success: false, proofs: [], error: 'No proofs provided' };
@@ -46,7 +54,11 @@ export async function createPledgeToken(
 
 	try {
 		const wallet = await getWallet(mintUrl);
-		const p2pkOptions = createP2PKLock(creatorPubkey);
+		const p2pkOptions = createP2PKLock(
+			creatorPubkey,
+			locktime,
+			refundPubkey ? [refundPubkey] : undefined
+		);
 		const fees = wallet.getFeesForProofs(proofs);
 		const sendAmount = amount - fees;
 
@@ -124,7 +136,7 @@ export function collectPledgeTokens(pledgeEvents: NostrEvent[]): DecodedPledge[]
 /**
  * Swap P2PK-locked pledge tokens at the mint.
  *
- * Called by the task creator to claim pledged tokens. The creator
+ * Called by the bounty creator to claim pledged tokens. The creator
  * must hold the private key corresponding to the P2PK lock. The
  * wallet's NIP-07 signer or provided private key is used to prove
  * ownership during the swap.
@@ -218,7 +230,7 @@ export async function swapPledgeTokens(
 /**
  * Create new P2PK-locked tokens for the winning solver.
  *
- * Called by the task creator after consensus voting determines a winner.
+ * Called by the bounty creator after consensus voting determines a winner.
  * The creator's unlocked proofs are swapped for new proofs locked to
  * the solver's public key.
  *
@@ -286,7 +298,7 @@ export async function createPayoutToken(
  * @returns Encoded Cashu token string.
  */
 export function encodePayoutToken(proofs: Proof[], mintUrl: string): string {
-	return encodeToken(proofs, mintUrl, 'Tasks.fyi task payout');
+	return encodeToken(proofs, mintUrl, 'Bounty.ninja bounty payout');
 }
 
 /**

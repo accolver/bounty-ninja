@@ -14,19 +14,19 @@ export const load: PageLoad = ({ params }) => {
 		}
 
 		const { kind, pubkey, identifier, relays } = decoded.data;
-		const taskAddress = `${kind}:${pubkey}:${identifier}`;
+		const bountyAddress = `${kind}:${pubkey}:${identifier}`;
 
 		return {
 			kind,
 			pubkey,
 			dTag: identifier,
-			taskAddress,
+			bountyAddress,
 			relays: relays ?? []
 		};
 	} catch (e) {
 		if (e && typeof e === 'object' && 'status' in e) {
 			throw e; // Re-throw SvelteKit errors
 		}
-		error(404, 'Invalid task address');
+		error(404, 'Invalid bounty address');
 	}
 };

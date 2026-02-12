@@ -82,7 +82,7 @@
 ## 7. Utility Modules
 
 - [x] 7.1 Create `src/lib/utils/constants.ts` — export `CLIENT_TAG` with value
-      `"tasks.fyi"` and other app-wide constants
+      `"bounty.ninja"` and other app-wide constants
 - [x] 7.2 Create `src/lib/utils/env.ts` — export typed accessor functions for
       all `PUBLIC_*` environment variables with sensible fallback defaults
       (relay list, mint URL, app name, fee range, search relay)
@@ -96,7 +96,7 @@
 ## 8. Utility Module Tests
 
 - [x] 8.1 Create `src/tests/unit/constants.test.ts` — verify
-      `CLIENT_TAG === "tasks.fyi"`
+      `CLIENT_TAG === "bounty.ninja"`
 - [x] 8.2 Create `src/tests/unit/env.test.ts` — verify typed env accessors
       return defaults when variables are undefined
 - [x] 8.3 Create `src/tests/unit/format.test.ts` — test `formatSats()` with
@@ -169,7 +169,7 @@
 ## 16. Layout Components
 
 - [x] 16.1 Create `src/lib/components/layout/Header.svelte` — render `<header>`
-      with `<nav>`, Tasks.fyi logo/wordmark linking to `/`, `LoginButton` when
+      with `<nav>`, Bounty.ninja logo/wordmark linking to `/`, `LoginButton` when
       logged out, truncated npub when logged in, responsive design, keyboard
       navigable
 - [x] 16.2 Create `src/lib/components/shared/RelayStatus.svelte` — display

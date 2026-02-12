@@ -2,7 +2,7 @@
 
 The MVP features are complete (Phases 1-4) but the app needs security hardening,
 performance optimization, and deployment preparation before going live at
-https://tasks.fyi. Phase 5 (PRD Section 18) addresses Cashu token validation,
+https://bounty.ninja. Phase 5 (PRD Section 18) addresses Cashu token validation,
 Nostr event signature verification, XSS-safe markdown rendering, bundle
 optimization, IndexedDB cache management, rate limiting, offline resilience, and
 production deployment configuration.
@@ -24,7 +24,7 @@ production deployment configuration.
 - Add offline support: service worker for static assets, graceful degradation
   when relays are unreachable (show cached data with "Offline" banner)
 - Configure production deployment: Cloudflare Pages or Vercel static hosting,
-  custom domain (tasks.fyi), CSP headers blocking inline scripts/unauthorized
+  custom domain (bounty.ninja), CSP headers blocking inline scripts/unauthorized
   origins
 - Add client-side error logging infrastructure (optional Sentry or similar)
 - Run full test suite (unit, integration, E2E) to verify no regressions
@@ -72,5 +72,5 @@ production deployment configuration.
   build config (code splitting)
 - **Acceptance criteria** (from PRD Phase 5): No XSS in markdown rendering,
   invalid signatures rejected, invalid Cashu tokens show warning, bundle < 200KB
-  gzipped, app works offline with cached data, deployed at tasks.fyi, CSP
+  gzipped, app works offline with cached data, deployed at bounty.ninja, CSP
   headers active, all tests pass in CI, Lighthouse > 90

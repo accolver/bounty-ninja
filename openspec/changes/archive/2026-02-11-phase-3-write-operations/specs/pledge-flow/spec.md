@@ -91,7 +91,7 @@ as defined in PRD Section 6.3:
 - `["amount", "<sats>"]` — pledge amount in sats
 - `["cashu", "<serialized-cashu-token>"]` — P2PK-locked Cashu token (NUT-11)
 - `["mint", "<cashu-mint-url>"]` — the mint URL the token was minted from
-- `["client", "tasks.fyi"]` — application identifier
+- `["client", "bounty.ninja"]` — application identifier
 
 **Content field:** Optional message from the funder.
 

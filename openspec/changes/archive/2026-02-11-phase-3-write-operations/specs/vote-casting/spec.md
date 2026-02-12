@@ -76,7 +76,7 @@ defined in PRD Section 6.5:
   being voted on
 - `["p", "<solution-author-pubkey>"]` — for notifications to the solution author
 - `["vote", "approve"]` or `["vote", "reject"]` — the vote choice
-- `["client", "tasks.fyi"]` — application identifier
+- `["client", "bounty.ninja"]` — application identifier
 
 **Content field:** Optional comment explaining the vote.
 

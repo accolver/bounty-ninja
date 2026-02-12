@@ -1,15 +1,15 @@
-# AGENTS.md — Tasks.fyi
+# AGENTS.md — Bounty.ninja
 
 > Injected into every AI coding session. Read `PRD.md` for full specifications.
 
 ## What Is This?
 
-**Tasks.fyi** is a decentralized, censorship-resistant task board / labor
+**Bounty.ninja** is a decentralized, censorship-resistant task board / labor
 marketplace. Users post tasks as Nostr events, fund them with P2PK-locked Cashu
 ecash, submit solutions, vote on winners, and receive automatic payouts. Zero
 backend — entirely client-side.
 
-**Domain:** <https://tasks.fyi>
+**Domain:** <https://bounty.ninja>
 
 ---
 
@@ -110,7 +110,7 @@ backend — entirely client-side.
 `draft` → `open` → `in_review` → `completed` (side transitions: `expired`,
 `cancelled`)
 
-All published events must include the tag `["client", "tasks.fyi"]`.
+All published events must include the tag `["client", "bounty.ninja"]`.
 
 ---
 

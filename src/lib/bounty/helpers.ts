@@ -1,6 +1,6 @@
 import type { NostrEvent } from 'nostr-tools';
-import type { TaskSummary, Pledge, Solution, Vote, Payout, TaskDetail, TaskStatus } from './types';
-import { deriveTaskStatus } from './state-machine';
+import type { BountySummary, Pledge, Solution, Vote, Payout, BountyDetail, BountyStatus } from './types';
+import { deriveBountyStatus } from './state-machine';
 import { validateEventTags } from '$lib/nostr/tag-validator';
 
 /**
@@ -24,11 +24,11 @@ function getTagValues(event: NostrEvent, tagName: string): string[] {
 }
 
 /**
- * Extract a title from a task event using the fallback chain:
+ * Extract a title from a bounty event using the fallback chain:
  * 1. 'title' tag
  * 2. 'subject' tag
  * 3. First line of content (truncated to 80 chars)
- * 4. 'Untitled Task'
+ * 4. 'Untitled Bounty'
  */
 function extractTitle(event: NostrEvent): string {
 	const titleTag = getTagValue(event, 'title');
@@ -44,15 +44,15 @@ function extractTitle(event: NostrEvent): string {
 		}
 	}
 
-	return 'Untitled Task';
+	return 'Untitled Bounty';
 }
 
 /**
- * Parse a task event (kind 37300) into a TaskSummary.
+ * Parse a bounty event (kind 37300) into a BountySummary.
  * Handles missing or malformed tags defensively.
  * Returns null if the event fails tag validation.
  */
-export function parseTaskSummary(event: NostrEvent): TaskSummary | null {
+export function parseBountySummary(event: NostrEvent): BountySummary | null {
 	const tagResult = validateEventTags(event);
 	if (!tagResult.valid) return null;
 	const dTag = getTagValue(event, 'd') ?? '';
@@ -86,7 +86,7 @@ export function parsePledge(event: NostrEvent): Pledge | null {
 	const tagResult = validateEventTags(event);
 	if (!tagResult.valid) return null;
 
-	const taskAddress = getTagValue(event, 'a') ?? '';
+	const bountyAddress = getTagValue(event, 'a') ?? '';
 	const amountRaw = getTagValue(event, 'amount');
 	const amount = amountRaw ? parseInt(amountRaw, 10) : 0;
 	const cashuToken = getTagValue(event, 'cashu') ?? '';
@@ -96,7 +96,7 @@ export function parsePledge(event: NostrEvent): Pledge | null {
 		event,
 		id: event.id,
 		pubkey: event.pubkey,
-		taskAddress,
+		bountyAddress,
 		amount: Number.isNaN(amount) ? 0 : amount,
 		cashuToken,
 		mintUrl,
@@ -113,7 +113,7 @@ export function parseSolution(event: NostrEvent): Solution | null {
 	const tagResult = validateEventTags(event);
 	if (!tagResult.valid) return null;
 
-	const taskAddress = getTagValue(event, 'a') ?? '';
+	const bountyAddress = getTagValue(event, 'a') ?? '';
 	const antiSpamToken = getTagValue(event, 'cashu') ?? getTagValue(event, 'fee') ?? '';
 	const antiSpamAmountRaw = getTagValue(event, 'amount');
 	const antiSpamAmount = antiSpamAmountRaw ? parseInt(antiSpamAmountRaw, 10) : 0;
@@ -123,7 +123,7 @@ export function parseSolution(event: NostrEvent): Solution | null {
 		event,
 		id: event.id,
 		pubkey: event.pubkey,
-		taskAddress,
+		bountyAddress,
 		description: event.content ?? '',
 		antiSpamToken,
 		antiSpamAmount: Number.isNaN(antiSpamAmount) ? 0 : antiSpamAmount,
@@ -141,7 +141,7 @@ export function parseVote(event: NostrEvent): Vote | null {
 	const tagResult = validateEventTags(event);
 	if (!tagResult.valid) return null;
 
-	const taskAddress = getTagValue(event, 'a') ?? '';
+	const bountyAddress = getTagValue(event, 'a') ?? '';
 	const solutionId = getTagValue(event, 'e') ?? '';
 	const voteTag = getTagValue(event, 'vote');
 	const choice: 'approve' | 'reject' = voteTag === 'reject' ? 'reject' : 'approve';
@@ -150,7 +150,7 @@ export function parseVote(event: NostrEvent): Vote | null {
 		event,
 		id: event.id,
 		pubkey: event.pubkey,
-		taskAddress,
+		bountyAddress,
 		solutionId,
 		choice,
 		pledgeAmount: 0,
@@ -162,21 +162,21 @@ export function parseVote(event: NostrEvent): Vote | null {
 /**
  * Parse a payout event (kind 73004) into a Payout.
  * Returns null if the event fails tag validation.
- * Also checks that the payout event pubkey matches the task creator.
+ * Also checks that the payout event pubkey matches the bounty creator.
  */
 export function parsePayout(event: NostrEvent, taskCreatorPubkey?: string): Payout | null {
 	const tagResult = validateEventTags(event);
 	if (!tagResult.valid) return null;
 
-	// Task 1.6: Verify payout authorization — pubkey must match task creator
+	// Step 1.6: Verify payout authorization — pubkey must match bounty creator
 	if (taskCreatorPubkey && event.pubkey !== taskCreatorPubkey) {
 		console.warn(
-			`[helpers] Unauthorized payout event ${event.id}: pubkey ${event.pubkey} does not match task creator ${taskCreatorPubkey}`
+			`[helpers] Unauthorized payout event ${event.id}: pubkey ${event.pubkey} does not match bounty creator ${taskCreatorPubkey}`
 		);
 		return null;
 	}
 
-	const taskAddress = getTagValue(event, 'a') ?? '';
+	const bountyAddress = getTagValue(event, 'a') ?? '';
 	const solutionId = getTagValue(event, 'e') ?? '';
 	const solverPubkey = getTagValue(event, 'p') ?? '';
 	const amountRaw = getTagValue(event, 'amount');
@@ -187,7 +187,7 @@ export function parsePayout(event: NostrEvent, taskCreatorPubkey?: string): Payo
 		event,
 		id: event.id,
 		pubkey: event.pubkey,
-		taskAddress,
+		bountyAddress,
 		solutionId,
 		solverPubkey,
 		amount: Number.isNaN(amount) ? 0 : amount,
@@ -197,25 +197,25 @@ export function parsePayout(event: NostrEvent, taskCreatorPubkey?: string): Payo
 }
 
 /**
- * Parse a task event and all related events into a full TaskDetail.
+ * Parse a bounty event and all related events into a full BountyDetail.
  * Composes all individual parsers and derives status from the state machine.
  */
-export function parseTaskDetail(
+export function parseBountyDetail(
 	event: NostrEvent,
 	pledgeEvents: NostrEvent[],
 	solutionEvents: NostrEvent[],
 	voteEvents: NostrEvent[],
 	payoutEvents: NostrEvent[],
 	deleteEvents: NostrEvent[]
-): TaskDetail | null {
-	const summary = parseTaskSummary(event);
+): BountyDetail | null {
+	const summary = parseBountySummary(event);
 	if (!summary) return null;
 
 	// Filter out invalid events (tag validation failures return null)
 	const pledges = pledgeEvents.map(parsePledge).filter((p): p is Pledge => p !== null);
 	const solutions = solutionEvents.map(parseSolution).filter((s): s is Solution => s !== null);
 	const votes = voteEvents.map(parseVote).filter((v): v is Vote => v !== null);
-	// Task 1.6: Pass task creator pubkey for payout authorization
+	// Step 1.6: Pass bounty creator pubkey for payout authorization
 	const payouts = payoutEvents
 		.map((e) => parsePayout(e, event.pubkey))
 		.filter((p): p is Payout => p !== null);
@@ -230,7 +230,7 @@ export function parseTaskDetail(
 		votesBySolution.set(vote.solutionId, existing);
 	}
 
-	const status: TaskStatus = deriveTaskStatus(
+	const status: BountyStatus = deriveBountyStatus(
 		event,
 		pledgeEvents,
 		solutionEvents,
@@ -238,7 +238,7 @@ export function parseTaskDetail(
 		deleteEvents
 	);
 
-	// Extract additional task fields
+	// Extract additional bounty fields
 	const rewardCurrency = getTagValue(event, 'currency') ?? 'sat';
 	const mintUrl = getTagValue(event, 'mint') ?? null;
 	const submissionFeeRaw = getTagValue(event, 'submission_fee');

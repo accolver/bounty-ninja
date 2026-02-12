@@ -19,7 +19,7 @@ root layout on application startup.
 
 #### Scenario: Service worker installs on first visit
 
-- **WHEN** a user visits tasks.fyi for the first time
+- **WHEN** a user visits bounty.ninja for the first time
 - **THEN** the service worker SHALL be registered and begin caching static
   assets
 - **AND** the service worker installation SHALL NOT block the initial page

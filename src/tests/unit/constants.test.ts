@@ -7,12 +7,12 @@ import {
 } from '$lib/utils/constants';
 
 describe('constants', () => {
-	it('CLIENT_TAG equals "tasks.fyi"', () => {
-		expect(CLIENT_TAG).toBe('tasks.fyi');
+	it('CLIENT_TAG equals "bounty.ninja"', () => {
+		expect(CLIENT_TAG).toBe('bounty.ninja');
 	});
 
-	it('APP_NAME equals "Tasks.fyi"', () => {
-		expect(APP_NAME).toBe('Tasks.fyi');
+	it('APP_NAME equals "Bounty.ninja"', () => {
+		expect(APP_NAME).toBe('Bounty.ninja');
 	});
 
 	it('SESSION_STORAGE_KEY is a non-empty string', () => {

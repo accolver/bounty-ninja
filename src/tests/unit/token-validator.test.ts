@@ -5,10 +5,17 @@ vi.mock('$lib/cashu/token', () => ({
 	decodeToken: vi.fn()
 }));
 
+// Mock the mint module so #verifyWithMint doesn't contact a real mint
+vi.mock('$lib/cashu/mint', () => ({
+	getWallet: vi.fn()
+}));
+
 import { decodeToken } from '$lib/cashu/token';
+import { getWallet } from '$lib/cashu/mint';
 import type { TokenInfo } from '$lib/cashu/types';
 
 const mockedDecodeToken = vi.mocked(decodeToken);
+const mockedGetWallet = vi.mocked(getWallet);
 
 // We need to dynamically import the module after mocking
 async function getTokenValidator() {
@@ -45,6 +52,17 @@ function makeP2PKProof(locktime: number) {
 	return { id: 'p2pk-proof', amount: 50, secret, C: 'test-c' };
 }
 
+/** Create a mock wallet that returns all proofs as UNSPENT */
+function makeMockWallet(allSpendable = true) {
+	return {
+		checkProofsStates: vi.fn().mockResolvedValue(
+			allSpendable
+				? [{ state: 'UNSPENT' }]
+				: [{ state: 'SPENT' }]
+		)
+	};
+}
+
 // ── TokenValidator Tests ────────────────────────────────────────────────────
 
 describe('TokenValidator', () => {
@@ -52,6 +70,10 @@ describe('TokenValidator', () => {
 
 	beforeEach(async () => {
 		vi.clearAllMocks();
+
+		// Default: getWallet returns a mock wallet with all proofs spendable
+		mockedGetWallet.mockResolvedValue(makeMockWallet(true) as any);
+
 		const mod = await getTokenValidator();
 		tokenValidator = mod.tokenValidator;
 		tokenValidator.reset();
@@ -169,6 +191,33 @@ describe('TokenValidator', () => {
 				expect(tokenValidator.getStatus(token)).toBe('unverified');
 			});
 		});
+
+		it('sets status to unverified when mint returns SPENT proofs', async () => {
+			const token = 'cashuAspenttoken';
+			mockedDecodeToken.mockReturnValue(makeTokenInfo());
+			mockedGetWallet.mockResolvedValue(makeMockWallet(false) as any);
+
+			tokenValidator.verify(token, MINT_URL);
+
+			await vi.waitFor(() => {
+				expect(tokenValidator.getStatus(token)).toBe('unverified');
+			});
+		});
+
+		it('sets status to unverified when mint is unreachable after retries', async () => {
+			const token = 'cashuAunreachable';
+			mockedDecodeToken.mockReturnValue(makeTokenInfo());
+			mockedGetWallet.mockRejectedValue(new Error('Connection refused'));
+
+			tokenValidator.verify(token, MINT_URL);
+
+			await vi.waitFor(
+				() => {
+					expect(tokenValidator.getStatus(token)).toBe('unverified');
+				},
+				{ timeout: 15000 }
+			);
+		}, 20000);
 	});
 
 	// ── verify — expired tokens ────────────────────────────────────────────
@@ -242,11 +291,9 @@ describe('TokenValidator', () => {
 				expect(tokenValidator.getStatus(token)).toBe('verified');
 			});
 
-			// decodeToken should only be called once (from the first verify)
-			// The second call is a no-op because pending is set
-			// Note: decodeToken is called twice within verifyAsync (once for decode, once for structural check)
-			// but only one verifyAsync should run
-			expect(mockedDecodeToken.mock.calls.length).toBeLessThanOrEqual(2);
+			// decodeToken should only be called a limited number of times
+			// (structural check + verifyWithMint both call it, but only one verifyAsync should run)
+			expect(mockedDecodeToken.mock.calls.length).toBeLessThanOrEqual(3);
 		});
 	});
 

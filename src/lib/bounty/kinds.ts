@@ -1,5 +1,5 @@
-/** Kind 37300 — Parameterized Replaceable — Task definition */
-export const TASK_KIND = 37300;
+/** Kind 37300 — Parameterized Replaceable — Bounty definition */
+export const BOUNTY_KIND = 37300;
 
 /** Kind 73001 — Regular — Solution submission */
 export const SOLUTION_KIND = 73001;

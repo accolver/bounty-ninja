@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { searchStore } from '$lib/stores/search.svelte';
-	import TaskCard from '$lib/components/task/TaskCard.svelte';
+	import BountyCard from '$lib/components/bounty/BountyCard.svelte';
 	import EmptyState from '$lib/components/shared/EmptyState.svelte';
-	import type { TaskSummary } from '$lib/task/types';
+	import type { BountySummary } from '$lib/bounty/types';
 
 	let statusFilter = $state<'all' | 'open' | 'completed'>('all');
 	let minReward = $state(0);
 
 	const filteredResults = $derived(
-		searchStore.results.filter((b: TaskSummary) => {
+		searchStore.results.filter((b: BountySummary) => {
 			if (statusFilter !== 'all' && b.status !== statusFilter) return false;
 			if (b.rewardAmount < minReward) return false;
 			return true;
@@ -53,8 +53,8 @@
 		<EmptyState message={`No tasks found for "${searchStore.query}"`} />
 	{:else}
 		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-			{#each filteredResults as task (task.id)}
-				<TaskCard {task} />
+			{#each filteredResults as bounty (bounty.id)}
+				<BountyCard {bounty} />
 			{/each}
 		</div>
 	{/if}

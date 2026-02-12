@@ -228,35 +228,26 @@ class TokenValidator {
 			}
 		}
 
-		// Step 4: MVP structural verification (no mint contact)
-		// In the future, this is where we'd contact the mint to check
-		// proof spendability with retry logic.
-		const isStructurallyValid = await this.#mvpStructuralCheck(token, mintUrl);
+		// Step 4: Structural pre-filter (fast fail before mint contact)
+		const passesStructural = this.#structuralCheck(token, mintUrl);
+		if (!passesStructural) {
+			this.#setStatus(hash, 'unverified');
+			return;
+		}
 
-		this.#setStatus(hash, isStructurallyValid ? 'verified' : 'unverified');
+		// Step 5: Real mint verification — check proof spendability
+		const isSpendable = await this.#verifyWithMint(token, mintUrl);
+		this.#setStatus(hash, isSpendable ? 'verified' : 'unverified');
 	}
 
 	/**
-	 * MVP structural check — validates token format without contacting the mint.
-	 *
-	 * Checks:
-	 * - Token starts with 'cashuA' (v3) or 'cashuB' (v4)
-	 * - Token was successfully decoded (already checked above)
-	 * - Token has a mint URL that matches the expected mint
-	 *
-	 * In the future, this will be replaced with actual mint verification
-	 * using wallet.checkProofsStates() with retry logic.
+	 * Synchronous structural check — validates token format without contacting the mint.
+	 * Used as a fast pre-filter before the async mint verification.
 	 */
-	async #mvpStructuralCheck(token: string, mintUrl: string): Promise<boolean> {
-		// Simulate async work (future: mint contact with retries)
-		// This keeps the API shape consistent for when we add real verification.
+	#structuralCheck(token: string, mintUrl: string): boolean {
 		const hasValidPrefix = token.startsWith('cashuA') || token.startsWith('cashuB');
+		if (!hasValidPrefix) return false;
 
-		if (!hasValidPrefix) {
-			return false;
-		}
-
-		// Re-decode to check mint URL match (token was already validated above)
 		const tokenInfo = decodeToken(token);
 		if (!tokenInfo) return false;
 
@@ -264,7 +255,6 @@ class TokenValidator {
 		const normalizedTokenMint = tokenInfo.mint.replace(/\/+$/, '');
 		const normalizedExpectedMint = mintUrl.replace(/\/+$/, '');
 
-		// If mint URLs don't match, mark as unverified (suspicious)
 		if (normalizedTokenMint !== normalizedExpectedMint) {
 			console.warn(
 				`[cashu/token-validator] Mint URL mismatch: token=${normalizedTokenMint}, expected=${normalizedExpectedMint}`
@@ -276,25 +266,23 @@ class TokenValidator {
 	}
 
 	/**
-	 * Future: Verify token proofs with the mint, with retry logic.
-	 * Kept as a placeholder for Phase 5+ when we add real mint verification.
-	 *
-	 * @param _token - Encoded token string
-	 * @param _mintUrl - Mint URL to verify against
-	 * @returns true if proofs are spendable, false otherwise
+	 * Verify token proofs with the mint using wallet.checkProofsStates().
+	 * Retries up to MAX_RETRIES times with RETRY_DELAY_MS backoff.
+	 * Gracefully degrades to 'unverified' (not 'invalid') if mint is unreachable.
 	 */
-	async #verifyWithMint(_token: string, _mintUrl: string): Promise<boolean> {
+	async #verifyWithMint(token: string, mintUrl: string): Promise<boolean> {
 		let lastError: Error | undefined;
 
 		for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
 			try {
-				// Future: const wallet = await getWallet(mintUrl);
-				// Future: const tokenInfo = decodeToken(token);
-				// Future: const states = await wallet.checkProofsStates(tokenInfo.proofs);
-				// Future: return states.every(s => s.state === 'UNSPENT');
+				// Dynamic imports to preserve code-splitting
+				const { getWallet } = await import('./mint');
+				const tokenInfo = decodeToken(token);
+				if (!tokenInfo) return false;
 
-				// MVP: always return true (structural check already passed)
-				return true;
+				const wallet = await getWallet(mintUrl);
+				const states = await wallet.checkProofsStates(tokenInfo.proofs);
+				return states.every((s) => s.state === 'UNSPENT');
 			} catch (err) {
 				lastError = err instanceof Error ? err : new Error(String(err));
 				console.warn(
@@ -307,7 +295,7 @@ class TokenValidator {
 			}
 		}
 
-		// All retries exhausted — mint unreachable
+		// All retries exhausted — mint unreachable, degrade gracefully
 		console.warn(
 			`[cashu/token-validator] Mint verification failed after ${MAX_RETRIES} retries, marking as unverified`
 		);

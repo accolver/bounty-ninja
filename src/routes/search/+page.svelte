@@ -14,7 +14,7 @@
 </script>
 
 <svelte:head>
-	<title>{data.query ? `Search: ${data.query}` : 'Search'} — Tasks.fyi</title>
+	<title>{data.query ? `Search: ${data.query}` : 'Search'} — Bounty.ninja</title>
 </svelte:head>
 
 <ErrorBoundary>

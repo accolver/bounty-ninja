@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { accountState } from '$lib/nostr/account.svelte';
 	import { publishEvent } from '$lib/nostr/signer.svelte';
-	import { solutionBlueprint } from '$lib/task/blueprints';
-	import { SOLUTION_KIND } from '$lib/task/kinds';
+	import { solutionBlueprint } from '$lib/bounty/blueprints';
+	import { SOLUTION_KIND } from '$lib/bounty/kinds';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { getMinSubmissionFee, getMaxSubmissionFee } from '$lib/utils/env';
 	import { rateLimiter } from '$lib/nostr/rate-limiter';
@@ -10,7 +10,7 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import LoginButton from '$lib/components/auth/LoginButton.svelte';
 	import LoadingSpinner from '$lib/components/shared/LoadingSpinner.svelte';
-	import type { TaskStatus } from '$lib/task/types';
+	import type { BountyStatus } from '$lib/bounty/types';
 	import SendIcon from '@lucide/svelte/icons/send';
 	import LinkIcon from '@lucide/svelte/icons/link';
 	import FileTextIcon from '@lucide/svelte/icons/file-text';
@@ -20,14 +20,14 @@
 	const DESCRIPTION_MAX = 100_000;
 
 	const {
-		taskAddress,
+		bountyAddress,
 		creatorPubkey,
 		taskStatus,
 		requiredFee
 	}: {
-		taskAddress: string;
+		bountyAddress: string;
 		creatorPubkey: string;
-		taskStatus: TaskStatus;
+		taskStatus: BountyStatus;
 		requiredFee: number;
 	} = $props();
 
@@ -113,7 +113,7 @@
 			const antiSpamToken = feeAmount > 0 ? `cashuA_fee_${feeAmount}_${Date.now()}` : undefined;
 
 			const template = solutionBlueprint({
-				taskAddress,
+				bountyAddress,
 				creatorPubkey,
 				description: description.trim(),
 				antiSpamToken,
@@ -196,7 +196,7 @@
 						</p>
 					{:else}
 						<p id="solution-desc-help" class="text-xs text-muted-foreground">
-							Markdown formatting is supported. Explain what you built and how it meets the task
+							Markdown formatting is supported. Explain what you built and how it meets the bounty
 							requirements.
 						</p>
 					{/if}
@@ -247,7 +247,7 @@
 					Anti-spam fee (sats)
 				</label>
 				{#if hasFixedFee}
-					<!-- Fixed fee set by task creator -->
+					<!-- Fixed fee set by bounty creator -->
 					<div class="flex items-center gap-2">
 						<Input
 							id="solution-fee"
@@ -257,7 +257,7 @@
 							aria-describedby="solution-fee-help"
 							class="max-w-32"
 						/>
-						<span class="text-xs text-muted-foreground"> Required by task creator </span>
+						<span class="text-xs text-muted-foreground"> Required by bounty creator </span>
 					</div>
 				{:else}
 					<!-- Adjustable fee within range -->
@@ -277,7 +277,7 @@
 				{/if}
 				<p id="solution-fee-help" class="text-xs text-muted-foreground">
 					{#if hasFixedFee}
-						This task requires a {requiredFee} sat submission fee to deter spam.
+						This bounty requires a {requiredFee} sat submission fee to deter spam.
 					{:else}
 						Anti-spam fee between {minFee} and {maxFee} sats. This fee is non-refundable.
 					{/if}

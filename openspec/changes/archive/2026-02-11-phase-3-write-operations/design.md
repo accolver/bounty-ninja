@@ -8,12 +8,12 @@ models, reactive stores, and read-only components (Phase 2). Users can browse
 tasks, view pledges, solutions, and vote tallies — but cannot interact.
 
 Phase 3 is the core product delivery. It adds all write operations that make
-Tasks.fyi a functional marketplace: creating tasks, funding with Cashu ecash,
+Bounty.ninja a functional marketplace: creating tasks, funding with Cashu ecash,
 submitting solutions with anti-spam fees, voting on solutions, and orchestrating
 payouts. This phase introduces the Cashu payment layer (`@cashu/cashu-ts`) and
 Nostr event publishing via Applesauce `EventFactory` with NIP-07 signing.
 
-After Phase 3, Tasks.fyi will be a fully functional — if unpolished — task
+After Phase 3, Bounty.ninja will be a fully functional — if unpolished — task
 board where the complete lifecycle (create → fund → solve → vote → payout) works
 end-to-end.
 
@@ -185,7 +185,7 @@ only. Relays will accept any Kind 1018 event regardless of whether the voter has
 pledged. A malicious client could publish votes from non-pledgers.
 
 **Mitigation**: The app validates on read — votes from non-pledgers are assigned
-zero weight and excluded from tallies. All honest clients running Tasks.fyi will
+zero weight and excluded from tallies. All honest clients running Bounty.ninja will
 compute the same tally. The risk is limited to confusion if a user inspects raw
 relay data.
 

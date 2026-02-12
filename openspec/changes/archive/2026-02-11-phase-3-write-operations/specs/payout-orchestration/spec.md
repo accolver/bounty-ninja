@@ -111,7 +111,7 @@ as defined in PRD Section 6.6:
 - `["p", "<solver-pubkey>"]` — recipient (solver's pubkey)
 - `["amount", "<sats>"]` — payout amount in sats
 - `["cashu", "<serialized-cashu-token>"]` — P2PK-locked token for the solver
-- `["client", "tasks.fyi"]` — application identifier
+- `["client", "bounty.ninja"]` — application identifier
 
 **Content field:** Optional payout note from the creator.
 

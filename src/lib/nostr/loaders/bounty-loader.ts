@@ -4,18 +4,18 @@ import { eventStore } from '$lib/nostr/event-store';
 import { onlyEvents } from 'applesauce-relay';
 import { mapEventsToStore } from 'applesauce-core';
 import { getDefaultRelays } from '$lib/utils/env';
-import { taskListFilter, taskByAuthorFilter } from '$lib/task/filters';
+import { bountyListFilter, bountyByAuthorFilter } from '$lib/bounty/filters';
 
 /**
- * Create a loader that subscribes to task events (Kind 37300) from all
+ * Create a loader that subscribes to bounty events (Kind 37300) from all
  * configured relays (including local dev relay) and pipes them into the
  * singleton EventStore.
  *
  * Returns a composite unsubscribable — calling unsubscribe() cleans up
  * all relay subscriptions.
  */
-export function createTaskListLoader(limit?: number): { unsubscribe(): void } {
-	const filter = taskListFilter(limit);
+export function createBountyListLoader(limit?: number): { unsubscribe(): void } {
+	const filter = bountyListFilter(limit);
 	const relayUrls = getDefaultRelays();
 	const subscriptions: Subscription[] = [];
 
@@ -42,11 +42,11 @@ export function createTaskListLoader(limit?: number): { unsubscribe(): void } {
 }
 
 /**
- * Create a loader that subscribes to task events by a specific author
+ * Create a loader that subscribes to bounty events by a specific author
  * from all default relays and pipes them into the singleton EventStore.
  */
-export function createTaskByAuthorLoader(pubkey: string): { unsubscribe(): void } {
-	const filter = taskByAuthorFilter(pubkey);
+export function createBountyByAuthorLoader(pubkey: string): { unsubscribe(): void } {
+	const filter = bountyByAuthorFilter(pubkey);
 	const relayUrls = getDefaultRelays();
 	const subscriptions: Subscription[] = [];
 

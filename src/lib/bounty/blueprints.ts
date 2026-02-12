@@ -1,16 +1,16 @@
 import type { EventTemplate } from 'nostr-tools';
-import { TASK_KIND, PLEDGE_KIND, SOLUTION_KIND, VOTE_KIND, PAYOUT_KIND } from './kinds';
+import { BOUNTY_KIND, PLEDGE_KIND, SOLUTION_KIND, VOTE_KIND, PAYOUT_KIND } from './kinds';
 import { CLIENT_TAG } from '$lib/utils/constants';
 
 /**
- * Blueprint parameters for creating a task event (kind 37300).
+ * Blueprint parameters for creating a bounty event (kind 37300).
  */
-export interface TaskBlueprintParams {
+export interface BountyBlueprintParams {
 	/** Unique identifier for the parameterized replaceable event */
 	dTag: string;
-	/** Human-readable task title */
+	/** Human-readable bounty title */
 	title: string;
-	/** Markdown description of the task requirements */
+	/** Markdown description of the bounty requirements */
 	description: string;
 	/** Reward amount in sats */
 	rewardAmount: number;
@@ -28,9 +28,9 @@ export interface TaskBlueprintParams {
  * Blueprint parameters for creating a pledge event (kind 73002).
  */
 export interface PledgeBlueprintParams {
-	/** NIP-33 address of the task (kind:pubkey:d-tag) */
-	taskAddress: string;
-	/** Pubkey of the task creator (for p-tag) */
+	/** NIP-33 address of the bounty (kind:pubkey:d-tag) */
+	bountyAddress: string;
+	/** Pubkey of the bounty creator (for p-tag) */
 	creatorPubkey: string;
 	/** Pledge amount in sats */
 	amount: number;
@@ -46,9 +46,9 @@ export interface PledgeBlueprintParams {
  * Blueprint parameters for creating a solution event (kind 73001).
  */
 export interface SolutionBlueprintParams {
-	/** NIP-33 address of the task (kind:pubkey:d-tag) */
-	taskAddress: string;
-	/** Pubkey of the task creator (for p-tag) */
+	/** NIP-33 address of the bounty (kind:pubkey:d-tag) */
+	bountyAddress: string;
+	/** Pubkey of the bounty creator (for p-tag) */
 	creatorPubkey: string;
 	/** Markdown description of the solution */
 	description: string;
@@ -62,8 +62,8 @@ export interface SolutionBlueprintParams {
  * Blueprint parameters for creating a vote event (kind 1018).
  */
 export interface VoteBlueprintParams {
-	/** NIP-33 address of the task (kind:pubkey:d-tag) */
-	taskAddress: string;
+	/** NIP-33 address of the bounty (kind:pubkey:d-tag) */
+	bountyAddress: string;
 	/** Event ID of the solution being voted on */
 	solutionId: string;
 	/** Pubkey of the solution author (for p-tag) */
@@ -76,8 +76,8 @@ export interface VoteBlueprintParams {
  * Blueprint parameters for creating a payout event (kind 73004).
  */
 export interface PayoutBlueprintParams {
-	/** NIP-33 address of the task (kind:pubkey:d-tag) */
-	taskAddress: string;
+	/** NIP-33 address of the bounty (kind:pubkey:d-tag) */
+	bountyAddress: string;
 	/** Event ID of the winning solution */
 	solutionId: string;
 	/** Pubkey of the solver receiving the payout */
@@ -89,10 +89,10 @@ export interface PayoutBlueprintParams {
 }
 
 /**
- * Create an EventTemplate for a task definition (kind 37300).
+ * Create an EventTemplate for a bounty definition (kind 37300).
  * Parameterized replaceable event — updates overwrite previous versions.
  */
-export function taskBlueprint(params: TaskBlueprintParams): EventTemplate {
+export function bountyBlueprint(params: BountyBlueprintParams): EventTemplate {
 	const tags: string[][] = [
 		['d', params.dTag],
 		['title', params.title],
@@ -116,7 +116,7 @@ export function taskBlueprint(params: TaskBlueprintParams): EventTemplate {
 	}
 
 	return {
-		kind: TASK_KIND,
+		kind: BOUNTY_KIND,
 		tags,
 		content: params.description,
 		created_at: Math.floor(Date.now() / 1000)
@@ -125,11 +125,11 @@ export function taskBlueprint(params: TaskBlueprintParams): EventTemplate {
 
 /**
  * Create an EventTemplate for a pledge (kind 73002).
- * References the task via an 'a' tag and includes the locked Cashu token.
+ * References the bounty via an 'a' tag and includes the locked Cashu token.
  */
 export function pledgeBlueprint(params: PledgeBlueprintParams): EventTemplate {
 	const tags: string[][] = [
-		['a', params.taskAddress],
+		['a', params.bountyAddress],
 		['p', params.creatorPubkey],
 		['amount', String(params.amount)],
 		['cashu', params.cashuToken],
@@ -147,11 +147,11 @@ export function pledgeBlueprint(params: PledgeBlueprintParams): EventTemplate {
 
 /**
  * Create an EventTemplate for a solution submission (kind 73001).
- * References the task via an 'a' tag and optionally includes an anti-spam token.
+ * References the bounty via an 'a' tag and optionally includes an anti-spam token.
  */
 export function solutionBlueprint(params: SolutionBlueprintParams): EventTemplate {
 	const tags: string[][] = [
-		['a', params.taskAddress],
+		['a', params.bountyAddress],
 		['p', params.creatorPubkey],
 		['client', CLIENT_TAG]
 	];
@@ -173,11 +173,11 @@ export function solutionBlueprint(params: SolutionBlueprintParams): EventTemplat
 
 /**
  * Create an EventTemplate for a consensus vote (kind 1018).
- * References both the task (a-tag) and the solution (e-tag).
+ * References both the bounty (a-tag) and the solution (e-tag).
  */
 export function voteBlueprint(params: VoteBlueprintParams): EventTemplate {
 	const tags: string[][] = [
-		['a', params.taskAddress],
+		['a', params.bountyAddress],
 		['e', params.solutionId],
 		['p', params.solutionAuthor],
 		['vote', params.choice],
@@ -198,7 +198,7 @@ export function voteBlueprint(params: VoteBlueprintParams): EventTemplate {
  */
 export function payoutBlueprint(params: PayoutBlueprintParams): EventTemplate {
 	const tags: string[][] = [
-		['a', params.taskAddress],
+		['a', params.bountyAddress],
 		['e', params.solutionId],
 		['p', params.solverPubkey],
 		['amount', String(params.amount)],

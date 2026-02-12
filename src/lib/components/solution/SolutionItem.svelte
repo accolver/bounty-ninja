@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Solution, Vote } from '$lib/task/types';
+	import type { Solution, Vote } from '$lib/bounty/types';
 	import { nip19 } from 'nostr-tools';
 	import { formatNpub } from '$lib/utils/format';
 	import Markdown from '$lib/components/shared/Markdown.svelte';

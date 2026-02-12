@@ -47,7 +47,7 @@
 - [x] 3.1 Create `src/routes/search/+page.ts` — read `q` query parameter from
       URL, initialize search store with that query on load
 - [x] 3.2 Create `src/routes/search/+page.svelte` — render `SearchResults`
-      component, set page title to "Search: <query> — Tasks.fyi" via
+      component, set page title to "Search: <query> — Bounty.ninja" via
       `<svelte:head>`
 - [x] 3.3 Verify direct URL access — navigating to `/search?q=cashu` executes
       search immediately on load without additional user interaction
@@ -71,12 +71,12 @@
 
 - [x] 5.1 Create `src/routes/settings/+page.svelte` — settings page with three
       sections: Relay Management, Cashu Mint Selection, Theme Toggle; set page
-      title to "Settings — Tasks.fyi" via `<svelte:head>`
+      title to "Settings — Bounty.ninja" via `<svelte:head>`
 - [x] 5.2 Implement auth gate — if user is unauthenticated, display message
       "Sign in with a Nostr extension to manage your settings" with
       `LoginButton` component; show settings sections only when authenticated
 - [x] 5.3 Implement localStorage persistence — read/write all settings as JSON
-      under key `tasks.fyi:settings`; handle `QuotaExceededError` gracefully
+      under key `bounty.ninja:settings`; handle `QuotaExceededError` gracefully
       with toast "Settings could not be saved — storage full" and retain
       in-memory settings
 
@@ -112,9 +112,9 @@
 - [x] 8.1 Build theme toggle UI in settings page — switch between "Dark" (Tokyo
       Night Storm) and "Light" (Tokyo Night Day)
 - [x] 8.2 Implement theme switching — add/remove `.light` class on `<html>`
-      element; persist to `localStorage` under key `tasks.fyi:theme`
+      element; persist to `localStorage` under key `bounty.ninja:theme`
 - [x] 8.3 Add synchronous theme initialization in `src/app.html` — inline
-      `<script>` block that reads `tasks.fyi:theme` from `localStorage` before
+      `<script>` block that reads `bounty.ninja:theme` from `localStorage` before
       framework JS executes; fall back to `prefers-color-scheme` media query if
       no stored preference
 - [x] 8.4 Implement `<meta name="theme-color">` dynamic update — set to
@@ -176,22 +176,22 @@
 
 - [x] 13.1 Create `static/favicon.svg` — recognizable at 16x16 and 32x32 pixels;
       must not be the default SvelteKit favicon
-- [x] 13.2 Create `static/logo.svg` — text-based SVG placeholder ("Tasks.fyi" in
+- [x] 13.2 Create `static/logo.svg` — text-based SVG placeholder ("Bounty.ninja" in
       styled font), optimized under 10KB, legible at 24px and 48px heights, uses
       `currentColor` for theme compatibility
-- [x] 13.3 Create `static/og-image.svg` — 1200x630 viewport, Tasks.fyi brand
+- [x] 13.3 Create `static/og-image.svg` — 1200x630 viewport, Bounty.ninja brand
       name and tagline on Tokyo Night background
 - [x] 13.4 Update `src/lib/components/layout/Header.svelte` — use `logo.svg` as
       site logo linking to `/`
 
 ## 14. Meta Tags & app.html
 
-- [x] 14.1 Update `src/app.html` — set `<title>` to "Tasks.fyi — Decentralized
+- [x] 14.1 Update `src/app.html` — set `<title>` to "Bounty.ninja — Decentralized
       Task Board"
 - [x] 14.2 Add Open Graph meta tags to `src/app.html` `<head>` — `og:title`,
       `og:description` ("Post tasks, fund with bitcoin ecash, and pay solvers
       — all on Nostr. No middlemen, no accounts, no censorship."), `og:image`
-      (`https://tasks.fyi/og-image.svg`), `og:url`, `og:type` (website),
+      (`https://bounty.ninja/og-image.svg`), `og:url`, `og:type` (website),
       `og:site_name`
 - [x] 14.3 Add Twitter Card meta tags — `twitter:card` (summary_large_image),
       `twitter:title`, `twitter:description`, `twitter:image`

@@ -141,7 +141,7 @@ The project MUST create the following utility modules at the paths specified in
 PRD Section 5:
 
 - `src/lib/utils/constants.ts` — App-wide constants including the `CLIENT_TAG`
-  value `"tasks.fyi"`
+  value `"bounty.ninja"`
 - `src/lib/utils/env.ts` — Typed access to `PUBLIC_*` environment variables with
   fallback defaults
 - `src/lib/utils/format.ts` — Number formatting (sats with locale-aware
@@ -150,7 +150,7 @@ PRD Section 5:
 #### Scenario: Constants module exports CLIENT_TAG
 
 - **WHEN** `src/lib/utils/constants.ts` is imported
-- **THEN** it exports a `CLIENT_TAG` constant with value `"tasks.fyi"`
+- **THEN** it exports a `CLIENT_TAG` constant with value `"bounty.ninja"`
 
 #### Scenario: Env module provides typed access
 

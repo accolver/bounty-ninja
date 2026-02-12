@@ -19,14 +19,14 @@
 			<a
 				href="/"
 				class="flex items-center gap-2 text-foreground hover:text-foreground/90"
-				aria-label="Tasks.fyi home"
+				aria-label="Bounty.ninja home"
 			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
-					viewBox="0 0 180 40"
+					viewBox="0 0 220 40"
 					fill="currentColor"
 					role="img"
-					aria-label="Tasks.fyi logo"
+					aria-label="Bounty.ninja logo"
 					class="h-6 w-auto"
 				>
 					<text
@@ -35,7 +35,7 @@
 						font-family="system-ui, -apple-system, sans-serif"
 						font-size="28"
 						font-weight="700"
-						letter-spacing="-0.5">Tasks<tspan fill="var(--color-primary)">.fyi</tspan></text
+						letter-spacing="-0.5">bounty<tspan fill="var(--color-primary)">.ninja</tspan></text
 					>
 				</svg>
 			</a>
@@ -47,10 +47,10 @@
 				type="button"
 				onclick={() => (searchDialog.open = true)}
 				class="flex w-full max-w-sm items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
-				aria-label="Search tasks"
+				aria-label="Search bounties"
 			>
 				<SearchIcon class="size-4 shrink-0" />
-				<span class="flex-1 text-left">Search tasks...</span>
+				<span class="flex-1 text-left">Search bounties...</span>
 				<kbd class="rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium">
 					⌘K
 				</kbd>

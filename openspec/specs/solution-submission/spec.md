@@ -103,7 +103,7 @@ as defined in PRD Section 6.4:
 - `["p", "<task-creator-pubkey>"]` — for notifications to the task creator
 - `["cashu", "<serialized-cashu-token>"]` — anti-spam fee token (NOT
   P2PK-locked)
-- `["client", "tasks.fyi"]` — application identifier
+- `["client", "bounty.ninja"]` — application identifier
 
 **Optional tags:**
 

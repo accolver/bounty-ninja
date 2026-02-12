@@ -18,19 +18,19 @@
 	 */
 	const typeStyles: Record<ToastType, { container: string; icon: string }> = {
 		success: {
-			container: 'border-success/60 bg-success/10 text-success',
+			container: 'border-success/60 bg-card text-success',
 			icon: 'text-success'
 		},
 		error: {
-			container: 'border-destructive/60 bg-destructive/10 text-destructive',
+			container: 'border-destructive/60 bg-card text-destructive',
 			icon: 'text-destructive'
 		},
 		warning: {
-			container: 'border-warning/60 bg-warning/10 text-warning',
+			container: 'border-warning/60 bg-card text-warning',
 			icon: 'text-warning'
 		},
 		info: {
-			container: 'border-primary/60 bg-primary/10 text-primary',
+			container: 'border-primary/60 bg-card text-primary',
 			icon: 'text-primary'
 		}
 	};
@@ -54,7 +54,7 @@
 			{@const styles = typeStyles[toast.type]}
 			{@const Icon = typeIcons[toast.type]}
 			<div
-				class="toast-enter flex w-80 max-w-[calc(100vw-2rem)] items-start gap-3 rounded-lg border bg-card p-3 shadow-lg {styles.container}"
+				class="toast-enter flex w-80 max-w-[calc(100vw-2rem)] items-start gap-3 rounded-lg border p-3 shadow-lg {styles.container}"
 				role="alert"
 			>
 				<span class="mt-0.5 shrink-0 {styles.icon}" aria-hidden="true">

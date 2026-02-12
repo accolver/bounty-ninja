@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Playwright E2E test configuration for Tasks.fyi
+ * Playwright E2E test configuration for Bounty.ninja
  *
  * Builds the SvelteKit static site and serves it via `vite preview`
  * before running tests against the production build.

@@ -5,7 +5,7 @@ declare const self: ServiceWorkerGlobalScope;
 
 import { build, files, version } from '$service-worker';
 
-const CACHE_NAME = `tasks-fyi-${version}`;
+const CACHE_NAME = `bounty-ninja-${version}`;
 
 // Files to cache (app shell)
 const ASSETS = [...build, ...files];

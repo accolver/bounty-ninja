@@ -1,13 +1,13 @@
 import type { Filter } from 'nostr-tools';
-import { TASK_KIND, PLEDGE_KIND, SOLUTION_KIND, VOTE_KIND, PAYOUT_KIND } from './kinds';
+import { BOUNTY_KIND, PLEDGE_KIND, SOLUTION_KIND, VOTE_KIND, PAYOUT_KIND } from './kinds';
 
 /**
- * Filter to fetch a list of task events.
+ * Filter to fetch a list of bounty events.
  * Defaults to 50 results if no limit is specified.
  */
-export function taskListFilter(limit?: number): Filter {
+export function bountyListFilter(limit?: number): Filter {
 	return {
-		kinds: [TASK_KIND],
+		kinds: [BOUNTY_KIND],
 		limit: limit ?? 50
 	};
 }
@@ -24,51 +24,51 @@ export function allPledgesFilter(limit?: number): Filter {
 }
 
 /**
- * Filter to fetch all pledge events for a specific task.
+ * Filter to fetch all pledge events for a specific bounty.
  */
-export function pledgesForTaskFilter(taskAddress: string): Filter {
+export function pledgesForBountyFilter(bountyAddress: string): Filter {
 	return {
 		kinds: [PLEDGE_KIND],
-		'#a': [taskAddress]
+		'#a': [bountyAddress]
 	};
 }
 
 /**
- * Filter to fetch all solution events for a specific task.
+ * Filter to fetch all solution events for a specific bounty.
  */
-export function solutionsForTaskFilter(taskAddress: string): Filter {
+export function solutionsForBountyFilter(bountyAddress: string): Filter {
 	return {
 		kinds: [SOLUTION_KIND],
-		'#a': [taskAddress]
+		'#a': [bountyAddress]
 	};
 }
 
 /**
- * Filter to fetch all vote events for a specific task.
+ * Filter to fetch all vote events for a specific bounty.
  */
-export function votesForTaskFilter(taskAddress: string): Filter {
+export function votesForBountyFilter(bountyAddress: string): Filter {
 	return {
 		kinds: [VOTE_KIND],
-		'#a': [taskAddress]
+		'#a': [bountyAddress]
 	};
 }
 
 /**
- * Filter to fetch payout events for a specific task.
+ * Filter to fetch payout events for a specific bounty.
  */
-export function payoutForTaskFilter(taskAddress: string): Filter {
+export function payoutForBountyFilter(bountyAddress: string): Filter {
 	return {
 		kinds: [PAYOUT_KIND],
-		'#a': [taskAddress]
+		'#a': [bountyAddress]
 	};
 }
 
 /**
  * Filter to fetch all tasks created by a specific author.
  */
-export function taskByAuthorFilter(pubkey: string): Filter {
+export function bountyByAuthorFilter(pubkey: string): Filter {
 	return {
-		kinds: [TASK_KIND],
+		kinds: [BOUNTY_KIND],
 		authors: [pubkey]
 	};
 }
@@ -99,9 +99,9 @@ export function allPayoutsFilter(limit?: number): Filter {
  * Filter to search tasks by text query (NIP-50).
  * Defaults to 20 results if no limit is specified.
  */
-export function searchTasksFilter(query: string, limit?: number): Filter {
+export function searchBountiesFilter(query: string, limit?: number): Filter {
 	return {
-		kinds: [TASK_KIND],
+		kinds: [BOUNTY_KIND],
 		search: query,
 		limit: limit ?? 20
 	};

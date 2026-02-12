@@ -1,48 +1,48 @@
 import { describe, it, expect } from 'vitest';
 import {
-	taskListFilter,
-	pledgesForTaskFilter,
-	solutionsForTaskFilter,
-	votesForTaskFilter,
-	payoutForTaskFilter,
-	taskByAuthorFilter,
-	searchTasksFilter
-} from '$lib/task/filters';
+	bountyListFilter,
+	pledgesForBountyFilter,
+	solutionsForBountyFilter,
+	votesForBountyFilter,
+	payoutForBountyFilter,
+	bountyByAuthorFilter,
+	searchBountiesFilter
+} from '$lib/bounty/filters';
 import {
-	TASK_KIND,
+	BOUNTY_KIND,
 	PLEDGE_KIND,
 	SOLUTION_KIND,
 	VOTE_KIND,
 	PAYOUT_KIND
-} from '$lib/task/kinds';
+} from '$lib/bounty/kinds';
 
-describe('taskListFilter', () => {
-	it('returns a filter for task events with default limit', () => {
-		const filter = taskListFilter();
+describe('bountyListFilter', () => {
+	it('returns a filter for bounty events with default limit', () => {
+		const filter = bountyListFilter();
 		expect(filter).toEqual({
-			kinds: [TASK_KIND],
+			kinds: [BOUNTY_KIND],
 			limit: 50
 		});
 	});
 
 	it('accepts a custom limit', () => {
-		const filter = taskListFilter(100);
+		const filter = bountyListFilter(100);
 		expect(filter).toEqual({
-			kinds: [TASK_KIND],
+			kinds: [BOUNTY_KIND],
 			limit: 100
 		});
 	});
 
 	it('uses kind 37300', () => {
-		const filter = taskListFilter();
+		const filter = bountyListFilter();
 		expect(filter.kinds).toEqual([37300]);
 	});
 });
 
-describe('pledgesForTaskFilter', () => {
-	it('returns a filter for pledge events referencing a task', () => {
-		const address = '37300:abc123:my-task';
-		const filter = pledgesForTaskFilter(address);
+describe('pledgesForBountyFilter', () => {
+	it('returns a filter for pledge events referencing a bounty', () => {
+		const address = '37300:abc123:my-bounty';
+		const filter = pledgesForBountyFilter(address);
 		expect(filter).toEqual({
 			kinds: [PLEDGE_KIND],
 			'#a': [address]
@@ -50,15 +50,15 @@ describe('pledgesForTaskFilter', () => {
 	});
 
 	it('uses kind 73002', () => {
-		const filter = pledgesForTaskFilter('test');
+		const filter = pledgesForBountyFilter('test');
 		expect(filter.kinds).toEqual([73002]);
 	});
 });
 
-describe('solutionsForTaskFilter', () => {
-	it('returns a filter for solution events referencing a task', () => {
-		const address = '37300:abc123:my-task';
-		const filter = solutionsForTaskFilter(address);
+describe('solutionsForBountyFilter', () => {
+	it('returns a filter for solution events referencing a bounty', () => {
+		const address = '37300:abc123:my-bounty';
+		const filter = solutionsForBountyFilter(address);
 		expect(filter).toEqual({
 			kinds: [SOLUTION_KIND],
 			'#a': [address]
@@ -66,15 +66,15 @@ describe('solutionsForTaskFilter', () => {
 	});
 
 	it('uses kind 73001', () => {
-		const filter = solutionsForTaskFilter('test');
+		const filter = solutionsForBountyFilter('test');
 		expect(filter.kinds).toEqual([73001]);
 	});
 });
 
-describe('votesForTaskFilter', () => {
-	it('returns a filter for vote events referencing a task', () => {
-		const address = '37300:abc123:my-task';
-		const filter = votesForTaskFilter(address);
+describe('votesForBountyFilter', () => {
+	it('returns a filter for vote events referencing a bounty', () => {
+		const address = '37300:abc123:my-bounty';
+		const filter = votesForBountyFilter(address);
 		expect(filter).toEqual({
 			kinds: [VOTE_KIND],
 			'#a': [address]
@@ -82,15 +82,15 @@ describe('votesForTaskFilter', () => {
 	});
 
 	it('uses kind 1018', () => {
-		const filter = votesForTaskFilter('test');
+		const filter = votesForBountyFilter('test');
 		expect(filter.kinds).toEqual([1018]);
 	});
 });
 
-describe('payoutForTaskFilter', () => {
-	it('returns a filter for payout events referencing a task', () => {
-		const address = '37300:abc123:my-task';
-		const filter = payoutForTaskFilter(address);
+describe('payoutForBountyFilter', () => {
+	it('returns a filter for payout events referencing a bounty', () => {
+		const address = '37300:abc123:my-bounty';
+		const filter = payoutForBountyFilter(address);
 		expect(filter).toEqual({
 			kinds: [PAYOUT_KIND],
 			'#a': [address]
@@ -98,48 +98,48 @@ describe('payoutForTaskFilter', () => {
 	});
 
 	it('uses kind 73004', () => {
-		const filter = payoutForTaskFilter('test');
+		const filter = payoutForBountyFilter('test');
 		expect(filter.kinds).toEqual([73004]);
 	});
 });
 
-describe('taskByAuthorFilter', () => {
+describe('bountyByAuthorFilter', () => {
 	it('returns a filter for tasks by a specific author', () => {
 		const pubkey = 'a'.repeat(64);
-		const filter = taskByAuthorFilter(pubkey);
+		const filter = bountyByAuthorFilter(pubkey);
 		expect(filter).toEqual({
-			kinds: [TASK_KIND],
+			kinds: [BOUNTY_KIND],
 			authors: [pubkey]
 		});
 	});
 
 	it('uses kind 37300', () => {
-		const filter = taskByAuthorFilter('test');
+		const filter = bountyByAuthorFilter('test');
 		expect(filter.kinds).toEqual([37300]);
 	});
 });
 
-describe('searchTasksFilter', () => {
+describe('searchBountiesFilter', () => {
 	it('returns a filter with search query and default limit', () => {
-		const filter = searchTasksFilter('rust developer');
+		const filter = searchBountiesFilter('rust developer');
 		expect(filter).toEqual({
-			kinds: [TASK_KIND],
+			kinds: [BOUNTY_KIND],
 			search: 'rust developer',
 			limit: 20
 		});
 	});
 
 	it('accepts a custom limit', () => {
-		const filter = searchTasksFilter('design', 10);
+		const filter = searchBountiesFilter('design', 10);
 		expect(filter).toEqual({
-			kinds: [TASK_KIND],
+			kinds: [BOUNTY_KIND],
 			search: 'design',
 			limit: 10
 		});
 	});
 
 	it('uses kind 37300', () => {
-		const filter = searchTasksFilter('test');
+		const filter = searchBountiesFilter('test');
 		expect(filter.kinds).toEqual([37300]);
 	});
 });

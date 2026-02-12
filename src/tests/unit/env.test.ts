@@ -21,7 +21,7 @@ describe('env accessors', () => {
 	});
 
 	it('getAppName returns fallback name', () => {
-		expect(getAppName()).toBe('Tasks.fyi');
+		expect(getAppName()).toBe('Bounty.ninja');
 	});
 
 	it('getAppUrl returns fallback URL', () => {

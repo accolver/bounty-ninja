@@ -4,14 +4,14 @@ import { eventStore } from '$lib/nostr/event-store';
 import { onlyEvents } from 'applesauce-relay';
 import { mapEventsToStore } from 'applesauce-core';
 import { getDefaultRelays } from '$lib/utils/env';
-import { votesForTaskFilter } from '$lib/task/filters';
+import { votesForBountyFilter } from '$lib/bounty/filters';
 
 /**
  * Create a loader that subscribes to vote events (Kind 1018)
- * for a specific task address from all default relays.
+ * for a specific bounty address from all default relays.
  */
-export function createVoteLoader(taskAddress: string): { unsubscribe(): void } {
-	const filter = votesForTaskFilter(taskAddress);
+export function createVoteLoader(bountyAddress: string): { unsubscribe(): void } {
+	const filter = votesForBountyFilter(bountyAddress);
 	const relayUrls = getDefaultRelays();
 	const subscriptions: Subscription[] = [];
 

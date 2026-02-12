@@ -25,7 +25,7 @@
 			icon: SearchIcon,
 			action: () => (searchDialog.open = true)
 		},
-		{ href: '/task/new', label: 'Create', icon: PlusIcon, requiresAuth: true },
+		{ href: '/bounty/new', label: 'Create', icon: PlusIcon, requiresAuth: true },
 		{ href: '/settings', label: 'Settings', icon: SettingsIcon }
 	];
 
@@ -35,7 +35,7 @@
 			return;
 		}
 		if (item.requiresAuth && !accountState.isLoggedIn) {
-			toastStore.info('Sign in with a Nostr extension to create a task');
+			toastStore.info('Sign in with a Nostr extension to create a bounty');
 			return;
 		}
 		goto(item.href);

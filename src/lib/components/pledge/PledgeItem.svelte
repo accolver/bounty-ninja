@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Pledge } from '$lib/task/types';
+	import type { Pledge } from '$lib/bounty/types';
 	import { nip19 } from 'nostr-tools';
 	import { formatNpub } from '$lib/utils/format';
 	import SatAmount from '$lib/components/shared/SatAmount.svelte';

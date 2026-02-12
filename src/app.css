@@ -1,28 +1,84 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Previous theme: Tokyo Night — preserved for reference
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * @theme {
+ *   -- Tokyo Night Storm — Dark theme (default) --
+ *   --color-primary: #7aa2f7;
+ *   --color-primary-foreground: #1f2335;
+ *   --color-secondary: #9d7cd8;
+ *   --color-secondary-foreground: #1f2335;
+ *   --color-destructive: #f7768e;
+ *   --color-success: #9ece6a;
+ *   --color-warning: #e0af68;
+ *   --color-background: #1f2335;
+ *   --color-foreground: #c0caf5;
+ *   --color-card: #24283b;
+ *   --color-card-foreground: #c0caf5;
+ *   --color-muted: #414868;
+ *   --color-muted-foreground: #737aa2;
+ *   --color-border: #414868;
+ *   --color-input: #414868;
+ *   --color-ring: #7aa2f7;
+ *   --color-accent: #7dcfff;
+ *   --color-accent-foreground: #1f2335;
+ *   --color-popover: #24283b;
+ *   --color-popover-foreground: #c0caf5;
+ * }
+ *
+ * .light {
+ *   -- Tokyo Night Day --
+ *   --color-primary: #2e7de9;
+ *   --color-primary-foreground: #ffffff;
+ *   --color-secondary: #7847bd;
+ *   --color-secondary-foreground: #ffffff;
+ *   --color-destructive: #f52a65;
+ *   --color-success: #587539;
+ *   --color-warning: #b15c00;
+ *   --color-background: #f0f0f3;
+ *   --color-foreground: #2e2e3e;
+ *   --color-card: #e8e8ec;
+ *   --color-card-foreground: #2e2e3e;
+ *   --color-muted: #d8d8de;
+ *   --color-muted-foreground: #6b6b80;
+ *   --color-border: #b8b8c2;
+ *   --color-input: #ffffff;
+ *   --color-ring: #2e7de9;
+ *   --color-accent: #007197;
+ *   --color-accent-foreground: #ffffff;
+ *   --color-popover: #ffffff;
+ *   --color-popover-foreground: #2e2e3e;
+ * }
+ *
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
 @theme {
-	/* Tokyo Night Storm — Dark theme (default) */
-	--color-primary: #7aa2f7;
-	--color-primary-foreground: #1f2335;
-	--color-secondary: #9d7cd8;
-	--color-secondary-foreground: #1f2335;
-	--color-destructive: #f7768e;
-	--color-success: #9ece6a;
-	--color-warning: #e0af68;
-	--color-background: #1f2335;
-	--color-foreground: #c0caf5;
-	--color-card: #24283b;
-	--color-card-foreground: #c0caf5;
-	--color-muted: #414868;
-	--color-muted-foreground: #737aa2;
-	--color-border: #414868;
-	--color-input: #414868;
-	--color-ring: #7aa2f7;
-	--color-accent: #7dcfff;
-	--color-accent-foreground: #1f2335;
-	--color-popover: #24283b;
-	--color-popover-foreground: #c0caf5;
+	/* Mandalorian — Dark theme (default)
+	 * Inspired by Boba Fett's weathered beskar armor:
+	 * sage greens, tarnished gold, gunmetal, and rust. */
+	--color-primary: #6B9E7E;
+	--color-primary-foreground: #141A1D;
+	--color-secondary: #C49A3C;
+	--color-secondary-foreground: #141A1D;
+	--color-destructive: #C25450;
+	--color-success: #6B9E5A;
+	--color-warning: #D4A843;
+	--color-background: #141A1D;
+	--color-foreground: #C8CED2;
+	--color-card: #1B2328;
+	--color-card-foreground: #C8CED2;
+	--color-muted: #2A3439;
+	--color-muted-foreground: #7B8890;
+	--color-border: #2A3439;
+	--color-input: #2A3439;
+	--color-ring: #6B9E7E;
+	--color-accent: #4D8B7A;
+	--color-accent-foreground: #141A1D;
+	--color-popover: #1B2328;
+	--color-popover-foreground: #C8CED2;
 
 	/* Spacing and sizing */
 	--radius-sm: 0.25rem;
@@ -30,28 +86,29 @@
 	--radius-lg: 0.5rem;
 }
 
-/* Light theme — Tokyo Night Day (lightened backgrounds, desaturated text) */
+/* Light theme — Mandalorian Day
+ * Warm grey-greens with olive undertones. */
 .light {
-	--color-primary: #2e7de9;
+	--color-primary: #3A6B4E;
 	--color-primary-foreground: #ffffff;
-	--color-secondary: #7847bd;
+	--color-secondary: #8B7530;
 	--color-secondary-foreground: #ffffff;
-	--color-destructive: #f52a65;
-	--color-success: #587539;
-	--color-warning: #b15c00;
-	--color-background: #f0f0f3;
-	--color-foreground: #2e2e3e;
-	--color-card: #e8e8ec;
-	--color-card-foreground: #2e2e3e;
-	--color-muted: #d8d8de;
-	--color-muted-foreground: #6b6b80;
-	--color-border: #b8b8c2;
+	--color-destructive: #B03A3A;
+	--color-success: #4A7A3A;
+	--color-warning: #9A7520;
+	--color-background: #EDEEE8;
+	--color-foreground: #1C2520;
+	--color-card: #E0E2DB;
+	--color-card-foreground: #1C2520;
+	--color-muted: #D0D2CC;
+	--color-muted-foreground: #5B6660;
+	--color-border: #B0B5AC;
 	--color-input: #ffffff;
-	--color-ring: #2e7de9;
-	--color-accent: #007197;
+	--color-ring: #3A6B4E;
+	--color-accent: #1D6B55;
 	--color-accent-foreground: #ffffff;
 	--color-popover: #ffffff;
-	--color-popover-foreground: #2e2e3e;
+	--color-popover-foreground: #1C2520;
 }
 
 /* Reduced motion support */

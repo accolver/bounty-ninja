@@ -1,8 +1,8 @@
 import type { NostrEvent } from 'nostr-tools';
 
-export type TaskStatus = 'draft' | 'open' | 'in_review' | 'completed' | 'expired' | 'cancelled';
+export type BountyStatus = 'draft' | 'open' | 'in_review' | 'completed' | 'expired' | 'cancelled';
 
-export interface Task {
+export interface Bounty {
 	event: NostrEvent;
 	id: string;
 	dTag: string;
@@ -13,7 +13,7 @@ export interface Task {
 	rewardCurrency: string;
 	tags: string[];
 	deadline: number | null;
-	status: TaskStatus;
+	status: BountyStatus;
 	totalPledged: number;
 	solutionCount: number;
 	createdAt: number;
@@ -21,7 +21,7 @@ export interface Task {
 	submissionFee: number;
 }
 
-export interface TaskSummary {
+export interface BountySummary {
 	id: string;
 	dTag: string;
 	pubkey: string;
@@ -30,7 +30,7 @@ export interface TaskSummary {
 	rewardAmount: number;
 	totalPledged: number;
 	solutionCount: number;
-	status: TaskStatus;
+	status: BountyStatus;
 	createdAt: number;
 	deadline: number | null;
 }
@@ -39,7 +39,7 @@ export interface Pledge {
 	event: NostrEvent;
 	id: string;
 	pubkey: string;
-	taskAddress: string;
+	bountyAddress: string;
 	amount: number;
 	cashuToken: string;
 	mintUrl: string;
@@ -51,7 +51,7 @@ export interface Solution {
 	event: NostrEvent;
 	id: string;
 	pubkey: string;
-	taskAddress: string;
+	bountyAddress: string;
 	description: string;
 	antiSpamToken: string;
 	antiSpamAmount: number;
@@ -64,7 +64,7 @@ export interface Vote {
 	event: NostrEvent;
 	id: string;
 	pubkey: string;
-	taskAddress: string;
+	bountyAddress: string;
 	solutionId: string;
 	choice: 'approve' | 'reject';
 	pledgeAmount: number;
@@ -76,7 +76,7 @@ export interface Payout {
 	event: NostrEvent;
 	id: string;
 	pubkey: string;
-	taskAddress: string;
+	bountyAddress: string;
 	solutionId: string;
 	solverPubkey: string;
 	amount: number;
@@ -84,7 +84,7 @@ export interface Payout {
 	createdAt: number;
 }
 
-export interface TaskDetail extends Task {
+export interface BountyDetail extends Bounty {
 	pledges: Pledge[];
 	solutions: Solution[];
 	votesBySolution: Map<string, Vote[]>;

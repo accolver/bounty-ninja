@@ -13,8 +13,8 @@ PUBLIC_DEFAULT_RELAYS = "wss://relay.damus.io,wss://nos.lol,wss://relay.primal.n
 # Default Cashu mint URL
 PUBLIC_DEFAULT_MINT = "https://mint.minibits.cash/Bitcoin"
 # App metadata
-PUBLIC_APP_NAME = "Tasks.fyi"
-PUBLIC_APP_URL = "https://tasks.fyi"
+PUBLIC_APP_NAME = "Bounty.ninja"
+PUBLIC_APP_URL = "https://bounty.ninja"
 # Anti-spam fee range (in sats)
 PUBLIC_MIN_SUBMISSION_FEE = "10"
 PUBLIC_MAX_SUBMISSION_FEE = "100"

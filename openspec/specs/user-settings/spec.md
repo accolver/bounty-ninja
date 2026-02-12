@@ -11,7 +11,7 @@ authenticated, the page SHALL display a prompt to log in via a NIP-07 browser
 extension.
 
 All user settings SHALL be persisted to `localStorage` under a namespaced key
-`tasks.fyi:settings` as a JSON-serialized object.
+`bounty.ninja:settings` as a JSON-serialized object.
 
 Settings SHALL be loaded from `localStorage` on application initialization and
 applied before first render where possible (theme) or on relay/mint
@@ -121,7 +121,7 @@ The theme toggle SHALL apply the `.light` CSS class to the `<html>` element when
 light mode is selected, and remove it for dark mode.
 
 The selected theme SHALL be persisted to `localStorage` under the key
-`tasks.fyi:theme`.
+`bounty.ninja:theme`.
 
 The theme SHALL be applied on page load before first paint by reading
 `localStorage` in a synchronous `<script>` block in `app.html` to prevent flash

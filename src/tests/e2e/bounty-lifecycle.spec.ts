@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { MOCK_NIP07_SCRIPT } from './helpers/mock-nip07';
 
-test.describe('Task Lifecycle', () => {
+test.describe('Bounty Lifecycle', () => {
 	test('home page loads with search bar and navigation', async ({ page }) => {
 		await page.goto('/');
 
@@ -14,7 +14,7 @@ test.describe('Task Lifecycle', () => {
 		await expect(nav).toBeVisible();
 
 		// Verify logo link
-		const logo = page.locator('a[aria-label="Tasks.fyi home"]');
+		const logo = page.locator('a[aria-label="Bounty.ninja home"]');
 		await expect(logo).toBeVisible();
 
 		// Verify search bar is present (hero variant on home page)
@@ -22,8 +22,8 @@ test.describe('Task Lifecycle', () => {
 		await expect(searchInput.first()).toBeVisible();
 	});
 
-	test('navigate to task creation page requires auth', async ({ page }) => {
-		await page.goto('/task/new');
+	test('navigate to bounty creation page requires auth', async ({ page }) => {
+		await page.goto('/bounty/new');
 		await page.waitForTimeout(1000);
 
 		// Without NIP-07, should show login prompt or "Sign in" text
@@ -36,10 +36,10 @@ test.describe('Task Lifecycle', () => {
 		expect(hasLogin || hasSignIn).toBe(true);
 	});
 
-	test('task creation page loads with NIP-07 signer', async ({ page }) => {
+	test('bounty creation page loads with NIP-07 signer', async ({ page }) => {
 		// Inject mock NIP-07 before navigation
 		await page.addInitScript(MOCK_NIP07_SCRIPT);
-		await page.goto('/task/new');
+		await page.goto('/bounty/new');
 
 		// Wait for page to stabilize
 		await page.waitForTimeout(1000);
@@ -50,9 +50,9 @@ test.describe('Task Lifecycle', () => {
 		expect(pageContent).toBeTruthy();
 	});
 
-	test('task form validation rejects empty title', async ({ page }) => {
+	test('bounty form validation rejects empty title', async ({ page }) => {
 		await page.addInitScript(MOCK_NIP07_SCRIPT);
-		await page.goto('/task/new');
+		await page.goto('/bounty/new');
 		await page.waitForTimeout(1000);
 
 		// Try to find and click the Login button first if needed
@@ -78,8 +78,8 @@ test.describe('Task Lifecycle', () => {
 		}
 	});
 
-	test('task detail page handles invalid naddr', async ({ page }) => {
-		await page.goto('/task/invalid-naddr');
+	test('bounty detail page handles invalid naddr', async ({ page }) => {
+		await page.goto('/bounty/invalid-naddr');
 		await page.waitForTimeout(1000);
 
 		// Should show error state or empty state

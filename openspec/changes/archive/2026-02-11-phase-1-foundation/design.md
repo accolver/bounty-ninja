@@ -1,6 +1,6 @@
 ## Context
 
-Tasks.fyi is a greenfield project — no application code exists yet. The goal is
+Bounty.ninja is a greenfield project — no application code exists yet. The goal is
 to build a decentralized, censorship-resistant task board powered by Nostr
 (for event storage and identity) and Cashu ecash (for trustless payments). The
 application is a client-side-only static SPA with zero backend infrastructure:

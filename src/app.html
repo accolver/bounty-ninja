@@ -4,50 +4,50 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="color-scheme" content="dark light" />
-		<meta name="theme-color" content="#1f2335" />
+		<meta name="theme-color" content="#141A1D" />
 		<meta
 			name="description"
-			content="Post tasks, fund with bitcoin ecash, and pay solvers — all on Nostr. No middlemen, no accounts, no censorship."
+			content="Post bounties, fund with bitcoin ecash, and pay solvers — all on Nostr. No middlemen, no accounts, no censorship."
 		/>
 
 		<!-- Open Graph -->
 		<meta property="og:type" content="website" />
-		<meta property="og:title" content="Tasks.fyi — Decentralized Task Board" />
+		<meta property="og:title" content="Bounty.ninja — Decentralized Bounty Board" />
 		<meta
 			property="og:description"
-			content="Post tasks, fund with bitcoin ecash, and pay solvers — all on Nostr. No middlemen, no accounts, no censorship."
+			content="Post bounties, fund with bitcoin ecash, and pay solvers — all on Nostr. No middlemen, no accounts, no censorship."
 		/>
-		<meta property="og:image" content="https://tasks.fyi/og-image.svg" />
-		<meta property="og:url" content="https://tasks.fyi" />
-		<meta property="og:site_name" content="Tasks.fyi" />
+		<meta property="og:image" content="https://bounty.ninja/og-image.svg" />
+		<meta property="og:url" content="https://bounty.ninja" />
+		<meta property="og:site_name" content="Bounty.ninja" />
 
 		<!-- Twitter Card -->
 		<meta name="twitter:card" content="summary_large_image" />
-		<meta name="twitter:title" content="Tasks.fyi — Decentralized Task Board" />
+		<meta name="twitter:title" content="Bounty.ninja — Decentralized Bounty Board" />
 		<meta
 			name="twitter:description"
-			content="Post tasks, fund with bitcoin ecash, and pay solvers — all on Nostr. No middlemen, no accounts, no censorship."
+			content="Post bounties, fund with bitcoin ecash, and pay solvers — all on Nostr. No middlemen, no accounts, no censorship."
 		/>
-		<meta name="twitter:image" content="https://tasks.fyi/og-image.svg" />
+		<meta name="twitter:image" content="https://bounty.ninja/og-image.svg" />
 
 		<link rel="icon" href="%sveltekit.assets%/favicon.svg" type="image/svg+xml" />
-		<title>Tasks.fyi — Decentralized Task Board</title>
+		<title>Bounty.ninja — Decentralized Bounty Board</title>
 
 		<!-- Synchronous theme initialization — prevents flash of wrong theme -->
 		<script>
 			(function () {
 				try {
-					var theme = localStorage.getItem('tasks.fyi:theme');
+					var theme = localStorage.getItem('bounty.ninja:theme');
 					if (theme === 'light') {
 						document.documentElement.classList.add('light');
 						var meta = document.querySelector('meta[name="theme-color"]');
-						if (meta) meta.setAttribute('content', '#f0f0f3');
+						if (meta) meta.setAttribute('content', '#EDEEE8');
 					} else if (!theme) {
 						// No stored preference — check system preference
 						if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
 							document.documentElement.classList.add('light');
 							var meta2 = document.querySelector('meta[name="theme-color"]');
-							if (meta2) meta2.setAttribute('content', '#d5d6db');
+							if (meta2) meta2.setAttribute('content', '#EDEEE8');
 						}
 					}
 				} catch (e) {

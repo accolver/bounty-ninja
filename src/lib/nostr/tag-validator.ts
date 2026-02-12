@@ -1,5 +1,5 @@
 import type { NostrEvent } from 'nostr-tools';
-import { TASK_KIND, SOLUTION_KIND, PLEDGE_KIND, VOTE_KIND, PAYOUT_KIND } from '$lib/task/kinds';
+import { BOUNTY_KIND, SOLUTION_KIND, PLEDGE_KIND, VOTE_KIND, PAYOUT_KIND } from '$lib/bounty/kinds';
 
 /**
  * Result of tag validation for a Nostr event.
@@ -45,17 +45,17 @@ function isValidUrl(value: string): boolean {
 }
 
 /**
- * Validate the 'a' tag format for task references.
+ * Validate the 'a' tag format for bounty references.
  * Expected format: "37300:<hex-pubkey>:<d-tag>"
  */
-function isValidTaskAddress(value: string): boolean {
+function isValidBountyAddress(value: string): boolean {
 	const parts = value.split(':');
 	if (parts.length < 3) return false;
 
 	const [kindStr, pubkey, ...dTagParts] = parts;
 	const dTag = dTagParts.join(':'); // d-tag may contain colons
 
-	if (kindStr !== String(TASK_KIND)) return false;
+	if (kindStr !== String(BOUNTY_KIND)) return false;
 	if (!isHex64(pubkey)) return false;
 	if (!dTag || dTag.length === 0) return false;
 
@@ -63,27 +63,27 @@ function isValidTaskAddress(value: string): boolean {
 }
 
 /**
- * Validate required tags for a task event (kind 37300).
+ * Validate required tags for a bounty event (kind 37300).
  */
-function validateTaskTags(event: NostrEvent): string[] {
+function validateBountyTags(event: NostrEvent): string[] {
 	const errors: string[] = [];
 
 	const dTag = getTagValue(event, 'd');
 	if (!dTag || dTag.length === 0) {
-		errors.push("Task event missing required 'd' tag");
+		errors.push("Bounty event missing required 'd' tag");
 	}
 
 	const title = getTagValue(event, 'title');
 	const subject = getTagValue(event, 'subject');
 	if ((!title || title.length === 0) && (!subject || subject.length === 0)) {
-		errors.push("Task event missing required 'title' or 'subject' tag");
+		errors.push("Bounty event missing required 'title' or 'subject' tag");
 	}
 
 	const reward = getTagValue(event, 'reward');
 	if (!reward) {
-		errors.push("Task event missing required 'reward' tag");
+		errors.push("Bounty event missing required 'reward' tag");
 	} else if (!isPositiveInteger(reward)) {
-		errors.push(`Task 'reward' tag must be a positive integer, got: ${reward}`);
+		errors.push(`Bounty 'reward' tag must be a positive integer, got: ${reward}`);
 	}
 
 	return errors;
@@ -98,7 +98,7 @@ function validatePledgeTags(event: NostrEvent): string[] {
 	const aTag = getTagValue(event, 'a');
 	if (!aTag) {
 		errors.push("Pledge event missing required 'a' tag");
-	} else if (!isValidTaskAddress(aTag)) {
+	} else if (!isValidBountyAddress(aTag)) {
 		errors.push(`Pledge 'a' tag has invalid format: ${aTag}`);
 	}
 
@@ -133,7 +133,7 @@ function validateSolutionTags(event: NostrEvent): string[] {
 	const aTag = getTagValue(event, 'a');
 	if (!aTag) {
 		errors.push("Solution event missing required 'a' tag");
-	} else if (!isValidTaskAddress(aTag)) {
+	} else if (!isValidBountyAddress(aTag)) {
 		errors.push(`Solution 'a' tag has invalid format: ${aTag}`);
 	}
 
@@ -153,7 +153,7 @@ function validateVoteTags(event: NostrEvent): string[] {
 	const aTag = getTagValue(event, 'a');
 	if (!aTag) {
 		errors.push("Vote event missing required 'a' tag");
-	} else if (!isValidTaskAddress(aTag)) {
+	} else if (!isValidBountyAddress(aTag)) {
 		errors.push(`Vote 'a' tag has invalid format: ${aTag}`);
 	}
 
@@ -183,7 +183,7 @@ function validatePayoutTags(event: NostrEvent): string[] {
 	const aTag = getTagValue(event, 'a');
 	if (!aTag) {
 		errors.push("Payout event missing required 'a' tag");
-	} else if (!isValidTaskAddress(aTag)) {
+	} else if (!isValidBountyAddress(aTag)) {
 		errors.push(`Payout 'a' tag has invalid format: ${aTag}`);
 	}
 
@@ -196,7 +196,7 @@ function validatePayoutTags(event: NostrEvent): string[] {
 
 	const pTag = getTagValue(event, 'p');
 	if (!pTag) {
-		errors.push("Payout event missing required 'p' tag (task creator pubkey)");
+		errors.push("Payout event missing required 'p' tag (bounty creator pubkey)");
 	} else if (!isHex64(pTag)) {
 		errors.push(`Payout 'p' tag must be a valid pubkey (64-char hex), got: ${pTag}`);
 	}
@@ -208,15 +208,15 @@ function validatePayoutTags(event: NostrEvent): string[] {
  * Validate that a Nostr event has all required tags for its kind.
  * Returns a result with validation status and any error messages.
  *
- * Only validates known task-related kinds (37300, 73001, 73002, 1018, 73004).
+ * Only validates known bounty-related kinds (37300, 73001, 73002, 1018, 73004).
  * Unknown kinds pass validation (no required tags enforced).
  */
 export function validateEventTags(event: NostrEvent): TagValidationResult {
 	let errors: string[];
 
 	switch (event.kind) {
-		case TASK_KIND:
-			errors = validateTaskTags(event);
+		case BOUNTY_KIND:
+			errors = validateBountyTags(event);
 			break;
 		case PLEDGE_KIND:
 			errors = validatePledgeTags(event);

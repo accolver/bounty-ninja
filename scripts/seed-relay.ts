@@ -79,7 +79,7 @@ const NEXT_MONTH = NOW + MONTH;
 const EXPIRED_DEADLINE = NOW - 3 * DAY;
 
 // ─── Event Kind Constants ────────────────────────────────────────────────────
-const TASK_KIND = 37300;
+const BOUNTY_KIND = 37300;
 const SOLUTION_KIND = 73001;
 const PLEDGE_KIND = 73002;
 const VOTE_KIND = 1018;
@@ -109,12 +109,12 @@ async function publish(
 
 // ─── Task Address Helper ─────────────────────────────────────────────────────
 function taskAddr(pubkey: string, dTag: string): string {
-	return `${TASK_KIND}:${pubkey}:${dTag}`;
+	return `${BOUNTY_KIND}:${pubkey}:${dTag}`;
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 async function main() {
-	console.log('=== Tasks.fyi Seed Script ===');
+	console.log('=== Bounty.ninja Seed Script ===');
 	console.log(`Target relay: ${RELAY_URL}`);
 	console.log('');
 
@@ -123,16 +123,16 @@ async function main() {
 	// ─── Kind 0: User Profiles ────────────────────────────────────────────────
 	console.log('--- Publishing user profiles (Kind 0) ---');
 
-	await publish('Alice profile (task creator)', alice, {
+	await publish('Alice profile (bounty creator)', alice, {
 		kind: PROFILE_KIND,
 		created_at: MONTH_AGO,
 		tags: [],
 		content: JSON.stringify({
 			name: 'alice_dev',
 			display_name: 'Alice Developer',
-			about: 'Full-stack dev. I post tasks for open source work.',
+			about: 'Full-stack dev. I post bounties for open source work.',
 			picture: 'https://robohash.org/alice.png',
-			nip05: 'alice@tasks.fyi'
+			nip05: 'alice@bounty.ninja'
 		})
 	});
 
@@ -145,7 +145,7 @@ async function main() {
 			display_name: 'Bob the Funder',
 			about: 'Bitcoin maximalist. I fund good ideas with sats.',
 			picture: 'https://robohash.org/bob.png',
-			nip05: 'bob@tasks.fyi'
+			nip05: 'bob@bounty.ninja'
 		})
 	});
 
@@ -156,7 +156,7 @@ async function main() {
 		content: JSON.stringify({
 			name: 'carol_solves',
 			display_name: 'Carol Solutions',
-			about: 'Designer & writer. I solve tasks and deliver quality work.',
+			about: 'Designer & writer. I solve bounties and deliver quality work.',
 			picture: 'https://robohash.org/carol.png'
 		})
 	});
@@ -209,7 +209,7 @@ async function main() {
 	const B1_ADDR = taskAddr(alice.pub, B1_D);
 
 	await publish('Task 1 (Kind 37300) - Lightning wallet integration', alice, {
-		kind: TASK_KIND,
+		kind: BOUNTY_KIND,
 		created_at: TWO_WEEKS_AGO,
 		tags: [
 			['d', B1_D],
@@ -220,7 +220,7 @@ async function main() {
 			['t', 'svelte'],
 			['t', 'typescript'],
 			['fee', '21'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: `Build a Lightning Network wallet integration for a Svelte 5 web app. Requirements:
 
@@ -242,7 +242,7 @@ Deliverables: Working Svelte component library with TypeScript types, unit tests
 			['amount', '60000'],
 			['cashu', 'cashuBo2Fod...mock_pledge_token_bob_60k'],
 			['mint', 'https://mint.minibits.cash/Bitcoin'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: 'Love this idea! Lightning + Svelte is the future.'
 	});
@@ -256,7 +256,7 @@ Deliverables: Working Svelte component library with TypeScript types, unit tests
 			['amount', '40000'],
 			['cashu', 'cashuBo2Fod...mock_pledge_token_dave_40k'],
 			['mint', 'https://mint.minibits.cash/Bitcoin'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: 'Count me in. Need this for my project too.'
 	});
@@ -269,7 +269,7 @@ Deliverables: Working Svelte component library with TypeScript types, unit tests
 			['p', alice.pub],
 			['cashu', 'cashuBo2Fod...mock_antispam_carol_21'],
 			['r', 'https://github.com/example/lightning-svelte/pull/42'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: `Here is my implementation of the Lightning wallet integration:
 
@@ -298,7 +298,7 @@ PR: https://github.com/example/lightning-svelte/pull/42`
 			['e', b1Sol.id, RELAY_URL],
 			['p', carol.pub],
 			['vote', 'approve'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: 'Excellent work. Code quality is high, tests are thorough.'
 	});
@@ -311,7 +311,7 @@ PR: https://github.com/example/lightning-svelte/pull/42`
 			['e', b1Sol.id, RELAY_URL],
 			['p', carol.pub],
 			['vote', 'approve'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: 'Tested it locally, works great. Ship it!'
 	});
@@ -325,7 +325,7 @@ PR: https://github.com/example/lightning-svelte/pull/42`
 			['p', carol.pub],
 			['amount', '100000'],
 			['cashu', 'cashuBo2Fod...mock_payout_carol_100k'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: 'Consensus reached. Payout issued to Carol. Great work!'
 	});
@@ -342,7 +342,7 @@ PR: https://github.com/example/lightning-svelte/pull/42`
 	const B2_ADDR = taskAddr(frank.pub, B2_D);
 
 	await publish('Task 2 (Kind 37300) - Nostr moderation bot', frank, {
-		kind: TASK_KIND,
+		kind: BOUNTY_KIND,
 		created_at: WEEK_AGO,
 		tags: [
 			['d', B2_D],
@@ -354,7 +354,7 @@ PR: https://github.com/example/lightning-svelte/pull/42`
 			['t', 'bot'],
 			['fee', '15'],
 			['expiration', String(NEXT_WEEK)],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: `Create an automated Nostr moderation bot that monitors relay feeds and flags spam.
 
@@ -384,7 +384,7 @@ Budget: 75,000 sats for a working prototype with documentation.`
 			['amount', '30000'],
 			['cashu', 'cashuBo2Fod...mock_pledge_bob_30k_b2'],
 			['mint', 'https://mint.minibits.cash/Bitcoin'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: 'Spam is killing relay operators. Happy to fund this.'
 	});
@@ -398,7 +398,7 @@ Budget: 75,000 sats for a working prototype with documentation.`
 			['amount', '25000'],
 			['cashu', 'cashuBo2Fod...mock_pledge_dave_25k_b2'],
 			['mint', 'https://mint.minibits.cash/Bitcoin'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: 'Running a relay, definitely need this.'
 	});
@@ -412,7 +412,7 @@ Budget: 75,000 sats for a working prototype with documentation.`
 			['amount', '20000'],
 			['cashu', 'cashuBo2Fod...mock_pledge_alice_20k_b2'],
 			['mint', 'https://mint.minibits.cash/Bitcoin'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: 'Good cause. Adding some sats.'
 	});
@@ -425,7 +425,7 @@ Budget: 75,000 sats for a working prototype with documentation.`
 			['p', frank.pub],
 			['cashu', 'cashuBo2Fod...mock_antispam_eve_15'],
 			['r', 'https://github.com/example/nostr-mod-bot'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: `Built a spam detection bot using a hybrid ML + heuristic approach.
 
@@ -451,7 +451,7 @@ Repo: https://github.com/example/nostr-mod-bot`
 			['p', frank.pub],
 			['cashu', 'cashuBo2Fod...mock_antispam_carol_15'],
 			['r', 'https://github.com/example/nostr-sentinel'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: `My approach focuses on simplicity and configurability over ML.
 
@@ -476,7 +476,7 @@ Repo: https://github.com/example/nostr-sentinel`
 			['e', b2Sol1.id, RELAY_URL],
 			['p', eve.pub],
 			['vote', 'approve'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: 'The ML approach is more future-proof. Good precision numbers.'
 	});
@@ -493,7 +493,7 @@ Repo: https://github.com/example/nostr-sentinel`
 	const B3_ADDR = taskAddr(alice.pub, B3_D);
 
 	await publish('Task 3 (Kind 37300) - Cashu ecash tutorial', alice, {
-		kind: TASK_KIND,
+		kind: BOUNTY_KIND,
 		created_at: THREE_DAYS_AGO,
 		tags: [
 			['d', B3_D],
@@ -506,7 +506,7 @@ Repo: https://github.com/example/nostr-sentinel`
 			['fee', '10'],
 			['expiration', String(NEXT_WEEK)],
 			['mint', 'https://mint.minibits.cash/Bitcoin'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: `Write a comprehensive, beginner-friendly tutorial on Cashu ecash for Bitcoin users.
 
@@ -537,7 +537,7 @@ Bitcoin users who understand Lightning but have never used ecash.`
 			['amount', '20000'],
 			['cashu', 'cashuBo2Fod...mock_pledge_bob_20k_b3'],
 			['mint', 'https://mint.minibits.cash/Bitcoin'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: 'We need more good Cashu educational content!'
 	});
@@ -551,7 +551,7 @@ Bitcoin users who understand Lightning but have never used ecash.`
 			['amount', '10000'],
 			['cashu', 'cashuBo2Fod...mock_pledge_frank_10k_b3'],
 			['mint', 'https://mint.minibits.cash/Bitcoin'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: 'Adding to the pot. Cashu needs better docs.'
 	});
@@ -568,7 +568,7 @@ Bitcoin users who understand Lightning but have never used ecash.`
 	const B4_ADDR = taskAddr(dave.pub, B4_D);
 
 	await publish('Task 4 (Kind 37300) - Nostr relay dashboard', dave, {
-		kind: TASK_KIND,
+		kind: BOUNTY_KIND,
 		created_at: DAY_AGO,
 		tags: [
 			['d', B4_D],
@@ -580,7 +580,7 @@ Bitcoin users who understand Lightning but have never used ecash.`
 			['t', 'monitoring'],
 			['fee', '15'],
 			['expiration', String(NEXT_WEEK)],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: `Build a web-based dashboard for Nostr relay operators.
 
@@ -609,7 +609,7 @@ This is a design + development task. Need both the UI design and working code.`
 			['amount', '35000'],
 			['cashu', 'cashuBo2Fod...mock_pledge_alice_35k_b4'],
 			['mint', 'https://mint.minibits.cash/Bitcoin'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: 'Relay operators really need this. Adding sats.'
 	});
@@ -623,7 +623,7 @@ This is a design + development task. Need both the UI design and working code.`
 			['amount', '15000'],
 			['cashu', 'cashuBo2Fod...mock_pledge_frank_15k_b4'],
 			['mint', 'https://mint.minibits.cash/Bitcoin'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: 'Running my own relay, would love a dashboard.'
 	});
@@ -643,7 +643,7 @@ This is a design + development task. Need both the UI design and working code.`
 	// Note: some relays (strfry) may reject events with past expiration.
 	// For dev seeding this is fine since we control the relay.
 	await publish('Task 5 (Kind 37300) - NIP-05 bulk verifier', frank, {
-		kind: TASK_KIND,
+		kind: BOUNTY_KIND,
 		created_at: TWO_WEEKS_AGO,
 		tags: [
 			['d', B5_D],
@@ -654,7 +654,7 @@ This is a design + development task. Need both the UI design and working code.`
 			['t', 'tooling'],
 			['fee', '10'],
 			['expiration', String(EXPIRED_DEADLINE)],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: `Build a tool that bulk-verifies NIP-05 identifiers for a list of pubkeys.
 
@@ -677,7 +677,7 @@ Should be fast enough to verify 1000 pubkeys in under 60 seconds.`
 			['amount', '20000'],
 			['cashu', 'cashuBo2Fod...mock_pledge_alice_20k_b5'],
 			['mint', 'https://mint.minibits.cash/Bitcoin'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: 'Would be useful for my relay.'
 	});
@@ -690,7 +690,7 @@ Should be fast enough to verify 1000 pubkeys in under 60 seconds.`
 			['p', frank.pub],
 			['cashu', 'cashuBo2Fod...mock_antispam_eve_10_b5'],
 			['r', 'https://github.com/example/nip05-check'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: `Partial implementation — CLI works for small batches but needs optimization for the 1000-pubkey target. Running into rate limiting issues with popular NIP-05 providers.
 
@@ -709,7 +709,7 @@ WIP repo: https://github.com/example/nip05-check`
 	const B6_ADDR = taskAddr(bob.pub, B6_D);
 
 	await publish('Task 6 (Kind 37300) - Lightning tipping widget', bob, {
-		kind: TASK_KIND,
+		kind: BOUNTY_KIND,
 		created_at: TWO_WEEKS_AGO,
 		tags: [
 			['d', B6_D],
@@ -719,7 +719,7 @@ WIP repo: https://github.com/example/nip05-check`
 			['t', 'lightning'],
 			['t', 'widget'],
 			['fee', '10'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content:
 			'Build an embeddable Lightning tipping widget for websites. Should support LNURL-pay and zaps.'
@@ -744,7 +744,7 @@ WIP repo: https://github.com/example/nip05-check`
 	const B7_ADDR = taskAddr(alice.pub, B7_D);
 
 	await publish('Task 7 (Kind 37300) - Security audit of Nostr clients', alice, {
-		kind: TASK_KIND,
+		kind: BOUNTY_KIND,
 		created_at: THREE_DAYS_AGO,
 		tags: [
 			['d', B7_D],
@@ -756,7 +756,7 @@ WIP repo: https://github.com/example/nip05-check`
 			['t', 'research'],
 			['fee', '50'],
 			['expiration', String(NEXT_MONTH)],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: `Conduct a security audit of 3 popular Nostr clients focusing on:
 
@@ -787,7 +787,7 @@ This is a high-value task for an experienced security researcher.`
 			['amount', '100000'],
 			['cashu', 'cashuBo2Fod...mock_pledge_bob_100k_b7'],
 			['mint', 'https://mint.minibits.cash/Bitcoin'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: 'Security is paramount. Funding this heavily.'
 	});
@@ -801,7 +801,7 @@ This is a high-value task for an experienced security researcher.`
 			['amount', '75000'],
 			['cashu', 'cashuBo2Fod...mock_pledge_dave_75k_b7'],
 			['mint', 'https://mint.minibits.cash/Bitcoin'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: 'This needs to happen. Adding 75k.'
 	});
@@ -815,7 +815,7 @@ This is a high-value task for an experienced security researcher.`
 			['amount', '50000'],
 			['cashu', 'cashuBo2Fod...mock_pledge_frank_50k_b7'],
 			['mint', 'https://mint.minibits.cash/Bitcoin'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: 'Great initiative. Adding my sats.'
 	});
@@ -829,7 +829,7 @@ This is a high-value task for an experienced security researcher.`
 			['amount', '25000'],
 			['cashu', 'cashuBo2Fod...mock_pledge_eve_25k_b7'],
 			['mint', 'https://mint.minibits.cash/Bitcoin'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: 'As a security researcher myself, I want to see this done well.'
 	});
@@ -846,7 +846,7 @@ This is a high-value task for an experienced security researcher.`
 	const B8_ADDR = taskAddr(carol.pub, B8_D);
 
 	await publish('Task 8 (Kind 37300) - Logo design for Nostr project', carol, {
-		kind: TASK_KIND,
+		kind: BOUNTY_KIND,
 		created_at: WEEK_AGO,
 		tags: [
 			['d', B8_D],
@@ -857,7 +857,7 @@ This is a high-value task for an experienced security researcher.`
 			['t', 'nostr'],
 			['fee', '10'],
 			['expiration', String(NEXT_WEEK)],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: `Design a logo and visual identity for a new Nostr relay aggregator service.
 
@@ -890,7 +890,7 @@ This is a high-value task for an experienced security researcher.`
 			['amount', '25000'],
 			['cashu', 'cashuBo2Fod...mock_pledge_bob_25k_b8'],
 			['mint', 'https://mint.minibits.cash/Bitcoin'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: 'Good design matters.'
 	});
@@ -904,7 +904,7 @@ This is a high-value task for an experienced security researcher.`
 			['amount', '15000'],
 			['cashu', 'cashuBo2Fod...mock_pledge_alice_15k_b8'],
 			['mint', 'https://mint.minibits.cash/Bitcoin'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: 'Throwing some sats at this.'
 	});
@@ -917,7 +917,7 @@ This is a high-value task for an experienced security researcher.`
 			['p', carol.pub],
 			['cashu', 'cashuBo2Fod...mock_antispam_frank_10_b8'],
 			['r', 'https://figma.com/example/nostr-relay-logo-v1'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: `Here is my logo concept: a stylized "N" made of interconnected nodes.
 
@@ -938,7 +938,7 @@ Includes:
 			['e', b8Sol1.id, RELAY_URL],
 			['p', frank.pub],
 			['vote', 'reject'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: 'Too generic. The interconnected nodes concept is overused in crypto branding.'
 	});
@@ -951,7 +951,7 @@ Includes:
 			['e', b8Sol1.id, RELAY_URL],
 			['p', frank.pub],
 			['vote', 'reject'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content:
 			'Agree with Bob. Need something more original. The spec explicitly said no generic network graphics.'
@@ -965,7 +965,7 @@ Includes:
 			['p', carol.pub],
 			['cashu', 'cashuBo2Fod...mock_antispam_eve_10_b8'],
 			['r', 'https://figma.com/example/nostr-relay-logo-v2'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: `Fresh take on the logo — abstract "signal" concept using negative space.
 
@@ -992,7 +992,7 @@ Deliverables:
 	const B9_ADDR = taskAddr(eve.pub, B9_D);
 
 	await publish('Task 9 (Kind 37300) - Translate Nostr docs to Spanish', eve, {
-		kind: TASK_KIND,
+		kind: BOUNTY_KIND,
 		created_at: HOUR_AGO,
 		tags: [
 			['d', B9_D],
@@ -1003,7 +1003,7 @@ Deliverables:
 			['t', 'nostr'],
 			['t', 'spanish'],
 			['fee', '10'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: `Translate the core Nostr protocol documentation (NIPs 01, 02, 04, 05, 07, 19, 25, 50) into Spanish.
 
@@ -1030,7 +1030,7 @@ Partial submissions welcome — can split the reward proportionally.`
 			['amount', '30000'],
 			['cashu', 'cashuBo2Fod...mock_pledge_bob_30k_b9'],
 			['mint', 'https://mint.minibits.cash/Bitcoin'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: 'Spanish community needs good NIP translations. Funded!'
 	});
@@ -1044,7 +1044,7 @@ Partial submissions welcome — can split the reward proportionally.`
 			['amount', '15000'],
 			['cashu', 'cashuBo2Fod...mock_pledge_dave_15k_b9'],
 			['mint', 'https://mint.minibits.cash/Bitcoin'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: 'Accessibility matters. Adding my sats.'
 	});
@@ -1061,7 +1061,7 @@ Partial submissions welcome — can split the reward proportionally.`
 	const B10_ADDR = taskAddr(dave.pub, B10_D);
 
 	await publish('Task 10 (Kind 37300) - QR code generator for naddr', dave, {
-		kind: TASK_KIND,
+		kind: BOUNTY_KIND,
 		created_at: DAY_AGO,
 		tags: [
 			['d', B10_D],
@@ -1071,7 +1071,7 @@ Partial submissions welcome — can split the reward proportionally.`
 			['t', 'svelte'],
 			['t', 'component'],
 			['fee', '10'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: `Simple utility: generate QR codes for Nostr naddr identifiers. Should be a reusable Svelte component.
 
@@ -1090,7 +1090,7 @@ Bonus: support for NIP-21 \`nostr:\` URI scheme in the QR data.`
 			['amount', '5000'],
 			['cashu', 'cashuBo2Fod...mock_pledge_frank_5k_b10'],
 			['mint', 'https://mint.minibits.cash/Bitcoin'],
-			['client', 'tasks.fyi']
+			['client', 'bounty.ninja']
 		],
 		content: 'Quick job, full funding.'
 	});

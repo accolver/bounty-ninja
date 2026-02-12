@@ -46,7 +46,7 @@ initialize the IndexedDB cache. It MUST export `ssr = false` and
 `src/lib/components/layout/Header.svelte` MUST render a top navigation bar
 containing:
 
-1. The Tasks.fyi logo/wordmark linking to the home page (`/`)
+1. The Bounty.ninja logo/wordmark linking to the home page (`/`)
 2. A `LoginButton` component when the user is logged out
 3. The user's truncated npub when the user is logged in
 
@@ -74,7 +74,7 @@ The Header MUST be keyboard navigable.
 
 #### Scenario: Header logo navigates to home
 
-- **WHEN** the user clicks the Tasks.fyi logo in the Header
+- **WHEN** the user clicks the Bounty.ninja logo in the Header
 - **THEN** the application navigates to `/`
 
 ### Requirement: Footer Component

@@ -6,7 +6,7 @@
       functions for all five event kinds: Kind 37300 (task), Kind 73002
       (pledge), Kind 73001 (solution), Kind 1018 (vote), Kind 73004 (payout).
       Each blueprint must produce a valid unsigned event with correct `kind`,
-      `tags` (including `["client", "tasks.fyi"]`), and `content` fields.
+      `tags` (including `["client", "bounty.ninja"]`), and `content` fields.
 - [x] 1.2 Implement lazy `EventFactory` initialization in
       `src/lib/nostr/signer.svelte.ts` — factory created on first write
       operation using the NIP-07 signer from `applesauce-signers`, reused for
@@ -239,7 +239,7 @@
       function produces correct event structure: Kind 37300 with
       required/optional tags, Kind 73002 with all required tags, Kind 73001 with
       anti-spam fee token, Kind 1018 with vote choice, Kind 73004 with payout
-      token. Verify `["client", "tasks.fyi"]` tag on all events.
+      token. Verify `["client", "bounty.ninja"]` tag on all events.
 
 ## 13. Integration Tests
 

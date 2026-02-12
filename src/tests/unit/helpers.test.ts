@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import type { NostrEvent } from 'nostr-tools';
 import {
-	parseTaskSummary,
+	parseBountySummary,
 	parsePledge,
 	parseSolution,
 	parseVote,
 	parsePayout,
-	parseTaskDetail
-} from '$lib/task/helpers';
+	parseBountyDetail
+} from '$lib/bounty/helpers';
 
 // Valid hex constants for reuse across tests
 const PUBKEY_A = 'a'.repeat(64);
@@ -20,7 +20,7 @@ const EVENT_ID_3 = '3'.repeat(64);
 const EVENT_ID_4 = '4'.repeat(64);
 const EVENT_ID_5 = '5'.repeat(64);
 const SIG = 'c'.repeat(128);
-const VALID_TASK_ADDR = `37300:${PUBKEY_B}:task-123`;
+const VALID_TASK_ADDR = `37300:${PUBKEY_B}:bounty-123`;
 const VALID_MINT_URL = 'https://mint.example.com';
 
 function mockEvent(overrides: Partial<NostrEvent> = {}): NostrEvent {
@@ -36,12 +36,12 @@ function mockEvent(overrides: Partial<NostrEvent> = {}): NostrEvent {
 	};
 }
 
-describe('parseTaskSummary', () => {
-	it('parses a task event with all tags', () => {
+describe('parseBountySummary', () => {
+	it('parses a bounty event with all tags', () => {
 		const event = mockEvent({
 			kind: 37300,
 			tags: [
-				['d', 'task-123'],
+				['d', 'bounty-123'],
 				['title', 'Fix the login bug'],
 				['reward', '50000'],
 				['t', 'bug'],
@@ -51,10 +51,10 @@ describe('parseTaskSummary', () => {
 			content: 'Detailed description of the bug'
 		});
 
-		const summary = parseTaskSummary(event)!;
+		const summary = parseBountySummary(event)!;
 
 		expect(summary.id).toBe(PUBKEY_A);
-		expect(summary.dTag).toBe('task-123');
+		expect(summary.dTag).toBe('bounty-123');
 		expect(summary.pubkey).toBe(PUBKEY_B);
 		expect(summary.title).toBe('Fix the login bug');
 		expect(summary.rewardAmount).toBe(50000);
@@ -69,13 +69,13 @@ describe('parseTaskSummary', () => {
 		const event = mockEvent({
 			kind: 37300,
 			tags: [
-				['d', 'task-456'],
+				['d', 'bounty-456'],
 				['subject', 'Implement dark mode'],
 				['reward', '10000']
 			]
 		});
 
-		const summary = parseTaskSummary(event)!;
+		const summary = parseBountySummary(event)!;
 		expect(summary.title).toBe('Implement dark mode');
 	});
 
@@ -83,13 +83,13 @@ describe('parseTaskSummary', () => {
 		const event = mockEvent({
 			kind: 37300,
 			tags: [
-				['d', 'task-789'],
+				['d', 'bounty-789'],
 				['reward', '5000']
 			],
 			content: 'Build a REST API\nWith proper error handling\nAnd tests'
 		});
 
-		const result = parseTaskSummary(event);
+		const result = parseBountySummary(event);
 		expect(result).toBeNull();
 	});
 
@@ -98,24 +98,24 @@ describe('parseTaskSummary', () => {
 		const event = mockEvent({
 			kind: 37300,
 			tags: [
-				['d', 'task-long'],
+				['d', 'bounty-long'],
 				['reward', '5000']
 			],
 			content: longLine
 		});
 
-		const result = parseTaskSummary(event);
+		const result = parseBountySummary(event);
 		expect(result).toBeNull();
 	});
 
 	it('returns null when required tags are missing (validation failure)', () => {
 		const event = mockEvent({
 			kind: 37300,
-			tags: [['d', 'task-empty']],
+			tags: [['d', 'bounty-empty']],
 			content: ''
 		});
 
-		const result = parseTaskSummary(event);
+		const result = parseBountySummary(event);
 		expect(result).toBeNull();
 	});
 
@@ -126,7 +126,7 @@ describe('parseTaskSummary', () => {
 			content: ''
 		});
 
-		const result = parseTaskSummary(event);
+		const result = parseBountySummary(event);
 		expect(result).toBeNull();
 	});
 
@@ -134,13 +134,13 @@ describe('parseTaskSummary', () => {
 		const event = mockEvent({
 			kind: 37300,
 			tags: [
-				['d', 'task-bad'],
-				['title', 'Test task'],
+				['d', 'bounty-bad'],
+				['title', 'Test bounty'],
 				['reward', 'not-a-number']
 			]
 		});
 
-		const result = parseTaskSummary(event);
+		const result = parseBountySummary(event);
 		expect(result).toBeNull();
 	});
 
@@ -148,14 +148,14 @@ describe('parseTaskSummary', () => {
 		const event = mockEvent({
 			kind: 37300,
 			tags: [
-				['d', 'task-bad-exp'],
-				['title', 'Test task'],
+				['d', 'bounty-bad-exp'],
+				['title', 'Test bounty'],
 				['reward', '5000'],
 				['expiration', 'invalid']
 			]
 		});
 
-		const summary = parseTaskSummary(event)!;
+		const summary = parseBountySummary(event)!;
 		expect(summary.deadline).toBeNull();
 	});
 });
@@ -177,7 +177,7 @@ describe('parsePledge', () => {
 
 		expect(pledge.id).toBe(PUBKEY_A);
 		expect(pledge.pubkey).toBe(PUBKEY_B);
-		expect(pledge.taskAddress).toBe(VALID_TASK_ADDR);
+		expect(pledge.bountyAddress).toBe(VALID_TASK_ADDR);
 		expect(pledge.amount).toBe(25000);
 		expect(pledge.cashuToken).toBe('cashuAtoken123');
 		expect(pledge.mintUrl).toBe(VALID_MINT_URL);
@@ -222,7 +222,7 @@ describe('parseSolution', () => {
 
 		const solution = parseSolution(event)!;
 
-		expect(solution.taskAddress).toBe(VALID_TASK_ADDR);
+		expect(solution.bountyAddress).toBe(VALID_TASK_ADDR);
 		expect(solution.description).toBe('Here is my solution with full implementation');
 		expect(solution.antiSpamToken).toBe('cashuBtoken456');
 		expect(solution.antiSpamAmount).toBe(100);
@@ -264,7 +264,7 @@ describe('parseVote', () => {
 
 		const vote = parseVote(event)!;
 
-		expect(vote.taskAddress).toBe(VALID_TASK_ADDR);
+		expect(vote.bountyAddress).toBe(VALID_TASK_ADDR);
 		expect(vote.solutionId).toBe(EVENT_ID_1);
 		expect(vote.choice).toBe('approve');
 	});
@@ -333,7 +333,7 @@ describe('parsePayout', () => {
 
 		const payout = parsePayout(event)!;
 
-		expect(payout.taskAddress).toBe(VALID_TASK_ADDR);
+		expect(payout.bountyAddress).toBe(VALID_TASK_ADDR);
 		expect(payout.solutionId).toBe(EVENT_ID_1);
 		expect(payout.solverPubkey).toBe(PUBKEY_C);
 		expect(payout.amount).toBe(75000);
@@ -348,21 +348,21 @@ describe('parsePayout', () => {
 	});
 });
 
-describe('parseTaskDetail', () => {
-	it('composes all parsers into a full TaskDetail', () => {
-		const taskAddr = `37300:${PUBKEY_B}:task-full`;
+describe('parseBountyDetail', () => {
+	it('composes all parsers into a full BountyDetail', () => {
+		const taskAddr = `37300:${PUBKEY_B}:bounty-full`;
 
-		const taskEvent = mockEvent({
+		const bountyEvent = mockEvent({
 			kind: 37300,
 			tags: [
-				['d', 'task-full'],
-				['title', 'Full task test'],
+				['d', 'bounty-full'],
+				['title', 'Full bounty test'],
 				['reward', '100000'],
 				['t', 'test'],
 				['currency', 'sat'],
 				['mint', VALID_MINT_URL]
 			],
-			content: 'A full task description'
+			content: 'A full bounty description'
 		});
 
 		const pledgeEvent = mockEvent({
@@ -401,8 +401,8 @@ describe('parseTaskDetail', () => {
 			]
 		});
 
-		const detail = parseTaskDetail(
-			taskEvent,
+		const detail = parseBountyDetail(
+			bountyEvent,
 			[pledgeEvent],
 			[solutionEvent],
 			[voteEvent],
@@ -410,7 +410,7 @@ describe('parseTaskDetail', () => {
 			[]
 		)!;
 
-		expect(detail.title).toBe('Full task test');
+		expect(detail.title).toBe('Full bounty test');
 		expect(detail.rewardAmount).toBe(100000);
 		expect(detail.totalPledged).toBe(50000);
 		expect(detail.solutionCount).toBe(1);
@@ -419,7 +419,7 @@ describe('parseTaskDetail', () => {
 		expect(detail.payout).toBeNull();
 		expect(detail.status).toBe('in_review');
 		expect(detail.mintUrl).toBe(VALID_MINT_URL);
-		expect(detail.description).toBe('A full task description');
+		expect(detail.description).toBe('A full bounty description');
 		expect(detail.creatorProfile).toBeNull();
 
 		// Votes grouped by solution
@@ -429,17 +429,17 @@ describe('parseTaskDetail', () => {
 	});
 
 	it('handles empty related events', () => {
-		const taskEvent = mockEvent({
+		const bountyEvent = mockEvent({
 			kind: 37300,
 			tags: [
-				['d', 'task-empty'],
-				['title', 'Empty task'],
+				['d', 'bounty-empty'],
+				['title', 'Empty bounty'],
 				['reward', '5000']
 			],
 			content: ''
 		});
 
-		const detail = parseTaskDetail(taskEvent, [], [], [], [], [])!;
+		const detail = parseBountyDetail(bountyEvent, [], [], [], [], [])!;
 
 		expect(detail.totalPledged).toBe(0);
 		expect(detail.solutionCount).toBe(0);
@@ -451,13 +451,13 @@ describe('parseTaskDetail', () => {
 	});
 
 	it('sets status to completed when payouts exist', () => {
-		const taskAddr = `37300:${PUBKEY_B}:task-paid`;
+		const taskAddr = `37300:${PUBKEY_B}:bounty-paid`;
 
-		const taskEvent = mockEvent({
+		const bountyEvent = mockEvent({
 			kind: 37300,
 			tags: [
-				['d', 'task-paid'],
-				['title', 'Paid task'],
+				['d', 'bounty-paid'],
+				['title', 'Paid bounty'],
 				['reward', '100000']
 			]
 		});
@@ -473,7 +473,7 @@ describe('parseTaskDetail', () => {
 			]
 		});
 
-		const detail = parseTaskDetail(taskEvent, [], [], [], [payoutEvent], [])!;
+		const detail = parseBountyDetail(bountyEvent, [], [], [], [payoutEvent], [])!;
 
 		expect(detail.status).toBe('completed');
 		expect(detail.payout).not.toBeNull();
@@ -481,18 +481,18 @@ describe('parseTaskDetail', () => {
 	});
 
 	it('sets status to cancelled when delete events exist', () => {
-		const taskEvent = mockEvent({
+		const bountyEvent = mockEvent({
 			kind: 37300,
 			tags: [
-				['d', 'task-cancelled'],
-				['title', 'Cancelled task'],
+				['d', 'bounty-cancelled'],
+				['title', 'Cancelled bounty'],
 				['reward', '5000']
 			]
 		});
 
 		const deleteEvent = mockEvent({ kind: 5 });
 
-		const detail = parseTaskDetail(taskEvent, [], [], [], [], [deleteEvent])!;
+		const detail = parseBountyDetail(bountyEvent, [], [], [], [], [deleteEvent])!;
 
 		expect(detail.status).toBe('cancelled');
 	});

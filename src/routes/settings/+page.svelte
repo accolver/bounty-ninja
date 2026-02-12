@@ -8,9 +8,9 @@
 	import { getDefaultRelays, getDefaultMint } from '$lib/utils/env';
 	import { onMount } from 'svelte';
 
-	const SETTINGS_KEY = 'tasks.fyi:settings';
-	const THEME_KEY = 'tasks.fyi:theme';
-	const CACHE_LIMITS_KEY = 'tasks.fyi:cache-limits';
+	const SETTINGS_KEY = 'bounty.ninja:settings';
+	const THEME_KEY = 'bounty.ninja:theme';
+	const CACHE_LIMITS_KEY = 'bounty.ninja:cache-limits';
 
 	/** Load settings from localStorage with safe fallback */
 	function loadSettings(): { relays: string[]; mint: string } {
@@ -186,7 +186,7 @@
 </script>
 
 <svelte:head>
-	<title>Settings — Tasks.fyi</title>
+	<title>Settings — Bounty.ninja</title>
 </svelte:head>
 
 <ErrorBoundary>

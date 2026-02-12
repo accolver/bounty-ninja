@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { taskList } from '$lib/stores/tasks.svelte';
-	import TaskListItem from '$lib/components/task/TaskListItem.svelte';
+	import { bountyList } from '$lib/stores/bounties.svelte';
+	import BountyListItem from '$lib/components/bounty/BountyListItem.svelte';
 	import LoadingSpinner from '$lib/components/shared/LoadingSpinner.svelte';
 	import EmptyState from '$lib/components/shared/EmptyState.svelte';
 	import ErrorBoundary from '$lib/components/shared/ErrorBoundary.svelte';
@@ -11,7 +11,7 @@
 	import ListFilter from '@lucide/svelte/icons/list-filter';
 	import { fly } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
-	import type { TaskSummary, TaskStatus } from '$lib/task/types';
+	import type { BountySummary, BountyStatus } from '$lib/bounty/types';
 
 	// Animations only play after a user-initiated filter/sort change,
 	// not during the initial relay data stream.
@@ -31,7 +31,7 @@
 	);
 
 	const statusFilters = $derived.by(() => {
-		const set = new Set<TaskStatus>();
+		const set = new Set<BountyStatus>();
 		if (showOpen) set.add('open');
 		if (showInReview) set.add('in_review');
 		if (showCompleted) set.add('completed');
@@ -56,7 +56,7 @@
 
 	// Compute the max pledge across all items for the slider range
 	const maxPledge = $derived(
-		Math.max(1000, ...taskList.items.map((t) => t.totalPledged))
+		Math.max(1000, ...bountyList.items.map((t) => t.totalPledged))
 	);
 
 	// Round up to a nice number for the slider max
@@ -68,18 +68,18 @@
 		return Math.ceil(raw / 100_000) * 100_000;
 	});
 
-	const sortFns: Record<string, (a: TaskSummary, b: TaskSummary) => number> = {
+	const sortFns: Record<string, (a: BountySummary, b: BountySummary) => number> = {
 		reward: (a, b) => b.totalPledged - a.totalPledged,
 		newest: (a, b) => b.createdAt - a.createdAt,
 		solutions: (a, b) => b.solutionCount - a.solutionCount
 	};
 
-	const filteredTasks = $derived.by(() => {
+	const filteredBounties = $derived.by(() => {
 		const statuses = statusFilters;
-		return taskList.items
-			.filter((t: TaskSummary) => statuses.has(t.status))
-			.filter((t: TaskSummary) => !selectedTag || t.tags.includes(selectedTag))
-			.filter((t: TaskSummary) => t.totalPledged >= minSats)
+		return bountyList.items
+			.filter((t: BountySummary) => statuses.has(t.status))
+			.filter((t: BountySummary) => !selectedTag || t.tags.includes(selectedTag))
+			.filter((t: BountySummary) => t.totalPledged >= minSats)
 			.sort(sortFns[sortBy]);
 	});
 
@@ -91,7 +91,7 @@
 </script>
 
 <svelte:head>
-	<title>Tasks.fyi - Decentralized Task Board</title>
+	<title>Bounty.ninja - Decentralized Bounty Board</title>
 </svelte:head>
 
 <ErrorBoundary>
@@ -177,16 +177,16 @@
 				</div>
 			</div>
 
-			<!-- Task list -->
-			{#if taskList.loading && taskList.items.length === 0}
+			<!-- Bounty list -->
+			{#if bountyList.loading && bountyList.items.length === 0}
 				<div class="flex items-center justify-center py-12">
 					<LoadingSpinner size="lg" />
 				</div>
-			{:else if taskList.error}
+			{:else if bountyList.error}
 				<div class="rounded-lg border border-destructive/50 bg-destructive/10 p-8 text-center">
-					<p class="text-sm text-destructive">{taskList.error}</p>
+					<p class="text-sm text-destructive">{bountyList.error}</p>
 				</div>
-			{:else if filteredTasks.length === 0}
+			{:else if filteredBounties.length === 0}
 				<EmptyState
 					message={selectedTag
 						? `No tasks found for "${selectedTag}". Try a different category.`
@@ -194,12 +194,12 @@
 				/>
 			{:else}
 				<div>
-					{#each filteredTasks as task (task.id)}
+					{#each filteredBounties as bounty (bounty.id)}
 						<div
 							animate:flip={{ duration: animate ? 250 : 0 }}
 							out:fly={{ y: -10, duration: animate ? 150 : 0 }}
 						>
-							<TaskListItem {task} />
+							<BountyListItem {bounty} />
 						</div>
 					{/each}
 				</div>

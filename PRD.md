@@ -1,8 +1,8 @@
-# Tasks.fyi — Product Requirements Document
+# Bounty.ninja — Product Requirements Document
 
 ## A Decentralized Task Board Powered by Nostr, Cashu & Svelte 5
 
-**Domain:** https://tasks.fyi **Version:** 2.0 **Last Updated:** 2026-02-10
+**Domain:** https://bounty.ninja **Version:** 2.0 **Last Updated:** 2026-02-10
 **Status:** Ready for AI-Assisted Implementation
 
 ---
@@ -38,7 +38,7 @@
 
 ## 1. Overview
 
-**Tasks.fyi** is a sovereign, censorship-resistant labor marketplace built
+**Bounty.ninja** is a sovereign, censorship-resistant labor marketplace built
 entirely on the Nostr protocol. It enables anyone to post tasks with bitcoin
 rewards, fund them with Cashu ecash, and pay solvers — all without a central
 server, database, or intermediary.
@@ -62,7 +62,7 @@ IndexedDB. Financial settlement uses Cashu ecash tokens locked with P2PK
 
 ### Primary Goal
 
-Ship an MVP task board at https://tasks.fyi where users can create, fund, solve,
+Ship an MVP task board at https://bounty.ninja where users can create, fund, solve,
 and pay out tasks using Nostr + Cashu — with zero backend infrastructure.
 
 ### Secondary Goals
@@ -77,7 +77,7 @@ and pay out tasks using Nostr + Cashu — with zero backend infrastructure.
 
 | Metric                         | Target | Measurement                                        |
 | ------------------------------ | ------ | -------------------------------------------------- |
-| Tasks created (first 90 days)  | 100+   | Count of Kind 37300 events with `#t tasks.fyi` tag |
+| Tasks created (first 90 days)  | 100+   | Count of Kind 37300 events with `#t bounty.ninja` tag |
 | Unique pubkeys interacting     | 50+    | Distinct pubkeys across all task event kinds       |
 | Successful payouts             | 20+    | Count of Kind 73004 payout events                  |
 | Page load time (cold)          | < 3s   | Lighthouse performance audit                       |
@@ -128,13 +128,13 @@ bun --version   # >= 1.0.0
 
 ```bash
 # Create the SvelteKit project
-bun create svelte@latest tasks-fyi
+bun create svelte@latest bounty-ninja
 # When prompted:
 #   - Template: Skeleton project
 #   - Type checking: Yes, using TypeScript
 #   - Additional options: ESLint, Prettier, Vitest, Playwright
 
-cd tasks-fyi
+cd bounty-ninja
 ```
 
 ### 4.3 Install Dependencies
@@ -179,8 +179,8 @@ PUBLIC_DEFAULT_RELAYS=wss://relay.damus.io,wss://nos.lol,wss://relay.primal.net
 PUBLIC_DEFAULT_MINT=https://mint.minibits.cash/Bitcoin
 
 # App metadata
-PUBLIC_APP_NAME=Tasks.fyi
-PUBLIC_APP_URL=https://tasks.fyi
+PUBLIC_APP_NAME=Bounty.ninja
+PUBLIC_APP_URL=https://bounty.ninja
 
 # Anti-spam fee range (in sats)
 PUBLIC_MIN_SUBMISSION_FEE=10
@@ -259,8 +259,8 @@ PUBLIC_DEFAULT_RELAYS = "wss://relay.damus.io,wss://nos.lol,wss://relay.primal.n
 # Default Cashu mint URL
 PUBLIC_DEFAULT_MINT = "https://mint.minibits.cash/Bitcoin"
 # App metadata
-PUBLIC_APP_NAME = "Tasks.fyi"
-PUBLIC_APP_URL = "https://tasks.fyi"
+PUBLIC_APP_NAME = "Bounty.ninja"
+PUBLIC_APP_URL = "https://bounty.ninja"
 # Anti-spam fee range (in sats)
 PUBLIC_MIN_SUBMISSION_FEE = "10"
 PUBLIC_MAX_SUBMISSION_FEE = "100"
@@ -322,7 +322,7 @@ nak event \
   --tag t=lightning \
   --tag t=hardware \
   --tag fee=21 \
-  --tag client=tasks.fyi \
+  --tag client=bounty.ninja \
   ws://localhost:10547
 
 # Task 2: Design task
@@ -335,7 +335,7 @@ nak event \
   --tag t=design \
   --tag t=branding \
   --tag fee=10 \
-  --tag client=tasks.fyi \
+  --tag client=bounty.ninja \
   ws://localhost:10547
 
 # Task 3: Documentation task
@@ -349,7 +349,7 @@ nak event \
   --tag t=cashu \
   --tag t=writing \
   --tag fee=10 \
-  --tag client=tasks.fyi \
+  --tag client=bounty.ninja \
   ws://localhost:10547
 
 echo "Done! 3 sample tasks seeded to ws://localhost:10547"
@@ -402,7 +402,7 @@ mise run build
 ## 5. Project Structure
 
 ```
-tasks-fyi/
+bounty-ninja/
 ├── .env                              # Environment variables (public config only)
 ├── .env.example                      # Template for env vars (committed)
 ├── mise.toml                         # Tool versions, env vars, and task runner config
@@ -558,7 +558,7 @@ tasks-fyi/
 │
 ├── static/
 │   ├── favicon.ico
-│   ├── logo.svg                      # Tasks.fyi logo
+│   ├── logo.svg                      # Bounty.ninja logo
 │   └── og-image.png                  # Open Graph social preview image
 │
 └── build/                            # Static output (gitignored)
@@ -682,7 +682,7 @@ export interface Task {
  *   ["expiration", "<unix-timestamp>"]              — OPTIONAL, NIP-40 deadline
  *   ["mint", "<cashu-mint-url>"]                    — OPTIONAL, preferred mint
  *   ["fee", "<sats>"]                               — OPTIONAL, anti-spam submission fee
- *   ["client", "tasks.fyi"]                         — RECOMMENDED, app identifier
+ *   ["client", "bounty.ninja"]                         — RECOMMENDED, app identifier
  *
  * Content: Markdown description of the task requirements.
  */
@@ -733,7 +733,7 @@ export interface Pledge {
  *   ["amount", "<sats>"]                                             — REQUIRED, pledge amount
  *   ["cashu", "<serialized-cashu-token>"]                            — REQUIRED, P2PK-locked token
  *   ["mint", "<cashu-mint-url>"]                                     — REQUIRED, token's mint
- *   ["client", "tasks.fyi"]                                          — RECOMMENDED
+ *   ["client", "bounty.ninja"]                                          — RECOMMENDED
  *
  * Content: Optional message from the funder (e.g., "Great idea, happy to fund this!")
  *
@@ -793,7 +793,7 @@ export interface Solution {
  *   ["p", "<task-creator-pubkey>"]                                 — REQUIRED, for notifications
  *   ["cashu", "<serialized-cashu-token>"]                            — REQUIRED, anti-spam fee
  *   ["r", "<url>"]                                                   — OPTIONAL, deliverable URL
- *   ["client", "tasks.fyi"]                                          — RECOMMENDED
+ *   ["client", "bounty.ninja"]                                          — RECOMMENDED
  *
  * Content: Markdown description of the solution with proof of work.
  *
@@ -851,7 +851,7 @@ export interface Vote {
  *   ["e", "<solution-event-id>", "<relay-hint>"]                     — REQUIRED, solution reference
  *   ["p", "<solution-author-pubkey>"]                                — REQUIRED, for notifications
  *   ["vote", "approve" | "reject"]                                   — REQUIRED, vote choice
- *   ["client", "tasks.fyi"]                                          — RECOMMENDED
+ *   ["client", "bounty.ninja"]                                          — RECOMMENDED
  *
  * Content: Optional comment explaining the vote.
  *
@@ -910,7 +910,7 @@ export interface Payout {
  *   ["p", "<solver-pubkey>"]                                         — REQUIRED, recipient
  *   ["amount", "<sats>"]                                             — REQUIRED, payout amount
  *   ["cashu", "<serialized-cashu-token>"]                            — REQUIRED, P2PK-locked to solver
- *   ["client", "tasks.fyi"]                                          — RECOMMENDED
+ *   ["client", "bounty.ninja"]                                          — RECOMMENDED
  *
  * Content: Optional payout note.
  *
@@ -2022,7 +2022,7 @@ polish. Make the app feel complete and production-ready.
 ### Phase 5: Hardening — Security, Performance & Deployment
 
 **Goal:** Security audit, performance optimization, error handling hardening,
-and deployment to https://tasks.fyi.
+and deployment to https://bounty.ninja.
 
 **Dependencies:** Phase 4 complete.
 
@@ -2049,7 +2049,7 @@ and deployment to https://tasks.fyi.
 - [ ] Invalid Cashu tokens show warning badge, not fake amounts
 - [ ] Bundle size < 200KB gzipped
 - [ ] App works offline with cached data (no crashes, graceful degradation)
-- [ ] Deployed and accessible at https://tasks.fyi
+- [ ] Deployed and accessible at https://bounty.ninja
 - [ ] CSP headers block inline scripts and unauthorized origins
 - [ ] All tests (unit, integration, E2E) pass in CI
 
@@ -2215,7 +2215,7 @@ multi-mint support.
 
 | Term              | Definition                                                                                                                    |
 | ----------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **Task**          | A task posted on Tasks.fyi with a bitcoin reward, represented as a Kind 37300 Nostr event                                     |
+| **Task**          | A task posted on Bounty.ninja with a bitcoin reward, represented as a Kind 37300 Nostr event                                     |
 | **Pledge**        | A funding contribution to a task, containing P2PK-locked Cashu tokens (Kind 73002)                                            |
 | **Solution**      | A submission claiming to fulfill a task's requirements (Kind 73001)                                                           |
 | **Vote**          | A funder's approval or rejection of a solution (Kind 1018)                                                                    |

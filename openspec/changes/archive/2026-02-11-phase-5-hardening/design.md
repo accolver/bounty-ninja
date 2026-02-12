@@ -1,13 +1,13 @@
 ## Context
 
-Phases 1–4 of Tasks.fyi are complete: the application has Nostr relay
+Phases 1–4 of Bounty.ninja are complete: the application has Nostr relay
 connectivity, task data models and reactive stores, a full read-only UI, all
 write operations (create, fund, solve, vote, payout), NIP-50 search, category
 filtering, settings, and UI polish. The app is functionally complete as an MVP.
 
 However, the application currently lacks the security hardening, performance
 optimization, and deployment configuration required for production use at
-https://tasks.fyi. Specifically:
+https://bounty.ninja. Specifically:
 
 - Nostr events from relays are rendered without signature verification — a
   malicious relay could inject fabricated events.
@@ -39,7 +39,7 @@ Phase 5 addresses all of these gaps to make the application production-ready.
 - **Reliability**: Implement IndexedDB cache eviction to prevent unbounded
   storage growth. Add client-side rate limiting to prevent accidental event
   spam. Ensure graceful offline degradation with cached data display.
-- **Deployment**: Deploy the static SPA to Cloudflare Pages at https://tasks.fyi
+- **Deployment**: Deploy the static SPA to Cloudflare Pages at https://bounty.ninja
   with HTTPS, security headers, precompressed assets, and a CI/CD pipeline that
   runs the full test suite before every deployment.
 - **Accessibility and best practices**: Achieve Lighthouse Accessibility > 90

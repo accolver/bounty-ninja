@@ -92,8 +92,8 @@ describe('RateLimiter', () => {
 	// ── Cooldown Expiry ─────────────────────────────────────────────────
 
 	describe('cooldown expiry', () => {
-		it('allows publish after TASK_KIND cooldown (30s) expires', () => {
-			limiter.recordPublish(37300); // Task — 30s cooldown (no dTag = new task)
+		it('allows publish after BOUNTY_KIND cooldown (30s) expires', () => {
+			limiter.recordPublish(37300); // Bounty — 30s cooldown (no dTag = new bounty)
 
 			vi.advanceTimersByTime(29_999);
 			expect(limiter.canPublish(37300).allowed).toBe(false);
@@ -144,44 +144,44 @@ describe('RateLimiter', () => {
 	// ── Replaceable Event Reduced Cooldown ──────────────────────────────
 
 	describe('replaceable event reduced cooldown', () => {
-		it('uses 10s cooldown for task with dTag (recordPublish marks it as existing)', () => {
+		it('uses 10s cooldown for bounty with dTag (recordPublish marks it as existing)', () => {
 			// After recordPublish, the key exists in the map, so getCooldown
 			// treats it as an update (hasExistingPublish = true) → 10s cooldown
-			limiter.recordPublish(37300, 'my-task');
+			limiter.recordPublish(37300, 'my-bounty');
 
 			vi.advanceTimersByTime(9_999);
-			expect(limiter.canPublish(37300, 'my-task').allowed).toBe(false);
+			expect(limiter.canPublish(37300, 'my-bounty').allowed).toBe(false);
 
 			vi.advanceTimersByTime(1); // Now at 10s
-			expect(limiter.canPublish(37300, 'my-task').allowed).toBe(true);
+			expect(limiter.canPublish(37300, 'my-bounty').allowed).toBe(true);
 		});
 
-		it('uses 10s reduced cooldown for updating existing task (same dTag)', () => {
+		it('uses 10s reduced cooldown for updating existing bounty (same dTag)', () => {
 			// First publish — establishes the dTag
-			limiter.recordPublish(37300, 'my-task');
+			limiter.recordPublish(37300, 'my-bounty');
 			vi.advanceTimersByTime(30_000); // Wait for first cooldown to expire
 
 			// Second publish — this is an update, should get reduced cooldown
-			limiter.recordPublish(37300, 'my-task');
+			limiter.recordPublish(37300, 'my-bounty');
 
 			vi.advanceTimersByTime(9_999);
-			expect(limiter.canPublish(37300, 'my-task').allowed).toBe(false);
+			expect(limiter.canPublish(37300, 'my-bounty').allowed).toBe(false);
 
 			vi.advanceTimersByTime(1); // Now at 10s
-			expect(limiter.canPublish(37300, 'my-task').allowed).toBe(true);
+			expect(limiter.canPublish(37300, 'my-bounty').allowed).toBe(true);
 		});
 
 		it('different dTags have independent cooldowns', () => {
-			limiter.recordPublish(37300, 'task-a');
+			limiter.recordPublish(37300, 'bounty-a');
 
 			// Different dTag should be allowed
-			expect(limiter.canPublish(37300, 'task-b').allowed).toBe(true);
+			expect(limiter.canPublish(37300, 'bounty-b').allowed).toBe(true);
 
 			// Same dTag should be blocked
-			expect(limiter.canPublish(37300, 'task-a').allowed).toBe(false);
+			expect(limiter.canPublish(37300, 'bounty-a').allowed).toBe(false);
 		});
 
-		it('task without dTag uses standard 30s cooldown', () => {
+		it('bounty without dTag uses standard 30s cooldown', () => {
 			limiter.recordPublish(37300); // No dTag
 
 			vi.advanceTimersByTime(10_000);

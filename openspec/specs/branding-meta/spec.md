@@ -8,32 +8,32 @@ apps, and link previews.
 
 The following meta tags SHALL be present in the `<head>` of `app.html`:
 
-- `<meta property="og:title" content="Tasks.fyi — Decentralized Task Board">`
+- `<meta property="og:title" content="Bounty.ninja — Decentralized Task Board">`
 - `<meta property="og:description" content="Post tasks, fund with bitcoin ecash, and pay solvers — all on Nostr. No middlemen, no accounts, no censorship.">`
-- `<meta property="og:image" content="https://tasks.fyi/og-image.png">`
-- `<meta property="og:url" content="https://tasks.fyi">`
+- `<meta property="og:image" content="https://bounty.ninja/og-image.png">`
+- `<meta property="og:url" content="https://bounty.ninja">`
 - `<meta property="og:type" content="website">`
-- `<meta property="og:site_name" content="Tasks.fyi">`
+- `<meta property="og:site_name" content="Bounty.ninja">`
 
 The following Twitter Card meta tags SHALL also be present:
 
 - `<meta name="twitter:card" content="summary_large_image">`
-- `<meta name="twitter:title" content="Tasks.fyi — Decentralized Task Board">`
+- `<meta name="twitter:title" content="Bounty.ninja — Decentralized Task Board">`
 - `<meta name="twitter:description" content="Post tasks, fund with bitcoin ecash, and pay solvers — all on Nostr.">`
-- `<meta name="twitter:image" content="https://tasks.fyi/og-image.png">`
+- `<meta name="twitter:image" content="https://bounty.ninja/og-image.png">`
 
 A general `<meta name="description">` tag SHALL be present with the same
 description text.
 
 #### Scenario: Social media share preview
 
-- **WHEN** a user shares `https://tasks.fyi` on a social media platform
-- **THEN** the platform SHALL render a preview card with the title "Tasks.fyi —
+- **WHEN** a user shares `https://bounty.ninja` on a social media platform
+- **THEN** the platform SHALL render a preview card with the title "Bounty.ninja —
   Decentralized Task Board", the description, and the `og-image.png` image
 
 #### Scenario: Search engine indexing
 
-- **WHEN** a search engine crawls `https://tasks.fyi`
+- **WHEN** a search engine crawls `https://bounty.ninja`
 - **THEN** the crawler SHALL find the `<meta name="description">` tag and use it
   for search result snippets
 
@@ -51,8 +51,8 @@ default SvelteKit favicon).
 
 #### Scenario: Browser tab icon
 
-- **WHEN** a user opens Tasks.fyi in a browser tab
-- **THEN** the browser tab SHALL display the Tasks.fyi favicon, not a generic or
+- **WHEN** a user opens Bounty.ninja in a browser tab
+- **THEN** the browser tab SHALL display the Bounty.ninja favicon, not a generic or
   missing icon
 
 ### Requirement: Logo SVG
@@ -68,7 +68,7 @@ file size under 10KB).
 The logo SHALL be legible at both small (24px height in Header) and large (48px
 height on potential splash screens) sizes.
 
-For MVP, a text-based SVG logo ("Tasks.fyi" in a styled font) is acceptable as a
+For MVP, a text-based SVG logo ("Bounty.ninja" in a styled font) is acceptable as a
 placeholder.
 
 The logo SHALL have sufficient contrast against both dark
@@ -93,7 +93,7 @@ The application SHALL include an Open Graph preview image at
 
 The image SHALL be 1200x630 pixels (standard Open Graph recommended dimensions).
 
-The image SHALL include the Tasks.fyi brand name and a brief tagline.
+The image SHALL include the Bounty.ninja brand name and a brief tagline.
 
 The image SHALL be optimized for web with a file size under 200KB.
 
@@ -102,29 +102,29 @@ background is acceptable.
 
 #### Scenario: OG image dimensions
 
-- **WHEN** a social media platform fetches `https://tasks.fyi/og-image.png`
+- **WHEN** a social media platform fetches `https://bounty.ninja/og-image.png`
 - **THEN** the image SHALL be 1200x630 pixels and render correctly in the
   preview card
 
 ### Requirement: HTML Document Title
 
-The `app.html` SHALL set the document `<title>` to "Tasks.fyi — Decentralized
+The `app.html` SHALL set the document `<title>` to "Bounty.ninja — Decentralized
 Task Board".
 
 Individual pages MAY override the title using `<svelte:head>` to provide
-page-specific titles (e.g., "Search Results — Tasks.fyi", "Settings —
-Tasks.fyi").
+page-specific titles (e.g., "Search Results — Bounty.ninja", "Settings —
+Bounty.ninja").
 
 #### Scenario: Default page title
 
 - **WHEN** a user loads the home page
-- **THEN** the browser tab title SHALL display "Tasks.fyi — Decentralized Task
+- **THEN** the browser tab title SHALL display "Bounty.ninja — Decentralized Task
   Board"
 
 #### Scenario: Search page title
 
 - **WHEN** a user navigates to `/search?q=lightning`
-- **THEN** the browser tab title SHALL display "Search: lightning — Tasks.fyi"
+- **THEN** the browser tab title SHALL display "Search: lightning — Bounty.ninja"
 
 ### Requirement: Charset and Viewport Meta
 
@@ -155,6 +155,6 @@ themes.
 
 #### Scenario: Mobile browser chrome color
 
-- **WHEN** a user opens Tasks.fyi on a mobile browser that supports theme-color
+- **WHEN** a user opens Bounty.ninja on a mobile browser that supports theme-color
 - **THEN** the browser chrome (address bar area) SHALL match the app's
   background color

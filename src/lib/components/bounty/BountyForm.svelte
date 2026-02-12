@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { nip19 } from 'nostr-tools';
-	import { TASK_KIND } from '$lib/task/kinds';
-	import { taskBlueprint } from '$lib/task/blueprints';
+	import { BOUNTY_KIND } from '$lib/bounty/kinds';
+	import { bountyBlueprint } from '$lib/bounty/blueprints';
 	import { publishEvent } from '$lib/nostr/signer.svelte';
 	import { accountState } from '$lib/nostr/account.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -31,7 +31,7 @@
 	$effect(() => {
 		if (rateLimitRemaining <= 0) return;
 		const interval = setInterval(() => {
-			const result = rateLimiter.canPublish(TASK_KIND);
+			const result = rateLimiter.canPublish(BOUNTY_KIND);
 			rateLimitRemaining = result.allowed ? 0 : Math.ceil(result.remainingMs / 1000);
 		}, 1000);
 		return () => clearInterval(interval);
@@ -115,10 +115,10 @@
 		if (!isValid || !accountState.pubkey) return;
 
 		// Rate limit check
-		const rateCheck = rateLimiter.canPublish(TASK_KIND);
+		const rateCheck = rateLimiter.canPublish(BOUNTY_KIND);
 		if (!rateCheck.allowed) {
 			rateLimitRemaining = Math.ceil(rateCheck.remainingMs / 1000);
-			toastStore.error(`Wait ${rateLimitRemaining}s before creating another task`);
+			toastStore.error(`Wait ${rateLimitRemaining}s before creating another bounty`);
 			return;
 		}
 
@@ -128,7 +128,7 @@
 			const dTag = generateDTag(title);
 			const deadlineUnix = deadline ? Math.floor(new Date(deadline).getTime() / 1000) : undefined;
 
-			const template = taskBlueprint({
+			const template = bountyBlueprint({
 				dTag,
 				title: title.trim(),
 				description: description.trim(),
@@ -140,17 +140,17 @@
 			});
 
 			await publishEvent(template);
-			rateLimiter.recordPublish(TASK_KIND, dTag);
-			toastStore.success('Task created!');
+			rateLimiter.recordPublish(BOUNTY_KIND, dTag);
+			toastStore.success('Bounty created!');
 
 			const naddr = nip19.naddrEncode({
 				identifier: dTag,
 				pubkey: accountState.pubkey,
-				kind: TASK_KIND
+				kind: BOUNTY_KIND
 			});
-			goto(`/task/${naddr}`);
+			goto(`/bounty/${naddr}`);
 		} catch (err) {
-			toastStore.error(err instanceof Error ? err.message : 'Failed to create task');
+			toastStore.error(err instanceof Error ? err.message : 'Failed to create bounty');
 		} finally {
 			submitting = false;
 		}
@@ -163,16 +163,16 @@
 		handleSubmit();
 	}}
 	class="rounded-lg border border-border bg-card p-6 shadow-sm"
-	aria-label="Create task form"
+	aria-label="Create bounty form"
 >
 	<div class="flex flex-col gap-5">
 		<!-- Title -->
 		<div class="flex flex-col gap-1.5">
-			<label for="task-title" class="text-sm font-medium text-foreground">
+			<label for="bounty-title" class="text-sm font-medium text-foreground">
 				Title <span class="text-destructive" aria-hidden="true">*</span>
 			</label>
 			<input
-				id="task-title"
+				id="bounty-title"
 				type="text"
 				bind:value={title}
 				required
@@ -181,7 +181,7 @@
 				class="rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
 				aria-required="true"
 				aria-invalid={title.length > 0 && (!titleValid || !titleLengthValid)}
-				aria-describedby="task-title-count"
+				aria-describedby="bounty-title-count"
 			/>
 			<div class="flex items-center justify-between">
 				{#if !titleLengthValid}
@@ -192,7 +192,7 @@
 					<span></span>
 				{/if}
 				<p
-					id="task-title-count"
+					id="bounty-title-count"
 					class="text-xs {!titleLengthValid
 						? 'text-destructive font-medium'
 						: 'text-muted-foreground'}"
@@ -205,20 +205,20 @@
 
 		<!-- Description -->
 		<div class="flex flex-col gap-1.5">
-			<label for="task-description" class="text-sm font-medium text-foreground">
+			<label for="bounty-description" class="text-sm font-medium text-foreground">
 				Description <span class="text-destructive" aria-hidden="true">*</span>
 			</label>
 			<textarea
-				id="task-description"
+				id="bounty-description"
 				bind:value={description}
 				required
 				rows={6}
 				maxlength={DESCRIPTION_MAX}
-				placeholder="Describe the task requirements in detail. Markdown is supported."
+				placeholder="Describe the bounty requirements in detail. Markdown is supported."
 				class="rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none resize-y"
 				aria-required="true"
 				aria-invalid={description.length > 0 && (!descriptionValid || !descriptionLengthValid)}
-				aria-describedby="task-desc-count"
+				aria-describedby="bounty-desc-count"
 			></textarea>
 			<div class="flex items-center justify-between">
 				{#if !descriptionLengthValid}
@@ -229,7 +229,7 @@
 					<p class="text-xs text-muted-foreground">Markdown supported</p>
 				{/if}
 				<p
-					id="task-desc-count"
+					id="bounty-desc-count"
 					class="text-xs {!descriptionLengthValid
 						? 'text-destructive font-medium'
 						: 'text-muted-foreground'}"
@@ -242,11 +242,11 @@
 
 		<!-- Reward Amount -->
 		<div class="flex flex-col gap-1.5">
-			<label for="task-reward" class="text-sm font-medium text-foreground">
+			<label for="bounty-reward" class="text-sm font-medium text-foreground">
 				Reward Amount (sats) <span class="text-destructive" aria-hidden="true">*</span>
 			</label>
 			<input
-				id="task-reward"
+				id="bounty-reward"
 				type="number"
 				bind:value={rewardAmount}
 				required
@@ -264,7 +264,7 @@
 
 		<!-- Tags -->
 		<div class="flex flex-col gap-1.5">
-			<label for="task-tags" class="text-sm font-medium text-foreground"> Tags </label>
+			<label for="bounty-tags" class="text-sm font-medium text-foreground"> Tags </label>
 			{#if tags.length > 0}
 				<ul class="flex flex-wrap gap-1.5" aria-label="Selected tags">
 					{#each tags as tag (tag)}
@@ -298,7 +298,7 @@
 			{/if}
 			<div class="flex gap-2">
 				<input
-					id="task-tags"
+					id="bounty-tags"
 					type="text"
 					bind:value={tagInput}
 					onkeydown={handleTagKeydown}
@@ -319,9 +319,9 @@
 
 		<!-- Deadline -->
 		<div class="flex flex-col gap-1.5">
-			<label for="task-deadline" class="text-sm font-medium text-foreground"> Deadline </label>
+			<label for="bounty-deadline" class="text-sm font-medium text-foreground"> Deadline </label>
 			<input
-				id="task-deadline"
+				id="bounty-deadline"
 				type="datetime-local"
 				bind:value={deadline}
 				class="rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
@@ -334,9 +334,9 @@
 
 		<!-- Mint URL -->
 		<div class="flex flex-col gap-1.5">
-			<label for="task-mint" class="text-sm font-medium text-foreground"> Cashu Mint URL </label>
+			<label for="bounty-mint" class="text-sm font-medium text-foreground"> Cashu Mint URL </label>
 			<input
-				id="task-mint"
+				id="bounty-mint"
 				type="url"
 				bind:value={mintUrl}
 				placeholder="https://mint.minibits.cash/Bitcoin"
@@ -347,11 +347,11 @@
 
 		<!-- Submission Fee -->
 		<div class="flex flex-col gap-1.5">
-			<label for="task-fee" class="text-sm font-medium text-foreground">
+			<label for="bounty-fee" class="text-sm font-medium text-foreground">
 				Submission Fee (sats)
 			</label>
 			<input
-				id="task-fee"
+				id="bounty-fee"
 				type="number"
 				bind:value={submissionFee}
 				min="0"
@@ -398,7 +398,7 @@
 				{:else if isRateLimited}
 					Wait {rateLimitRemaining}s
 				{:else}
-					Create Task
+					Create Bounty
 				{/if}
 			</button>
 
@@ -421,7 +421,7 @@
 					{:else if !feeValid}
 						Fee must be {minFee}–{maxFee} sats.
 					{:else if isRateLimited}
-						Please wait {rateLimitRemaining}s before creating another task.
+						Please wait {rateLimitRemaining}s before creating another bounty.
 					{/if}
 				</p>
 			{/if}

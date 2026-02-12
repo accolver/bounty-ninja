@@ -30,12 +30,12 @@ export function getDefaultMint(): string {
 
 /** Returns the application display name */
 export function getAppName(): string {
-	return env.PUBLIC_APP_NAME ?? 'Tasks.fyi';
+	return env.PUBLIC_APP_NAME ?? 'Bounty.ninja';
 }
 
 /** Returns the application URL */
 export function getAppUrl(): string {
-	return env.PUBLIC_APP_URL ?? 'https://tasks.fyi';
+	return env.PUBLIC_APP_URL ?? 'https://bounty.ninja';
 }
 
 /** Returns the minimum submission fee in sats */

@@ -8,8 +8,8 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import { searchStore } from '$lib/stores/search.svelte';
 	import { searchDialog } from '$lib/stores/search-dialog.svelte';
-	import { taskList } from '$lib/stores/tasks.svelte';
-	import { TASK_KIND } from '$lib/task/kinds';
+	import { bountyList } from '$lib/stores/bounties.svelte';
+	import { BOUNTY_KIND } from '$lib/bounty/kinds';
 	import { nip19 } from 'nostr-tools';
 	import SatAmount from '$lib/components/shared/SatAmount.svelte';
 
@@ -24,24 +24,24 @@
 	const trimmedQuery = $derived(query.trim());
 	const canSearch = $derived(trimmedQuery.length >= 2);
 
-	/** Filter to only active tasks and enrich with totalPledged from task list store */
+	/** Filter to only active tasks and enrich with totalPledged from bounty list store */
 	const activeResults = $derived.by(() => {
 		const now = Math.floor(Date.now() / 1000);
-		// Build a lookup of enriched totalPledged from the task list store
+		// Build a lookup of enriched totalPledged from the bounty list store
 		const pledgeLookup = new Map(
-			taskList.items.map((t) => [`${t.pubkey}:${t.dTag}`, t.totalPledged])
+			bountyList.items.map((t) => [`${t.pubkey}:${t.dTag}`, t.totalPledged])
 		);
 
 		return searchStore.results
-			.filter((task) => {
+			.filter((bounty) => {
 				// Exclude expired tasks
-				if (task.deadline !== null && task.deadline <= now) return false;
+				if (bounty.deadline !== null && bounty.deadline <= now) return false;
 				return true;
 			})
-			.map((task) => {
-				const key = `${task.pubkey}:${task.dTag}`;
-				const enrichedPledged = pledgeLookup.get(key) ?? task.totalPledged;
-				return { ...task, totalPledged: enrichedPledged };
+			.map((bounty) => {
+				const key = `${bounty.pubkey}:${bounty.dTag}`;
+				const enrichedPledged = pledgeLookup.get(key) ?? bounty.totalPledged;
+				return { ...bounty, totalPledged: enrichedPledged };
 			});
 	});
 
@@ -75,10 +75,10 @@
 		const naddr = nip19.naddrEncode({
 			identifier: dTag,
 			pubkey,
-			kind: TASK_KIND
+			kind: BOUNTY_KIND
 		});
 		searchDialog.open = false;
-		goto(`/task/${naddr}`);
+		goto(`/bounty/${naddr}`);
 	}
 
 	function navigateToSelected() {

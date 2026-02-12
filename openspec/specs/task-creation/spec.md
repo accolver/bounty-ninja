@@ -59,7 +59,7 @@ The TaskForm MUST construct a Kind 37300 Parameterized Replaceable Event
 - `["d", "<unique-task-id>"]` — NIP-33 identifier, generated as a UUID or slug
 - `["title", "<task title>"]` — human-readable title
 - `["reward", "<amount>", "sat"]` — target reward amount in sats
-- `["client", "tasks.fyi"]` — application identifier
+- `["client", "bounty.ninja"]` — application identifier
 
 **Optional tags (included when user provides values):**
 

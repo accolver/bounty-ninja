@@ -2,7 +2,7 @@
 	import SunIcon from '@lucide/svelte/icons/sun';
 	import MoonIcon from '@lucide/svelte/icons/moon';
 
-	const THEME_KEY = 'tasks.fyi:theme';
+	const THEME_KEY = 'bounty.ninja:theme';
 
 	let isDark = $state(true);
 

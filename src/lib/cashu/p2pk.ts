@@ -3,7 +3,7 @@
  *
  * Enables locking Cashu proofs to a specific Nostr pubkey so that
  * only the holder of the corresponding private key can spend them.
- * This is the foundation of the task escrow mechanism.
+ * This is the foundation of the bounty escrow mechanism.
  *
  * In @cashu/cashu-ts v3.x, P2PK is supported via:
  * - `OutputType` with `type: 'p2pk'` and `P2PKOptions`

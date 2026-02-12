@@ -159,7 +159,7 @@ names for the same concept.
 
 **Mitigation:** Tag parsing helpers are defensive — they handle missing
 elements, non-numeric values, and absent tags gracefully. The `client` tag
-(`["client", "tasks.fyi"]`) can be used to filter for events created by our app,
+(`["client", "bounty.ninja"]`) can be used to filter for events created by our app,
 but we display all valid task events regardless of origin.
 
 ### R3: Markdown XSS

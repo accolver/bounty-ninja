@@ -141,5 +141,5 @@ The production deployment MUST serve the following additional security headers:
 
 #### Scenario: App cannot be embedded in iframe
 
-- **WHEN** a third-party site attempts to embed tasks.fyi in an iframe
+- **WHEN** a third-party site attempts to embed bounty.ninja in an iframe
 - **THEN** the browser SHALL block the embedding due to `X-Frame-Options: DENY`

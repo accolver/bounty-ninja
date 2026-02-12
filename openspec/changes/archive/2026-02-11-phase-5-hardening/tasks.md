@@ -263,7 +263,7 @@
 - [x] 9.3 Create `static/_redirects` file — SPA fallback: `/* /index.html 200`
 - [x] 9.4 Configure Cloudflare Pages project — set build command
       `bun run build`, output directory `build/`, configure custom domain
-      `tasks.fyi`, enable HTTPS, set up `www.tasks.fyi` → `tasks.fyi` redirect
+      `bounty.ninja`, enable HTTPS, set up `www.bounty.ninja` → `bounty.ninja` redirect
 - [x] 9.5 Create CI/CD pipeline (`.github/workflows/deploy.yml` or equivalent) —
       steps in order: `bun install`, `bun run check`, `bun run lint`,
       `bun run test:unit`, `bun run test:integration`, `bun run build`, bundle
@@ -295,6 +295,6 @@
       reconnect and confirm "Back online" toast
 - [x] 10.9 Verify invalid event rejection end-to-end — publish event with
       tampered signature to test relay; confirm it does not appear in the UI
-- [x] 10.10 Verify site accessible at `https://tasks.fyi` — confirm HTTPS
+- [x] 10.10 Verify site accessible at `https://bounty.ninja` — confirm HTTPS
       enforced, `www` redirects, SPA routing works for deep links
       (`/task/naddr1...`, `/profile/npub1...`)

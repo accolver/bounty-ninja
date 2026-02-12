@@ -37,7 +37,7 @@ the correct `kind`, `tags`, and `content` fields as specified in PRD Section 6.
   tags, deadline, mint URL, and submission fee
 - **THEN** the resulting unsigned event SHALL have `kind: 37300`
 - **AND** SHALL include tags: `["d", "<unique-id>"]`, `["title", "<title>"]`,
-  `["reward", "<amount>", "sat"]`, `["client", "tasks.fyi"]`
+  `["reward", "<amount>", "sat"]`, `["client", "bounty.ninja"]`
 - **AND** SHALL include optional tags when provided: `["t", "<tag>"]`
   (repeatable), `["expiration", "<unix-timestamp>"]`, `["mint", "<url>"]`,
   `["fee", "<sats>"]`
@@ -46,7 +46,7 @@ the correct `kind`, `tags`, and `content` fields as specified in PRD Section 6.
 #### Scenario: Blueprint for each event kind
 
 - **WHEN** any blueprint is invoked
-- **THEN** the resulting event MUST include the `["client", "tasks.fyi"]` tag as
+- **THEN** the resulting event MUST include the `["client", "bounty.ninja"]` tag as
   specified in PRD Section 6
 
 ### Requirement: NIP-07 Signing Flow

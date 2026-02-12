@@ -23,23 +23,23 @@ compatibility.
 
 ### Requirement: Custom Domain Configuration
 
-The production deployment MUST be accessible at `https://tasks.fyi`. The domain
+The production deployment MUST be accessible at `https://bounty.ninja`. The domain
 MUST be configured with:
 
 - HTTPS enforced (automatic via Cloudflare)
-- `www.tasks.fyi` redirecting to `tasks.fyi`
+- `www.bounty.ninja` redirecting to `bounty.ninja`
 - HSTS (HTTP Strict Transport Security) enabled with `max-age=31536000`
 
 #### Scenario: HTTPS is enforced
 
-- **WHEN** a user navigates to `http://tasks.fyi`
-- **THEN** the request SHALL be redirected to `https://tasks.fyi` with a 301
+- **WHEN** a user navigates to `http://bounty.ninja`
+- **THEN** the request SHALL be redirected to `https://bounty.ninja` with a 301
   status
 
 #### Scenario: www subdomain redirects
 
-- **WHEN** a user navigates to `https://www.tasks.fyi`
-- **THEN** the request SHALL be redirected to `https://tasks.fyi` with a 301
+- **WHEN** a user navigates to `https://www.bounty.ninja`
+- **THEN** the request SHALL be redirected to `https://bounty.ninja` with a 301
   status
 
 ### Requirement: Security Headers Configuration
@@ -65,7 +65,7 @@ Required headers:
 
 #### Scenario: CSP header is served on all HTML responses
 
-- **WHEN** a browser requests any HTML page from tasks.fyi
+- **WHEN** a browser requests any HTML page from bounty.ninja
 - **THEN** the response SHALL include a `Content-Security-Policy` header
 - **AND** the policy SHALL match the specification in the content-security spec
 
@@ -77,7 +77,7 @@ for paths like `/task/naddr1...` and `/profile/npub1...`.
 
 #### Scenario: Deep link to task detail page
 
-- **WHEN** a user navigates directly to `https://tasks.fyi/task/naddr1abc123`
+- **WHEN** a user navigates directly to `https://bounty.ninja/task/naddr1abc123`
 - **THEN** the server SHALL respond with `index.html`
 - **AND** SvelteKit's client-side router SHALL handle the route
 - **AND** the task detail page SHALL render correctly
@@ -135,17 +135,17 @@ The deployed production site MUST achieve the following Lighthouse scores:
 
 #### Scenario: Lighthouse Performance audit passes
 
-- **WHEN** a Lighthouse audit is run against `https://tasks.fyi`
+- **WHEN** a Lighthouse audit is run against `https://bounty.ninja`
 - **THEN** the Performance score SHALL be greater than 90
 
 #### Scenario: Lighthouse Accessibility audit passes
 
-- **WHEN** a Lighthouse audit is run against `https://tasks.fyi`
+- **WHEN** a Lighthouse audit is run against `https://bounty.ninja`
 - **THEN** the Accessibility score SHALL be greater than 90
 
 #### Scenario: Lighthouse Best Practices audit passes
 
-- **WHEN** a Lighthouse audit is run against `https://tasks.fyi`
+- **WHEN** a Lighthouse audit is run against `https://bounty.ninja`
 - **THEN** the Best Practices score SHALL be greater than 90
 
 ### Requirement: CI/CD Pipeline
@@ -172,4 +172,4 @@ production. The pipeline SHALL execute in order:
 
 - **WHEN** all checks, tests, and the build succeed
 - **THEN** the `build/` output SHALL be deployed to Cloudflare Pages
-- **AND** the deployment SHALL be accessible at `https://tasks.fyi`
+- **AND** the deployment SHALL be accessible at `https://bounty.ninja`
