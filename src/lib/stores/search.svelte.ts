@@ -1,16 +1,16 @@
 import type { Subscription } from 'rxjs';
 import { catchError, EMPTY } from 'rxjs';
-import { timeout, toArray } from 'rxjs/operators';
+import { take, timeout, toArray } from 'rxjs/operators';
 import type { NostrEvent } from 'nostr-tools';
-import type { TaskSummary } from '$lib/task/types';
+import type { BountySummary } from '$lib/bounty/types';
 import { eventStore } from '$lib/nostr/event-store';
 import { pool } from '$lib/nostr/relay-pool';
 import { onlyEvents } from 'applesauce-relay';
 import { mapEventsToStore } from 'applesauce-core';
-import { parseTaskSummary } from '$lib/task/helpers';
-import { searchTasksFilter } from '$lib/task/filters';
+import { parseBountySummary } from '$lib/bounty/helpers';
+import { searchBountiesFilter } from '$lib/bounty/filters';
 import { getSearchRelay } from '$lib/utils/env';
-import { TASK_KIND } from '$lib/task/kinds';
+import { BOUNTY_KIND } from '$lib/bounty/kinds';
 
 /** Timeout in ms for the NIP-50 relay enhancement */
 const SEARCH_RELAY_TIMEOUT = 5_000;
@@ -22,14 +22,14 @@ const SEARCH_RELAY_TIMEOUT = 5_000;
  * then enhances with NIP-50 relay results when they arrive.
  */
 class SearchStore {
-	#results = $state<TaskSummary[]>([]);
+	#results = $state<BountySummary[]>([]);
 	#loading = $state(false);
 	#error = $state<string | null>(null);
 	#query = $state('');
 	#relaySubscription: Subscription | null = null;
 
 	/** Current search results */
-	get results(): TaskSummary[] {
+	get results(): BountySummary[] {
 		return this.#results;
 	}
 
@@ -77,33 +77,31 @@ class SearchStore {
 	}
 
 	/**
-	 * Synchronous client-side search: filter EventStore task events by
+	 * Synchronous client-side search: filter EventStore bounty events by
 	 * case-insensitive substring match on title and tags.
 	 * Results appear immediately.
 	 */
 	#localSearch(query: string): void {
 		const lowerQuery = query.toLowerCase();
 
-		const localSub = eventStore.timeline({ kinds: [TASK_KIND] }).subscribe({
-			next: (events: NostrEvent[]) => {
-				const summaries = events
-					.map(parseTaskSummary)
-					.filter((s): s is TaskSummary => s !== null);
+		eventStore
+			.timeline({ kinds: [BOUNTY_KIND] })
+			.pipe(take(1))
+			.subscribe({
+				next: (events: NostrEvent[]) => {
+					const summaries = events
+						.map(parseBountySummary)
+						.filter((s): s is BountySummary => s !== null);
 
-				this.#results = summaries.filter((item) => {
-					const titleMatch = item.title.toLowerCase().includes(lowerQuery);
-					const tagMatch = item.tags.some((tag) => tag.toLowerCase().includes(lowerQuery));
-					return titleMatch || tagMatch;
-				});
-
-				// One-shot: unsubscribe after first emission
-				localSub.unsubscribe();
-			},
-			error: () => {
-				// Local search failed — results stay empty, relay may still deliver
-				localSub.unsubscribe();
-			}
-		});
+					this.#results = summaries.filter((item) => {
+						const titleMatch = item.title.toLowerCase().includes(lowerQuery);
+						const tagMatch = item.tags.some((tag) =>
+							tag.toLowerCase().includes(lowerQuery)
+						);
+						return titleMatch || tagMatch;
+					});
+				}
+			});
 	}
 
 	/**
@@ -111,7 +109,7 @@ class SearchStore {
 	 * deduplicating by event id. Silently gives up on timeout/error.
 	 */
 	#relaySearch(query: string): void {
-		const filter = searchTasksFilter(query);
+		const filter = searchBountiesFilter(query);
 		const searchRelayUrl = getSearchRelay();
 
 		this.#loading = true;
@@ -135,8 +133,8 @@ class SearchStore {
 				.subscribe({
 					next: (events: NostrEvent[]) => {
 						const relaySummaries = events
-							.map(parseTaskSummary)
-							.filter((s): s is TaskSummary => s !== null);
+							.map(parseBountySummary)
+							.filter((s): s is BountySummary => s !== null);
 
 						// Merge relay results with existing local results, deduped by id
 						const existingIds = new Set(this.#results.map((r) => r.id));

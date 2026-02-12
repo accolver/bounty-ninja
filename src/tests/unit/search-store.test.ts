@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { EventStore } from 'applesauce-core';
 import { BehaviorSubject, Subject, NEVER } from 'rxjs';
 import type { NostrEvent } from 'nostr-tools';
-import { TASK_KIND } from '$lib/task/kinds';
+import { BOUNTY_KIND } from '$lib/bounty/kinds';
 
 // Mock the relay pool
 const mockSubscription = vi.fn();
@@ -31,8 +31,8 @@ vi.mock('$lib/utils/env', () => ({
 	getSearchRelay: () => 'wss://search.nos.today',
 	getDefaultRelays: () => ['wss://relay.damus.io'],
 	getDefaultMint: () => 'https://mint.test.com',
-	getAppName: () => 'Tasks.fyi',
-	getAppUrl: () => 'https://tasks.fyi',
+	getAppName: () => 'Bounty.ninja',
+	getAppUrl: () => 'https://bounty.ninja',
 	getMinSubmissionFee: () => 10,
 	getMaxSubmissionFee: () => 100
 }));
@@ -50,7 +50,7 @@ vi.mock('applesauce-relay', () => ({
 	onlyEvents: () => (source: unknown) => source
 }));
 
-function makeTaskEvent(title: string, topicTags: string[] = ['development']): NostrEvent {
+function makeBountyEvent(title: string, topicTags: string[] = ['development']): NostrEvent {
 	const eventTags: string[][] = [
 		['d', 'test-d-tag'],
 		['title', title],
@@ -59,14 +59,14 @@ function makeTaskEvent(title: string, topicTags: string[] = ['development']): No
 	for (const t of topicTags) {
 		eventTags.push(['t', t]);
 	}
-	eventTags.push(['client', 'tasks.fyi']);
+	eventTags.push(['client', 'bounty.ninja']);
 
 	return {
 		id: 'event-' + Math.random().toString(36).slice(2),
 		pubkey: 'pubkey123',
 		created_at: Math.floor(Date.now() / 1000),
-		kind: TASK_KIND,
-		content: 'A test task description',
+		kind: BOUNTY_KIND,
+		content: 'A test bounty description',
 		tags: eventTags,
 		sig: 'sig123'
 	};
@@ -95,8 +95,8 @@ describe('SearchStore', () => {
 			getSearchRelay: () => 'wss://search.nos.today',
 			getDefaultRelays: () => ['wss://relay.damus.io'],
 			getDefaultMint: () => 'https://mint.test.com',
-			getAppName: () => 'Tasks.fyi',
-			getAppUrl: () => 'https://tasks.fyi',
+			getAppName: () => 'Bounty.ninja',
+			getAppUrl: () => 'https://bounty.ninja',
 			getMinSubmissionFee: () => 10,
 			getMaxSubmissionFee: () => 100
 		}));
@@ -137,6 +137,8 @@ describe('SearchStore', () => {
 	});
 
 	it('sets loading to true when search starts', () => {
+		// Local search returns empty results
+		mockTimeline.mockReturnValue(new BehaviorSubject<NostrEvent[]>([]));
 		// Make the relay subscription hang forever
 		mockSubscription.mockReturnValue(NEVER);
 		const { searchStore } = SearchStoreModule;
@@ -151,8 +153,8 @@ describe('SearchStore', () => {
 			throw new Error('Connection failed');
 		});
 
-		const taskEvent = makeTaskEvent('Cashu Integration');
-		const events$ = new BehaviorSubject<NostrEvent[]>([taskEvent]);
+		const bountyEvent = makeBountyEvent('Cashu Integration');
+		const events$ = new BehaviorSubject<NostrEvent[]>([bountyEvent]);
 		mockTimeline.mockReturnValue(events$);
 
 		const { searchStore } = SearchStoreModule;
@@ -169,8 +171,8 @@ describe('SearchStore', () => {
 			throw new Error('Connection failed');
 		});
 
-		const matchingEvent = makeTaskEvent('Bitcoin Lightning');
-		const nonMatchingEvent = makeTaskEvent('React Components');
+		const matchingEvent = makeBountyEvent('Bitcoin Lightning');
+		const nonMatchingEvent = makeBountyEvent('React Components');
 		const events$ = new BehaviorSubject<NostrEvent[]>([matchingEvent, nonMatchingEvent]);
 		mockTimeline.mockReturnValue(events$);
 
@@ -186,8 +188,8 @@ describe('SearchStore', () => {
 			throw new Error('Connection failed');
 		});
 
-		const matchingEvent = makeTaskEvent('Some Task', ['design']);
-		const nonMatchingEvent = makeTaskEvent('Other Task', ['development']);
+		const matchingEvent = makeBountyEvent('Some Bounty', ['design']);
+		const nonMatchingEvent = makeBountyEvent('Other Bounty', ['development']);
 		const events$ = new BehaviorSubject<NostrEvent[]>([matchingEvent, nonMatchingEvent]);
 		mockTimeline.mockReturnValue(events$);
 
@@ -195,7 +197,7 @@ describe('SearchStore', () => {
 		searchStore.search('design');
 
 		expect(searchStore.results.length).toBe(1);
-		expect(searchStore.results[0].title).toBe('Some Task');
+		expect(searchStore.results[0].title).toBe('Some Bounty');
 	});
 
 	it('returns empty results when no matches found', () => {
@@ -203,7 +205,7 @@ describe('SearchStore', () => {
 			throw new Error('Connection failed');
 		});
 
-		const events$ = new BehaviorSubject<NostrEvent[]>([makeTaskEvent('Unrelated Task')]);
+		const events$ = new BehaviorSubject<NostrEvent[]>([makeBountyEvent('Unrelated Bounty')]);
 		mockTimeline.mockReturnValue(events$);
 
 		const { searchStore } = SearchStoreModule;
@@ -214,6 +216,8 @@ describe('SearchStore', () => {
 	});
 
 	it('cancels previous subscription when new search starts', () => {
+		// Local search returns empty results
+		mockTimeline.mockReturnValue(new BehaviorSubject<NostrEvent[]>([]));
 		// Use Subjects that never complete — simulating a long relay subscription
 		const sub1Subject = new Subject<NostrEvent>();
 		const sub2Subject = new Subject<NostrEvent>();
@@ -241,7 +245,7 @@ describe('SearchStore', () => {
 		mockRelay.mockImplementation(() => {
 			throw new Error('Connection failed');
 		});
-		const events$ = new BehaviorSubject<NostrEvent[]>([makeTaskEvent('Test Task')]);
+		const events$ = new BehaviorSubject<NostrEvent[]>([makeBountyEvent('Test Bounty')]);
 		mockTimeline.mockReturnValue(events$);
 
 		searchStore.search('test');
@@ -256,6 +260,7 @@ describe('SearchStore', () => {
 	});
 
 	it('destroy() cleans up subscriptions', () => {
+		mockTimeline.mockReturnValue(new BehaviorSubject<NostrEvent[]>([]));
 		const { searchStore } = SearchStoreModule;
 		mockSubscription.mockReturnValue(NEVER);
 		searchStore.search('test');
