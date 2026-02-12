@@ -1,0 +1,13 @@
+services:
+  relay:
+    image: dockurr/strfry:latest
+    container_name: tasks-relay
+    ports:
+      - '10547:7777'
+    volumes:
+      - relay-data:/app/strfry-db
+      - ./relay/strfry.conf:/etc/strfry.conf:ro
+    restart: unless-stopped
+
+volumes:
+  relay-data:

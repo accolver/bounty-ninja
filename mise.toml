@@ -9,7 +9,7 @@ bun = "latest"
 
 [env]
 # Default relay list (comma-separated WebSocket URLs)
-PUBLIC_DEFAULT_RELAYS = "wss://relay.damus.io,wss://nos.lol,wss://relay.nostr.band,wss://relay.primal.net"
+PUBLIC_DEFAULT_RELAYS = "wss://relay.damus.io,wss://nos.lol,wss://relay.primal.net"
 # Default Cashu mint URL
 PUBLIC_DEFAULT_MINT = "https://mint.minibits.cash/Bitcoin"
 # App metadata
@@ -19,9 +19,11 @@ PUBLIC_APP_URL = "https://tasks.fyi"
 PUBLIC_MIN_SUBMISSION_FEE = "10"
 PUBLIC_MAX_SUBMISSION_FEE = "100"
 # NIP-50 search relay (must support search filter)
-PUBLIC_SEARCH_RELAY = "wss://relay.nostr.band"
-# Local relay URL for development
+PUBLIC_SEARCH_RELAY = "wss://search.nos.today"
+# Local relay URL for development (used by seed script)
 LOCAL_RELAY = "ws://localhost:10547"
+# SvelteKit-visible local relay (PUBLIC_ prefix required for client-side access)
+PUBLIC_LOCAL_RELAY = "ws://localhost:10547"
 
 [tasks.dev]
 description = "Start the SvelteKit dev server with hot reloading"
@@ -52,62 +54,46 @@ description = "Run Playwright end-to-end tests"
 run = "bun run test:e2e"
 
 [tasks.relay]
-description = "Start a local Nostr relay at ws://localhost:10547 (in-memory)"
+description = "Start a local strfry relay via Docker at ws://localhost:10547"
+run = "docker compose up relay"
+
+[tasks."relay:start"]
+description = "Start the local relay in the background (detached)"
+run = "docker compose up -d relay"
+
+[tasks."relay:stop"]
+description = "Stop the local relay"
+run = "docker compose down"
+
+[tasks."relay:reset"]
+description = "Stop relay and delete all stored events"
+run = "docker compose down -v"
+
+[tasks."relay:nak"]
+description = "Start nak in-memory relay (lightweight, no Docker, but truncates kinds > 65535)"
 run = "nak serve"
 
-[tasks."relay:negentropy"]
-description = "Start local relay with NIP-77 negentropy sync support"
-run = "nak serve --negentropy"
-
 [tasks.seed]
-description = "Seed the local relay with sample bounty events for development"
+description = "Seed the local relay with representative task data (all lifecycle states)"
+run = "bun run scripts/seed-relay.ts"
+
+[tasks."dev:full"]
+description = "Start local relay, seed it, and run the dev server"
 run = """
-echo "Seeding local relay at ws://localhost:10547 with sample bounty events..."
+# Start the relay in the background
+docker compose up -d relay
+echo "Local strfry relay starting at ws://localhost:10547..."
 
-# Generate a throwaway keypair for seeding (nak uses random key if no --sec provided)
-# Bounty 1: Development task
-nak event \
-  -k 37300 \
-  -c 'Build a Lightning-powered vending machine controller. Must support LNURL-pay and NFC tap-to-pay. Provide a working prototype with documentation.' \
-  --tag d=bounty-dev-001 \
-  --tag title='Lightning Vending Machine Controller' \
-  --tag reward=50000 \
-  --tag t=development \
-  --tag t=lightning \
-  --tag t=hardware \
-  --tag fee=21 \
-  --tag client=tasks.fyi \
-  ws://localhost:10547
+# Wait for relay to be ready
+sleep 3
 
-# Bounty 2: Design task
-nak event \
-  -k 37300 \
-  -c 'Design a logo and brand identity for a Nostr-based marketplace. Deliverables: SVG logo, color palette, typography guide, and 3 social media templates.' \
-  --tag d=bounty-design-001 \
-  --tag title='Nostr Marketplace Brand Identity' \
-  --tag reward=25000 \
-  --tag t=design \
-  --tag t=branding \
-  --tag fee=10 \
-  --tag client=tasks.fyi \
-  ws://localhost:10547
+# Seed with representative data
+bun run scripts/seed-relay.ts
 
-# Bounty 3: Documentation task
-nak event \
-  -k 37300 \
-  -c 'Write a comprehensive beginner guide to Cashu ecash. Cover: what is ecash, how Cashu works, setting up a wallet, minting tokens, and P2PK locking. Target audience: Bitcoin users new to ecash.' \
-  --tag d=bounty-docs-001 \
-  --tag title='Beginner Guide to Cashu Ecash' \
-  --tag reward=15000 \
-  --tag t=documentation \
-  --tag t=cashu \
-  --tag t=writing \
-  --tag fee=10 \
-  --tag client=tasks.fyi \
-  ws://localhost:10547
-
-echo "Done! 3 sample bounties seeded to ws://localhost:10547"
-echo "Start the dev server with 'mise run dev' and browse to http://localhost:5173"
+# Start the dev server (foreground — Ctrl+C to stop)
+echo ""
+echo "Starting dev server..."
+bun run dev
 """
 
 [tasks.lint]
