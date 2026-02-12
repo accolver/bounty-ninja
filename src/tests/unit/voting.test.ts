@@ -73,6 +73,7 @@ describe('tallyVotes', () => {
 		expect(tally.quorum).toBe(25000);
 		expect(tally.isApproved).toBe(true);
 		expect(tally.isRejected).toBe(false);
+		expect(tally.isTied).toBe(false);
 		expect(tally.quorumPercent).toBe(100);
 	});
 
@@ -205,6 +206,7 @@ describe('tallyVotes', () => {
 		expect(tally.quorum).toBe(0);
 		expect(tally.isApproved).toBe(false);
 		expect(tally.isRejected).toBe(false);
+		expect(tally.isTied).toBe(false);
 		expect(tally.quorumPercent).toBe(0);
 	});
 
@@ -237,7 +239,7 @@ describe('tallyVotes', () => {
 		expect(tally.quorumPercent).toBe(100);
 	});
 
-	it('handles tie — neither approved nor rejected', () => {
+	it('handles tie — neither approved nor rejected, isTied is true', () => {
 		const pledgesByPubkey = new Map([
 			['alice'.padEnd(64, '0'), 50000],
 			['bob'.padEnd(64, '0'), 50000]
@@ -256,6 +258,7 @@ describe('tallyVotes', () => {
 		// Tie: neither approve > reject nor reject > approve
 		expect(tally.isApproved).toBe(false);
 		expect(tally.isRejected).toBe(false);
+		expect(tally.isTied).toBe(true);
 		expect(tally.quorumPercent).toBe(100);
 	});
 
@@ -291,5 +294,95 @@ describe('tallyVotes', () => {
 		expect(tally.approveWeight).toBe(50000);
 		expect(tally.rejectWeight).toBe(0);
 		expect(tally.isApproved).toBe(true);
+		expect(tally.isTied).toBe(false);
+	});
+
+	it('exact tie with quorum met — isTied true, neither approved nor rejected', () => {
+		const pledgesByPubkey = new Map([
+			['alice'.padEnd(64, '0'), 50000],
+			['bob'.padEnd(64, '0'), 50000]
+		]);
+		const totalPledged = 100000;
+
+		const votes: Vote[] = [
+			mockVote({ pubkey: 'alice'.padEnd(64, '0'), choice: 'approve', createdAt: 100 }),
+			mockVote({ pubkey: 'bob'.padEnd(64, '0'), choice: 'reject', createdAt: 100 })
+		];
+
+		const tally = tallyVotes(votes, pledgesByPubkey, totalPledged);
+
+		expect(tally.approveWeight).toBe(50000);
+		expect(tally.rejectWeight).toBe(50000);
+		expect(tally.isTied).toBe(true);
+		expect(tally.isApproved).toBe(false);
+		expect(tally.isRejected).toBe(false);
+		// Quorum is met (100% participation)
+		expect(tally.quorumPercent).toBe(100);
+	});
+
+	it('exact tie with quorum NOT met — isTied true', () => {
+		// 3 pledgers, only 2 vote (tied), so quorum is below threshold
+		const pledgesByPubkey = new Map([
+			['alice'.padEnd(64, '0'), 10000],
+			['bob'.padEnd(64, '0'), 10000],
+			['carol'.padEnd(64, '0'), 80000]
+		]);
+		const totalPledged = 100000;
+
+		const votes: Vote[] = [
+			mockVote({ pubkey: 'alice'.padEnd(64, '0'), choice: 'approve', createdAt: 100 }),
+			mockVote({ pubkey: 'bob'.padEnd(64, '0'), choice: 'reject', createdAt: 100 })
+		];
+
+		const tally = tallyVotes(votes, pledgesByPubkey, totalPledged);
+
+		expect(tally.approveWeight).toBe(10000);
+		expect(tally.rejectWeight).toBe(10000);
+		expect(tally.isTied).toBe(true);
+		expect(tally.isApproved).toBe(false);
+		expect(tally.isRejected).toBe(false);
+		// Only 20% participation (20000 / 100000)
+		expect(tally.quorumPercent).toBe(20);
+	});
+
+	it('near-tie (off by 1 sat) — not tied', () => {
+		const pledgesByPubkey = new Map([
+			['alice'.padEnd(64, '0'), 50001],
+			['bob'.padEnd(64, '0'), 50000]
+		]);
+		const totalPledged = 100001;
+
+		const votes: Vote[] = [
+			mockVote({ pubkey: 'alice'.padEnd(64, '0'), choice: 'approve', createdAt: 100 }),
+			mockVote({ pubkey: 'bob'.padEnd(64, '0'), choice: 'reject', createdAt: 100 })
+		];
+
+		const tally = tallyVotes(votes, pledgesByPubkey, totalPledged);
+
+		expect(tally.approveWeight).toBe(50001);
+		expect(tally.rejectWeight).toBe(50000);
+		expect(tally.isTied).toBe(false);
+		// Approve wins by 1 sat and meets quorum (100001 weight >= 50000.5 quorum)
+		expect(tally.isApproved).toBe(true);
+		expect(tally.isRejected).toBe(false);
+	});
+
+	it('zero-zero (no votes cast) — not tied', () => {
+		const pledgesByPubkey = new Map([
+			['alice'.padEnd(64, '0'), 50000],
+			['bob'.padEnd(64, '0'), 50000]
+		]);
+		const totalPledged = 100000;
+
+		const votes: Vote[] = [];
+
+		const tally = tallyVotes(votes, pledgesByPubkey, totalPledged);
+
+		expect(tally.approveWeight).toBe(0);
+		expect(tally.rejectWeight).toBe(0);
+		// Zero-zero is NOT a tie — isTied requires actual votes
+		expect(tally.isTied).toBe(false);
+		expect(tally.isApproved).toBe(false);
+		expect(tally.isRejected).toBe(false);
 	});
 });

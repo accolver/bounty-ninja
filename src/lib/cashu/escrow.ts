@@ -12,7 +12,7 @@
 
 import type { Proof, Wallet, Token } from '@cashu/cashu-ts';
 import type { NostrEvent } from 'nostr-tools';
-import type { DecodedPledge, MintResult, SwapResult } from './types';
+import type { DecodedPledge, MintResult, SwapResult, MintPayoutEntry, MultiMintPayoutResult } from './types';
 import { DoubleSpendError } from './types';
 import { decodeToken, encodeToken, getProofsAmount } from './token';
 import { createP2PKLock } from './p2pk';
@@ -95,7 +95,7 @@ export async function createPledgeToken(
  * @param pledgeEvents - Array of Kind 73002 Nostr events.
  * @returns Array of successfully decoded pledges.
  */
-export function collectPledgeTokens(pledgeEvents: NostrEvent[]): DecodedPledge[] {
+export async function collectPledgeTokens(pledgeEvents: NostrEvent[]): Promise<DecodedPledge[]> {
 	const decoded: DecodedPledge[] = [];
 
 	for (const event of pledgeEvents) {
@@ -107,7 +107,7 @@ export function collectPledgeTokens(pledgeEvents: NostrEvent[]): DecodedPledge[]
 			continue;
 		}
 
-		const tokenInfo = decodeToken(tokenStr);
+		const tokenInfo = await decodeToken(tokenStr);
 		if (!tokenInfo) {
 			console.warn(`[cashu/escrow] Pledge event ${event.id} has invalid cashu token, skipping`);
 			continue;
@@ -297,7 +297,7 @@ export async function createPayoutToken(
  * @param mintUrl - The mint URL these proofs belong to.
  * @returns Encoded Cashu token string.
  */
-export function encodePayoutToken(proofs: Proof[], mintUrl: string): string {
+export async function encodePayoutToken(proofs: Proof[], mintUrl: string): Promise<string> {
 	return encodeToken(proofs, mintUrl, 'Bounty.ninja bounty payout');
 }
 
@@ -333,4 +333,161 @@ export async function checkPledgeProofsSpendable(
 	}
 
 	return results;
+}
+
+/**
+ * Group decoded pledges by their mint URL.
+ *
+ * Returns a Map keyed by mint URL, where each value is the array of
+ * pledges that belong to that mint. This is essential for multi-mint
+ * payout processing, since proofs from different mints must be swapped
+ * independently at their respective mints.
+ *
+ * @param pledges - Array of decoded pledges to group.
+ * @returns Map of mint URL to array of pledges from that mint.
+ */
+export function groupPledgesByMint(pledges: DecodedPledge[]): Map<string, DecodedPledge[]> {
+	const groups = new Map<string, DecodedPledge[]>();
+
+	for (const pledge of pledges) {
+		const normalized = pledge.mint.replace(/\/+$/, '');
+		const existing = groups.get(normalized);
+		if (existing) {
+			existing.push(pledge);
+		} else {
+			groups.set(normalized, [pledge]);
+		}
+	}
+
+	return groups;
+}
+
+/**
+ * Process a multi-mint payout: swap and create solver-locked tokens
+ * independently at each mint.
+ *
+ * For each mint group:
+ * 1. Get a wallet connection for that mint
+ * 2. Swap P2PK-locked pledge proofs (unlock with creator's privkey)
+ * 3. Create new P2PK-locked payout proofs for the solver
+ *
+ * If all pledges are from the same mint, this behaves identically to
+ * the single-mint flow. If pledges span multiple mints, each mint is
+ * processed independently and the results are aggregated.
+ *
+ * @param pledges - All decoded pledges for this bounty.
+ * @param privkey - Creator's private key (hex) for signing P2PK proofs.
+ * @param solverPubkey - Hex-encoded public key of the winning solver.
+ * @param onStatus - Optional callback for progress updates.
+ * @returns MultiMintPayoutResult with per-mint payout entries.
+ */
+export async function processMultiMintPayout(
+	pledges: DecodedPledge[],
+	privkey: string,
+	solverPubkey: string,
+	onStatus?: (message: string) => void
+): Promise<MultiMintPayoutResult> {
+	if (pledges.length === 0) {
+		return { success: false, entries: [], totalAmount: 0, error: 'No pledges to process' };
+	}
+
+	const mintGroups = groupPledgesByMint(pledges);
+	const entries: MintPayoutEntry[] = [];
+	const errors: string[] = [];
+
+	const mintUrls = Array.from(mintGroups.keys());
+
+	for (const mintUrl of mintUrls) {
+		const group = mintGroups.get(mintUrl)!;
+		const mintLabel = mintUrls.length > 1
+			? ` (${mintUrl.replace(/^https?:\/\//, '')})`
+			: '';
+
+		try {
+			// Step 1: Connect to this mint
+			onStatus?.(`Connecting to mint${mintLabel}...`);
+			const wallet = await getWallet(mintUrl);
+
+			// Step 2: Swap P2PK-locked proofs at this mint
+			onStatus?.(`Unlocking pledge tokens${mintLabel}...`);
+			const swapResult = await swapPledgeTokens(group, wallet, privkey);
+
+			if (!swapResult.success) {
+				errors.push(`Mint ${mintUrl}: ${swapResult.error ?? 'Swap failed'}`);
+				continue;
+			}
+
+			// Step 3: Create solver-locked payout token at this mint
+			onStatus?.(`Creating payout token${mintLabel}...`);
+			const payoutResult = await createPayoutToken(
+				swapResult.sendProofs,
+				solverPubkey,
+				wallet
+			);
+
+			if (!payoutResult.success) {
+				errors.push(`Mint ${mintUrl}: ${payoutResult.error ?? 'Payout creation failed'}`);
+				continue;
+			}
+
+			const amount = getProofsAmount(payoutResult.proofs);
+			entries.push({ mintUrl, proofs: payoutResult.proofs, amount });
+		} catch (err) {
+			// Re-throw DoubleSpendError immediately — this is not recoverable
+			if (err instanceof DoubleSpendError) {
+				throw err;
+			}
+
+			const message = err instanceof Error ? err.message : String(err);
+			errors.push(`Mint ${mintUrl}: ${message}`);
+		}
+	}
+
+	if (entries.length === 0) {
+		return {
+			success: false,
+			entries: [],
+			totalAmount: 0,
+			error: errors.join('; ')
+		};
+	}
+
+	const totalAmount = entries.reduce((sum, e) => sum + e.amount, 0);
+
+	if (errors.length > 0) {
+		// Partial success — some mints failed
+		return {
+			success: false,
+			entries: [],
+			totalAmount: 0,
+			error: `Some mints failed: ${errors.join('; ')}`,
+			partialEntries: entries
+		};
+	}
+
+	return { success: true, entries, totalAmount };
+}
+
+/**
+ * Encode multi-mint payout entries into a single Cashu token string.
+ *
+ * When all entries are from the same mint, this produces a standard single-mint
+ * token. When entries span multiple mints, each mint's proofs are encoded as
+ * a separate token and joined with a newline delimiter for inclusion in the
+ * payout event's cashu tag.
+ *
+ * @param entries - Per-mint payout entries with proofs.
+ * @returns Encoded token string(s) suitable for the cashu tag.
+ */
+export async function encodeMultiMintPayoutTokens(entries: MintPayoutEntry[]): Promise<string> {
+	if (entries.length === 0) return '';
+	if (entries.length === 1) {
+		return encodePayoutToken(entries[0].proofs, entries[0].mintUrl);
+	}
+
+	// Multiple mints: encode each separately, join with newline
+	const encoded = await Promise.all(
+		entries.map((entry) => encodePayoutToken(entry.proofs, entry.mintUrl))
+	);
+	return encoded.join('\n');
 }

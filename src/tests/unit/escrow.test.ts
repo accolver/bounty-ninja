@@ -32,7 +32,10 @@ import {
 	swapPledgeTokens,
 	createPayoutToken,
 	encodePayoutToken,
-	checkPledgeProofsSpendable
+	checkPledgeProofsSpendable,
+	groupPledgesByMint,
+	processMultiMintPayout,
+	encodeMultiMintPayoutTokens
 } from '$lib/cashu/escrow';
 import { getWallet } from '$lib/cashu/mint';
 import { decodeToken, encodeToken, getProofsAmount } from '$lib/cashu/token';
@@ -50,6 +53,8 @@ const CREATOR_PK = 'a'.repeat(64);
 const PLEDGER_PK = 'b'.repeat(64);
 const SOLVER_PK = 'c'.repeat(64);
 const MINT_URL = 'https://mint.example.com';
+const MINT_URL_2 = 'https://mint2.example.com';
+const MINT_URL_3 = 'https://mint3.example.com';
 const SIG = 'd'.repeat(128);
 
 function mockProof(amount: number, id = 'proof'): Proof {
@@ -88,10 +93,10 @@ function makePledgeEvent(tokenStr: string, eventId?: string): NostrEvent {
 	};
 }
 
-function makeDecodedPledge(amount = 100, eventId = 'evt-1'): DecodedPledge {
+function makeDecodedPledge(amount = 100, eventId = 'evt-1', mintUrl = MINT_URL): DecodedPledge {
 	return {
-		token: { mint: MINT_URL, proofs: [mockProof(amount)], unit: 'sat' } as Token,
-		mint: MINT_URL,
+		token: { mint: mintUrl, proofs: [mockProof(amount)], unit: 'sat' } as Token,
+		mint: mintUrl,
 		amount,
 		proofs: [mockProof(amount)],
 		eventId,
@@ -207,12 +212,12 @@ describe('createPledgeToken', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('collectPledgeTokens', () => {
-	it('returns empty array for empty events', () => {
-		const result = collectPledgeTokens([]);
+	it('returns empty array for empty events', async () => {
+		const result = await collectPledgeTokens([]);
 		expect(result).toEqual([]);
 	});
 
-	it('decodes valid pledge events', () => {
+	it('decodes valid pledge events', async () => {
 		const tokenInfo = {
 			mint: MINT_URL,
 			amount: 100,
@@ -220,10 +225,10 @@ describe('collectPledgeTokens', () => {
 			memo: undefined,
 			unit: 'sat'
 		};
-		mockedDecodeToken.mockReturnValue(tokenInfo);
+		mockedDecodeToken.mockResolvedValue(tokenInfo);
 
 		const events = [makePledgeEvent('cashuBvalid123')];
-		const result = collectPledgeTokens(events);
+		const result = await collectPledgeTokens(events);
 
 		expect(result).toHaveLength(1);
 		expect(result[0].amount).toBe(100);
@@ -231,7 +236,7 @@ describe('collectPledgeTokens', () => {
 		expect(result[0].pledgerPubkey).toBe(PLEDGER_PK);
 	});
 
-	it('skips events without cashu tag', () => {
+	it('skips events without cashu tag', async () => {
 		const event: NostrEvent = {
 			id: 'no-cashu',
 			pubkey: PLEDGER_PK,
@@ -242,20 +247,20 @@ describe('collectPledgeTokens', () => {
 			sig: SIG
 		};
 
-		const result = collectPledgeTokens([event]);
+		const result = await collectPledgeTokens([event]);
 		expect(result).toHaveLength(0);
 	});
 
-	it('skips events with invalid tokens', () => {
-		mockedDecodeToken.mockReturnValue(null);
+	it('skips events with invalid tokens', async () => {
+		mockedDecodeToken.mockResolvedValue(null);
 
 		const events = [makePledgeEvent('invalid-token')];
-		const result = collectPledgeTokens(events);
+		const result = await collectPledgeTokens(events);
 
 		expect(result).toHaveLength(0);
 	});
 
-	it('processes multiple events, skipping bad ones', () => {
+	it('processes multiple events, skipping bad ones', async () => {
 		const goodInfo = {
 			mint: MINT_URL,
 			amount: 200,
@@ -264,7 +269,7 @@ describe('collectPledgeTokens', () => {
 			unit: 'sat'
 		};
 
-		mockedDecodeToken.mockReturnValueOnce(goodInfo).mockReturnValueOnce(null).mockReturnValueOnce(goodInfo);
+		mockedDecodeToken.mockResolvedValueOnce(goodInfo).mockResolvedValueOnce(null).mockResolvedValueOnce(goodInfo);
 
 		const events = [
 			makePledgeEvent('cashuBgood1', 'evt-1'),
@@ -272,13 +277,13 @@ describe('collectPledgeTokens', () => {
 			makePledgeEvent('cashuBgood2', 'evt-3')
 		];
 
-		const result = collectPledgeTokens(events);
+		const result = await collectPledgeTokens(events);
 		expect(result).toHaveLength(2);
 		expect(result[0].eventId).toBe('evt-1');
 		expect(result[1].eventId).toBe('evt-3');
 	});
 
-	it('preserves event ID and pledger pubkey in decoded pledges', () => {
+	it('preserves event ID and pledger pubkey in decoded pledges', async () => {
 		const tokenInfo = {
 			mint: MINT_URL,
 			amount: 50,
@@ -286,11 +291,11 @@ describe('collectPledgeTokens', () => {
 			memo: 'test memo',
 			unit: 'sat'
 		};
-		mockedDecodeToken.mockReturnValue(tokenInfo);
+		mockedDecodeToken.mockResolvedValue(tokenInfo);
 
 		const eventId = 'specific-event-id-' + '0'.repeat(48);
 		const events = [makePledgeEvent('cashuBtest', eventId)];
-		const result = collectPledgeTokens(events);
+		const result = await collectPledgeTokens(events);
 
 		expect(result[0].eventId).toBe(eventId);
 		expect(result[0].pledgerPubkey).toBe(PLEDGER_PK);
@@ -458,11 +463,11 @@ describe('createPayoutToken', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('encodePayoutToken', () => {
-	it('calls encodeToken with correct memo', () => {
-		mockedEncodeToken.mockReturnValue('cashuBpayout123');
+	it('calls encodeToken with correct memo', async () => {
+		mockedEncodeToken.mockResolvedValue('cashuBpayout123');
 		const proofs = [mockProof(500)];
 
-		const result = encodePayoutToken(proofs, MINT_URL);
+		const result = await encodePayoutToken(proofs, MINT_URL);
 
 		expect(result).toBe('cashuBpayout123');
 		expect(mockedEncodeToken).toHaveBeenCalledWith(proofs, MINT_URL, 'Bounty.ninja bounty payout');
@@ -542,5 +547,234 @@ describe('checkPledgeProofsSpendable', () => {
 
 		// If any proof is spent, the whole pledge is not fully spendable
 		expect(result.get('evt-mixed')).toBe(false);
+	});
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// groupPledgesByMint
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('groupPledgesByMint', () => {
+	it('returns empty map for empty array', () => {
+		const result = groupPledgesByMint([]);
+		expect(result.size).toBe(0);
+	});
+
+	it('groups all pledges under a single mint', () => {
+		const pledge1 = makeDecodedPledge(100, 'evt-1', MINT_URL);
+		const pledge2 = makeDecodedPledge(50, 'evt-2', MINT_URL);
+
+		const result = groupPledgesByMint([pledge1, pledge2]);
+
+		expect(result.size).toBe(1);
+		expect(result.has(MINT_URL)).toBe(true);
+		expect(result.get(MINT_URL)).toHaveLength(2);
+	});
+
+	it('groups pledges by different mints', () => {
+		const pledge1 = makeDecodedPledge(100, 'evt-1', MINT_URL);
+		const pledge2 = makeDecodedPledge(50, 'evt-2', MINT_URL_2);
+		const pledge3 = makeDecodedPledge(75, 'evt-3', MINT_URL);
+		const pledge4 = makeDecodedPledge(25, 'evt-4', MINT_URL_3);
+
+		const result = groupPledgesByMint([pledge1, pledge2, pledge3, pledge4]);
+
+		expect(result.size).toBe(3);
+		expect(result.get(MINT_URL)).toHaveLength(2);
+		expect(result.get(MINT_URL_2)).toHaveLength(1);
+		expect(result.get(MINT_URL_3)).toHaveLength(1);
+	});
+
+	it('normalizes trailing slashes in mint URLs', () => {
+		const pledge1 = makeDecodedPledge(100, 'evt-1', 'https://mint.example.com/');
+		const pledge2 = makeDecodedPledge(50, 'evt-2', 'https://mint.example.com');
+		const pledge3 = makeDecodedPledge(75, 'evt-3', 'https://mint.example.com///');
+
+		const result = groupPledgesByMint([pledge1, pledge2, pledge3]);
+
+		expect(result.size).toBe(1);
+		const key = Array.from(result.keys())[0];
+		expect(key).toBe('https://mint.example.com');
+		expect(result.get(key)).toHaveLength(3);
+	});
+
+	it('preserves pledge data in groups', () => {
+		const pledge1 = makeDecodedPledge(100, 'evt-1', MINT_URL);
+		const pledge2 = makeDecodedPledge(200, 'evt-2', MINT_URL_2);
+
+		const result = groupPledgesByMint([pledge1, pledge2]);
+
+		const mint1Group = result.get(MINT_URL)!;
+		expect(mint1Group[0].eventId).toBe('evt-1');
+		expect(mint1Group[0].amount).toBe(100);
+
+		const mint2Group = result.get(MINT_URL_2)!;
+		expect(mint2Group[0].eventId).toBe('evt-2');
+		expect(mint2Group[0].amount).toBe(200);
+	});
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// processMultiMintPayout
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('processMultiMintPayout', () => {
+	it('returns failure for empty pledges', async () => {
+		const result = await processMultiMintPayout([], CREATOR_PK, SOLVER_PK);
+
+		expect(result.success).toBe(false);
+		expect(result.error).toContain('No pledges');
+	});
+
+	it('processes single-mint pledges successfully', async () => {
+		const wallet = mockWallet();
+		mockedGetWallet.mockResolvedValue(wallet);
+
+		const pledge1 = makeDecodedPledge(100, 'evt-1', MINT_URL);
+		const pledge2 = makeDecodedPledge(50, 'evt-2', MINT_URL);
+
+		const result = await processMultiMintPayout(
+			[pledge1, pledge2],
+			CREATOR_PK,
+			SOLVER_PK
+		);
+
+		expect(result.success).toBe(true);
+		expect(result.entries).toHaveLength(1);
+		expect(result.entries[0].mintUrl).toBe(MINT_URL);
+		expect(result.totalAmount).toBeGreaterThan(0);
+	});
+
+	it('processes multi-mint pledges independently', async () => {
+		const wallet1 = mockWallet();
+		const wallet2 = mockWallet();
+		mockedGetWallet
+			.mockResolvedValueOnce(wallet1) // swap wallet for mint 1
+			.mockResolvedValueOnce(wallet2); // swap wallet for mint 2
+
+		const pledge1 = makeDecodedPledge(100, 'evt-1', MINT_URL);
+		const pledge2 = makeDecodedPledge(75, 'evt-2', MINT_URL_2);
+
+		const result = await processMultiMintPayout(
+			[pledge1, pledge2],
+			CREATOR_PK,
+			SOLVER_PK
+		);
+
+		expect(result.success).toBe(true);
+		expect(result.entries).toHaveLength(2);
+
+		const mintUrls = result.entries.map((e) => e.mintUrl);
+		expect(mintUrls).toContain(MINT_URL);
+		expect(mintUrls).toContain(MINT_URL_2);
+	});
+
+	it('calls onStatus callback with progress messages', async () => {
+		const wallet = mockWallet();
+		mockedGetWallet.mockResolvedValue(wallet);
+		const statusMessages: string[] = [];
+
+		const pledge = makeDecodedPledge(100, 'evt-1', MINT_URL);
+		await processMultiMintPayout(
+			[pledge],
+			CREATOR_PK,
+			SOLVER_PK,
+			(msg) => statusMessages.push(msg)
+		);
+
+		expect(statusMessages.length).toBeGreaterThan(0);
+		expect(statusMessages.some((m) => m.includes('Connecting'))).toBe(true);
+		expect(statusMessages.some((m) => m.includes('Unlocking'))).toBe(true);
+		expect(statusMessages.some((m) => m.includes('Creating payout'))).toBe(true);
+	});
+
+	it('re-throws DoubleSpendError immediately', async () => {
+		const wallet = mockWallet({
+			send: vi.fn(async () => {
+				throw new Error('Token already spent');
+			})
+		});
+		mockedGetWallet.mockResolvedValue(wallet);
+
+		const pledge = makeDecodedPledge(100, 'evt-1', MINT_URL);
+
+		await expect(
+			processMultiMintPayout([pledge], CREATOR_PK, SOLVER_PK)
+		).rejects.toThrow(DoubleSpendError);
+	});
+
+	it('returns failure when all mints fail', async () => {
+		mockedGetWallet.mockRejectedValue(new Error('Mint offline'));
+
+		const pledge1 = makeDecodedPledge(100, 'evt-1', MINT_URL);
+		const pledge2 = makeDecodedPledge(50, 'evt-2', MINT_URL_2);
+
+		const result = await processMultiMintPayout(
+			[pledge1, pledge2],
+			CREATOR_PK,
+			SOLVER_PK
+		);
+
+		expect(result.success).toBe(false);
+		expect(result.entries).toHaveLength(0);
+		expect(result.error).toBeDefined();
+	});
+
+	it('returns partial failure when some mints fail', async () => {
+		const goodWallet = mockWallet();
+		mockedGetWallet
+			.mockResolvedValueOnce(goodWallet) // mint 1 succeeds
+			.mockRejectedValueOnce(new Error('Mint 2 offline')); // mint 2 fails
+
+		const pledge1 = makeDecodedPledge(100, 'evt-1', MINT_URL);
+		const pledge2 = makeDecodedPledge(50, 'evt-2', MINT_URL_2);
+
+		const result = await processMultiMintPayout(
+			[pledge1, pledge2],
+			CREATOR_PK,
+			SOLVER_PK
+		);
+
+		expect(result.success).toBe(false);
+		expect(result.error).toContain('Some mints failed');
+		expect(result.partialEntries).toBeDefined();
+		expect(result.partialEntries).toHaveLength(1);
+		expect(result.partialEntries![0].mintUrl).toBe(MINT_URL);
+	});
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// encodeMultiMintPayoutTokens
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('encodeMultiMintPayoutTokens', () => {
+	it('returns empty string for empty entries', async () => {
+		const result = await encodeMultiMintPayoutTokens([]);
+		expect(result).toBe('');
+	});
+
+	it('encodes single entry as a standard token', async () => {
+		mockedEncodeToken.mockResolvedValue('cashuBsingle');
+
+		const result = await encodeMultiMintPayoutTokens([
+			{ mintUrl: MINT_URL, proofs: [mockProof(100)], amount: 100 }
+		]);
+
+		expect(result).toBe('cashuBsingle');
+		expect(mockedEncodeToken).toHaveBeenCalledOnce();
+	});
+
+	it('encodes multiple entries separated by newline', async () => {
+		mockedEncodeToken
+			.mockResolvedValueOnce('cashuBmint1')
+			.mockResolvedValueOnce('cashuBmint2');
+
+		const result = await encodeMultiMintPayoutTokens([
+			{ mintUrl: MINT_URL, proofs: [mockProof(100)], amount: 100 },
+			{ mintUrl: MINT_URL_2, proofs: [mockProof(50)], amount: 50 }
+		]);
+
+		expect(result).toBe('cashuBmint1\ncashuBmint2');
+		expect(mockedEncodeToken).toHaveBeenCalledTimes(2);
 	});
 });

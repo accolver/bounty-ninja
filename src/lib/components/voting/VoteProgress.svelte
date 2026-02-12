@@ -8,12 +8,14 @@
 	const rejectPercent = $derived(totalWeight > 0 ? (tally.rejectWeight / totalWeight) * 100 : 0);
 
 	const statusText = $derived.by(() => {
+		if (tally.isTied) return 'Tied \u2014 more votes needed';
 		if (tally.isApproved) return 'Approved';
 		if (tally.isRejected) return 'Rejected';
 		return 'Pending';
 	});
 
 	const statusColor = $derived.by(() => {
+		if (tally.isTied) return 'text-warning';
 		if (tally.isApproved) return 'text-primary';
 		if (tally.isRejected) return 'text-destructive';
 		return 'text-muted-foreground';

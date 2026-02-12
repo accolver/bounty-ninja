@@ -11,10 +11,10 @@
 	import { formatNpub } from '$lib/utils/format';
 	import {
 		collectPledgeTokens,
-		swapPledgeTokens,
-		createPayoutToken,
-		encodePayoutToken,
-		checkPledgeProofsSpendable
+		checkPledgeProofsSpendable,
+		groupPledgesByMint,
+		processMultiMintPayout,
+		encodeMultiMintPayoutTokens
 	} from '$lib/cashu/escrow';
 	import { getWallet } from '$lib/cashu/mint';
 	import { getProofsAmount } from '$lib/cashu/token';
@@ -40,11 +40,22 @@
 
 	let showConfirm = $state(false);
 	let processing = $state(false);
-	let step = $state<'confirm' | 'key-entry' | 'processing'>('confirm');
+	let step = $state<'confirm' | 'key-entry' | 'processing' | 'broadcast-failure'>('confirm');
 	let nsecInput = $state('');
 	let nsecError = $state('');
 	let spendableCount = $state<number | null>(null);
 	let statusMessage = $state('');
+
+	// ── Broadcast failure recovery state ────────────────────────
+	let recoveryToken = $state('');
+	let tokenCopied = $state(false);
+
+	// ── Mint summary state ─────────────────────────────────────
+	/** Maps mint URL to total pledged amount from that mint. */
+	let mintSummary = $state<Map<string, number>>(new Map());
+
+	const isMultiMint = $derived(mintSummary.size > 1);
+	const mintSummaryEntries = $derived(Array.from(mintSummary.entries()));
 
 	// ── Rate limit state ────────────────────────────────────────
 	let rateLimitRemaining = $state(0);
@@ -80,7 +91,9 @@
 			try {
 				const decoded = nip19.decode(trimmed);
 				if (decoded.type === 'nsec') {
-					return Buffer.from(decoded.data).toString('hex');
+					return Array.from(new Uint8Array(decoded.data))
+						.map((b) => b.toString(16).padStart(2, '0'))
+						.join('');
 				}
 			} catch {
 				return '';
@@ -110,13 +123,35 @@
 
 	const isKeyValid = $derived(privkeyHex.length === 64);
 
-	function openDialog() {
+	async function openDialog() {
 		step = 'confirm';
 		nsecInput = '';
 		nsecError = '';
 		spendableCount = null;
 		statusMessage = '';
+		recoveryToken = '';
+		tokenCopied = false;
 		showConfirm = true;
+
+		// Build mint summary from pledge tokens
+		const decoded = await collectPledgeTokens(pledges.map((p) => p.event));
+		const groups = groupPledgesByMint(decoded);
+		const summary = new Map<string, number>();
+		for (const [mintUrl, mintPledges] of groups) {
+			const total = mintPledges.reduce((sum, p) => sum + p.amount, 0);
+			summary.set(mintUrl, total);
+		}
+		mintSummary = summary;
+	}
+
+	async function copyRecoveryToken() {
+		try {
+			await navigator.clipboard.writeText(recoveryToken);
+			tokenCopied = true;
+			toastStore.success('Token copied to clipboard');
+		} catch {
+			toastStore.error('Failed to copy — please select and copy manually');
+		}
 	}
 
 	function goToKeyEntry() {
@@ -128,18 +163,21 @@
 
 	async function checkSpendable() {
 		try {
-			const decoded = collectPledgeTokens(pledges.map((p) => p.event));
+			const decoded = await collectPledgeTokens(pledges.map((p) => p.event));
 			if (decoded.length === 0) {
 				spendableCount = 0;
 				return;
 			}
 
-			const mintUrl = decoded[0].mint;
-			const wallet = await getWallet(mintUrl);
-			const results = await checkPledgeProofsSpendable(decoded, wallet);
+			// Check spendability per mint — each mint needs its own wallet
+			const groups = groupPledgesByMint(decoded);
 			let count = 0;
-			for (const [, ok] of results) {
-				if (ok) count++;
+			for (const [mintUrl, mintPledges] of groups) {
+				const wallet = await getWallet(mintUrl);
+				const results = await checkPledgeProofsSpendable(mintPledges, wallet);
+				for (const [, ok] of results) {
+					if (ok) count++;
+				}
 			}
 			spendableCount = count;
 		} catch {
@@ -169,43 +207,29 @@
 		try {
 			// Step 1: Collect pledge tokens from events
 			statusMessage = 'Collecting pledge tokens...';
-			const decodedPledges = collectPledgeTokens(pledges.map((p) => p.event));
+			const decodedPledges = await collectPledgeTokens(pledges.map((p) => p.event));
 			if (decodedPledges.length === 0) {
 				toastStore.error('No valid pledge tokens found');
 				return;
 			}
 
-			// Step 2: Connect to mint
-			statusMessage = 'Connecting to mint...';
-			const mintUrl = decodedPledges[0].mint;
-			const wallet = await getWallet(mintUrl);
-
-			// Step 3: Swap P2PK-locked proofs using creator's private key
-			statusMessage = 'Unlocking pledge tokens...';
-			const swapResult = await swapPledgeTokens(decodedPledges, wallet, creatorPrivkey);
-
-			if (!swapResult.success) {
-				toastStore.error(swapResult.error ?? 'Failed to unlock pledge tokens');
-				return;
-			}
-
-			// Step 4: Create solver-locked payout token
-			statusMessage = 'Creating payout token for solver...';
-			const payoutResult = await createPayoutToken(
-				swapResult.sendProofs,
+			// Step 2-4: Process payout across all mints (handles grouping internally)
+			const payoutResult = await processMultiMintPayout(
+				decodedPledges,
+				creatorPrivkey,
 				winningSolution.pubkey,
-				wallet
+				(msg) => { statusMessage = msg; }
 			);
 
 			if (!payoutResult.success) {
-				toastStore.error(payoutResult.error ?? 'Failed to create payout token');
+				toastStore.error(payoutResult.error ?? 'Failed to process payout');
 				return;
 			}
 
 			// Step 5: Encode and publish payout event
 			statusMessage = 'Publishing payout event...';
-			const payoutTokenStr = encodePayoutToken(payoutResult.proofs, mintUrl);
-			const payoutAmount = getProofsAmount(payoutResult.proofs);
+			const payoutTokenStr = await encodeMultiMintPayoutTokens(payoutResult.entries);
+			const payoutAmount = payoutResult.totalAmount;
 
 			const template = payoutBlueprint({
 				bountyAddress,
@@ -215,8 +239,18 @@
 				cashuToken: payoutTokenStr
 			});
 
-			await publishEvent(template);
+			const { broadcast } = await publishEvent(template);
 			rateLimiter.recordPublish(PAYOUT_KIND);
+
+			if (!broadcast.success) {
+				// CRITICAL: Cashu tokens have already been swapped but the Nostr
+				// event failed to publish. Show recovery UI so the user can
+				// manually share the token with the solver.
+				recoveryToken = payoutTokenStr;
+				step = 'broadcast-failure';
+				return;
+			}
+
 			toastStore.success(`Payout of ${payoutAmount.toLocaleString()} sats sent to solver!`);
 			showConfirm = false;
 		} catch (err) {
@@ -272,6 +306,7 @@
 					<Dialog.Title>
 						{#if step === 'confirm'}Confirm Payout
 						{:else if step === 'key-entry'}Enter Private Key
+						{:else if step === 'broadcast-failure'}Broadcast Failed — Recovery Required
 						{:else}Processing Payout{/if}
 					</Dialog.Title>
 					<Dialog.Description>
@@ -279,6 +314,8 @@
 							Review the payout details before proceeding.
 						{:else if step === 'key-entry'}
 							Your private key is needed to unlock the escrowed pledge tokens.
+						{:else if step === 'broadcast-failure'}
+							The payout token was created but could not be published to relays.
 						{:else}
 							Swapping tokens at the mint...
 						{/if}
@@ -316,6 +353,27 @@
 							<span class="text-muted-foreground">Payout Amount</span>
 							<SatAmount amount={totalPledged} />
 						</div>
+
+						{#if isMultiMint}
+							<div class="rounded-md border border-border bg-card p-3 space-y-2">
+								<h4 class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+									Mints Involved ({mintSummary.size})
+								</h4>
+								<ul class="space-y-1">
+									{#each mintSummaryEntries as [mintUrl, amount]}
+										<li class="flex items-center justify-between text-xs">
+											<span class="text-foreground/80 font-mono truncate max-w-[200px]" title={mintUrl}>
+												{mintUrl.replace(/^https?:\/\//, '')}
+											</span>
+											<SatAmount {amount} />
+										</li>
+									{/each}
+								</ul>
+								<p class="text-xs text-muted-foreground">
+									Tokens will be swapped independently at each mint.
+								</p>
+							</div>
+						{/if}
 
 						<div
 							class="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 p-3"
@@ -398,7 +456,62 @@
 						</Button>
 					</Dialog.Footer>
 
-					<!-- Step 3: Processing -->
+					<!-- Step 3: Broadcast failure recovery -->
+				{:else if step === 'broadcast-failure'}
+					<div class="space-y-4 py-2">
+						<div
+							class="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3"
+							role="alert"
+						>
+							<ShieldAlertIcon class="mt-0.5 size-4 shrink-0 text-destructive" />
+							<div class="space-y-1">
+								<p class="text-xs font-medium text-destructive">
+									WARNING: Payout tokens were created but the Nostr event failed to publish.
+								</p>
+								<p class="text-xs text-foreground/80">
+									Copy the token below and share it with the solver directly. These tokens
+									represent real funds that have already been swapped at the mint. Do NOT
+									close this dialog until you have saved the token.
+								</p>
+							</div>
+						</div>
+
+						<div class="space-y-2">
+							<label for="recovery-token" class="text-sm font-medium text-foreground">
+								Payout Token
+							</label>
+							<textarea
+								id="recovery-token"
+								readonly
+								rows={4}
+								value={recoveryToken}
+								class="font-mono text-xs border-border bg-white dark:bg-input/30 flex w-full rounded-md border px-3 py-2 shadow-xs outline-none select-all break-all"
+							></textarea>
+						</div>
+
+						{#if formattedSolverNpub}
+							<p class="text-xs text-muted-foreground">
+								Send this token to the solver ({formattedSolverNpub}) via direct message
+								or another secure channel.
+							</p>
+						{/if}
+					</div>
+
+					<Dialog.Footer>
+						<Button
+							variant="default"
+							class="bg-primary"
+							onclick={copyRecoveryToken}
+						>
+							{#if tokenCopied}
+								Copied!
+							{:else}
+								Copy Token
+							{/if}
+						</Button>
+					</Dialog.Footer>
+
+				<!-- Step 4: Processing -->
 				{:else}
 					<div class="flex flex-col items-center gap-3 py-6">
 						<LoadingSpinner size="lg" />

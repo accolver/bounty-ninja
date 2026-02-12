@@ -1,15 +1,17 @@
 <script lang="ts">
-	import type { Solution, Payout } from '$lib/bounty/types';
+	import type { Solution, Payout, VoteTally } from '$lib/bounty/types';
 	import { nip19 } from 'nostr-tools';
 	import { formatNpub } from '$lib/utils/format';
 	import SatAmount from '$lib/components/shared/SatAmount.svelte';
 
 	const {
 		winningSolution,
-		payout
+		payout,
+		tally
 	}: {
 		winningSolution?: Solution;
 		payout?: Payout;
+		tally?: VoteTally;
 	} = $props();
 
 	const solverNpub = $derived(
@@ -18,7 +20,30 @@
 </script>
 
 <div class="rounded-lg border border-primary/30 bg-primary/5 p-4" aria-label="Bounty results">
-	{#if winningSolution && solverNpub}
+	{#if tally?.isTied}
+		<div class="space-y-3">
+			<div class="flex items-center gap-2">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					viewBox="0 0 20 20"
+					fill="currentColor"
+					class="h-5 w-5 text-warning"
+					aria-hidden="true"
+				>
+					<path
+						fill-rule="evenodd"
+						d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"
+						clip-rule="evenodd"
+					/>
+				</svg>
+				<h3 class="text-sm font-semibold text-warning">Vote Tied</h3>
+			</div>
+			<p class="text-sm text-muted-foreground">
+				Votes are evenly split. More votes are needed to reach a decision.
+				A strict majority is required for approval.
+			</p>
+		</div>
+	{:else if winningSolution && solverNpub}
 		<div class="space-y-3">
 			<div class="flex items-center gap-2">
 				<svg

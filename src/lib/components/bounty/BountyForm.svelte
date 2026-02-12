@@ -106,7 +106,10 @@
 			.replace(/[^a-z0-9]+/g, '-')
 			.replace(/^-|-$/g, '')
 			.slice(0, 50);
-		const suffix = Math.random().toString(36).slice(2, 8);
+		const bytes = crypto.getRandomValues(new Uint8Array(8));
+		const suffix = Array.from(bytes)
+			.map((b) => b.toString(16).padStart(2, '0'))
+			.join('');
 		return `${slug}-${suffix}`;
 	}
 
@@ -139,8 +142,16 @@
 				submissionFee: submissionFee > 0 ? submissionFee : undefined
 			});
 
-			await publishEvent(template);
+			const { broadcast } = await publishEvent(template);
 			rateLimiter.recordPublish(BOUNTY_KIND, dTag);
+
+			if (!broadcast.success) {
+				toastStore.error(
+					'Failed to publish to relays. Your bounty was saved locally but may not be visible to others.'
+				);
+				return;
+			}
+
 			toastStore.success('Bounty created!');
 
 			const naddr = nip19.naddrEncode({

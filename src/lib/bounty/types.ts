@@ -98,5 +98,6 @@ export interface VoteTally {
 	quorum: number;
 	isApproved: boolean;
 	isRejected: boolean;
+	isTied: boolean;
 	quorumPercent: number;
 }

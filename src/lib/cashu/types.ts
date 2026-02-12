@@ -115,6 +115,42 @@ export interface DecodedPledge {
 
 // ── Double-Spend Error ──────────────────────────────────────────────────────
 
+// ── Multi-Mint Payout Result ─────────────────────────────────────────────────
+
+/**
+ * Result of processing a payout across multiple mints.
+ * Each entry maps a mint URL to the payout proofs generated at that mint.
+ */
+export interface MintPayoutEntry {
+	/** The mint URL these proofs were generated at. */
+	mintUrl: string;
+	/** The payout proofs locked to the solver. */
+	proofs: Proof[];
+	/** Total amount in sats for this mint's proofs. */
+	amount: number;
+}
+
+/**
+ * Aggregated result of a multi-mint payout operation.
+ */
+export interface MultiMintPayoutResult {
+	/** Whether the overall operation succeeded. */
+	success: boolean;
+	/** Per-mint payout entries on success. */
+	entries: MintPayoutEntry[];
+	/** Total payout amount across all mints. */
+	totalAmount: number;
+	/** Error message on failure. */
+	error?: string;
+	/**
+	 * Partial results if some mints succeeded and others failed.
+	 * Only populated when success is false and at least one mint succeeded.
+	 */
+	partialEntries?: MintPayoutEntry[];
+}
+
+// ── Double-Spend Error ──────────────────────────────────────────────────────
+
 /**
  * Error thrown when the mint rejects a swap because proofs
  * have already been spent (double-spend attempt).

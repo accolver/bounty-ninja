@@ -88,8 +88,14 @@
 				solutionAuthor: solution.pubkey,
 				choice
 			});
-			await publishEvent(template);
+			const { broadcast } = await publishEvent(template);
 			rateLimiter.recordPublish(VOTE_KIND);
+
+			if (!broadcast.success) {
+				toastStore.error('Vote may not have been published. Try again.');
+				return;
+			}
+
 			toastStore.success('Vote submitted!');
 		} catch (err) {
 			toastStore.error(err instanceof Error ? err.message : 'Failed to submit vote');

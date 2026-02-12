@@ -36,6 +36,7 @@ export function tallyVotes(
 			quorum: 0,
 			isApproved: false,
 			isRejected: false,
+			isTied: false,
 			quorumPercent: 0
 		};
 	}
@@ -72,12 +73,18 @@ export function tallyVotes(
 	const totalVoteWeight = approveWeight + rejectWeight;
 	const quorumPercent = totalPledgedSats > 0 ? (totalVoteWeight / totalPledgedSats) * 100 : 0;
 
+	// Tie: both sides have equal weight and both are > 0.
+	// Ties favor rejection — a strict majority is required to approve.
+	// However, a tie is not a rejection either — it indicates no consensus.
+	const isTied = approveWeight === rejectWeight && approveWeight > 0;
+
 	return {
 		approveWeight,
 		rejectWeight,
 		quorum,
-		isApproved: approveWeight > rejectWeight && approveWeight >= quorum,
-		isRejected: rejectWeight > approveWeight && rejectWeight >= quorum,
+		isApproved: !isTied && approveWeight > rejectWeight && approveWeight >= quorum,
+		isRejected: !isTied && rejectWeight > approveWeight && rejectWeight >= quorum,
+		isTied,
 		quorumPercent
 	};
 }
