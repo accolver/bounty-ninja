@@ -35,7 +35,7 @@
 			/* ignore */
 		}
 		const meta = document.querySelector('meta[name="theme-color"]');
-		if (meta) meta.setAttribute('content', isDark ? '#1f2335' : '#f0f0f3');
+		if (meta) meta.setAttribute('content', isDark ? '#141A1D' : '#EDEEE8');
 	}
 </script>
 

@@ -37,8 +37,15 @@ class BountyListStore {
 	#pledgeLoader: { unsubscribe(): void } | null = null;
 	#solutionLoader: { unsubscribe(): void } | null = null;
 	#payoutLoader: { unsubscribe(): void } | null = null;
+	#initialized = false;
 
-	constructor() {
+	/**
+	 * Initialize subscriptions and relay loaders.
+	 * Idempotent — safe to call multiple times; only starts once.
+	 */
+	init() {
+		if (this.#initialized) return;
+		this.#initialized = true;
 		this.#startSubscription();
 	}
 

@@ -26,8 +26,8 @@ export function createProfileLoader(pubkeys: string[]): { unsubscribe(): void } 
 				.pipe(onlyEvents(), mapEventsToStore(eventStore))
 				.subscribe();
 			subscriptions.push(sub);
-		} catch {
-			// Skip unreachable relays
+		} catch (e) {
+			console.warn('[profile-loader] Failed to subscribe to relay:', url, e);
 		}
 	}
 

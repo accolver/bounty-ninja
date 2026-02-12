@@ -23,8 +23,8 @@ export function createSolutionLoader(bountyAddress: string): { unsubscribe(): vo
 				.pipe(onlyEvents(), mapEventsToStore(eventStore))
 				.subscribe();
 			subscriptions.push(sub);
-		} catch {
-			// Skip unreachable relays
+		} catch (e) {
+			console.warn('[solution-loader] Failed to subscribe to relay:', url, e);
 		}
 	}
 

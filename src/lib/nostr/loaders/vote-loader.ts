@@ -23,8 +23,8 @@ export function createVoteLoader(bountyAddress: string): { unsubscribe(): void }
 				.pipe(onlyEvents(), mapEventsToStore(eventStore))
 				.subscribe();
 			subscriptions.push(sub);
-		} catch {
-			// Skip unreachable relays
+		} catch (e) {
+			console.warn('[vote-loader] Failed to subscribe to relay:', url, e);
 		}
 	}
 

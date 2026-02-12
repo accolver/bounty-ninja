@@ -8,6 +8,10 @@ export default defineConfig({
 			'src/tests/unit/**/*.{test,spec}.{js,ts}',
 			'src/tests/integration/**/*.{test,spec}.{js,ts}'
 		],
+		exclude: [
+			'src/tests/e2e/**',
+			'node_modules/**'
+		],
 		environment: 'jsdom'
 	}
 });

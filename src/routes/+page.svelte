@@ -13,6 +13,11 @@
 	import { flip } from 'svelte/animate';
 	import type { BountySummary, BountyStatus } from '$lib/bounty/types';
 
+	// Start bounty list subscriptions when the page mounts (idempotent)
+	$effect(() => {
+		bountyList.init();
+	});
+
 	// Animations only play after a user-initiated filter/sort change,
 	// not during the initial relay data stream.
 	let animate = $state(false);

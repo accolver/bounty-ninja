@@ -29,8 +29,8 @@ export function createAllPledgesLoader(): { unsubscribe(): void } {
 				.pipe(onlyEvents(), mapEventsToStore(eventStore))
 				.subscribe();
 			subscriptions.push(sub);
-		} catch {
-			// Skip unreachable relays
+		} catch (e) {
+			console.warn('[all-pledges-loader] Failed to subscribe to relay:', url, e);
 		}
 	}
 
@@ -60,8 +60,8 @@ export function createAllSolutionsLoader(): { unsubscribe(): void } {
 				.pipe(onlyEvents(), mapEventsToStore(eventStore))
 				.subscribe();
 			subscriptions.push(sub);
-		} catch {
-			// Skip unreachable relays
+		} catch (e) {
+			console.warn('[all-solutions-loader] Failed to subscribe to relay:', url, e);
 		}
 	}
 
@@ -91,8 +91,8 @@ export function createAllPayoutsLoader(): { unsubscribe(): void } {
 				.pipe(onlyEvents(), mapEventsToStore(eventStore))
 				.subscribe();
 			subscriptions.push(sub);
-		} catch {
-			// Skip unreachable relays
+		} catch (e) {
+			console.warn('[all-payouts-loader] Failed to subscribe to relay:', url, e);
 		}
 	}
 
@@ -122,8 +122,8 @@ export function createPledgeLoader(bountyAddress: string): { unsubscribe(): void
 				.pipe(onlyEvents(), mapEventsToStore(eventStore))
 				.subscribe();
 			subscriptions.push(sub);
-		} catch {
-			// Skip unreachable relays
+		} catch (e) {
+			console.warn('[pledge-loader] Failed to subscribe to relay:', url, e);
 		}
 	}
 

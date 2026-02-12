@@ -27,8 +27,8 @@ export function createBountyListLoader(limit?: number): { unsubscribe(): void } 
 				.pipe(onlyEvents(), mapEventsToStore(eventStore))
 				.subscribe();
 			subscriptions.push(sub);
-		} catch {
-			// Skip unreachable relays
+		} catch (e) {
+			console.warn('[bounty-list-loader] Failed to subscribe to relay:', url, e);
 		}
 	}
 
@@ -58,8 +58,8 @@ export function createBountyByAuthorLoader(pubkey: string): { unsubscribe(): voi
 				.pipe(onlyEvents(), mapEventsToStore(eventStore))
 				.subscribe();
 			subscriptions.push(sub);
-		} catch {
-			// Skip unreachable relays
+		} catch (e) {
+			console.warn('[bounty-author-loader] Failed to subscribe to relay:', url, e);
 		}
 	}
 
