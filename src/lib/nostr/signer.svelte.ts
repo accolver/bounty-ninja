@@ -1,6 +1,7 @@
+// SECURITY: This file handles private key material. Never persist or log nsec values.
 import type { EventTemplate, NostrEvent } from 'nostr-tools';
 import { EventFactory } from 'applesauce-core/event-factory';
-import { ExtensionSigner } from 'applesauce-signers';
+import { ExtensionSigner, PrivateKeySigner } from 'applesauce-signers';
 import {
 	SIGNER_POLL_INTERVAL_MS,
 	SIGNER_MAX_RETRIES,
@@ -48,14 +49,45 @@ export interface PublishResult {
 /** Lazily-initialized EventFactory singleton */
 let factoryInstance: EventFactory | null = null;
 
+/** SECURITY: Memory-only nsec signer reference. Never persist. */
+let nsecSignerInstance: PrivateKeySigner | null = null;
+
+/**
+ * Set the nsec signer from a private key string.
+ * SECURITY: The signer is held in memory only and cleared on logout/beforeunload.
+ */
+export function setNsecSigner(nsec: string): void {
+	nsecSignerInstance = PrivateKeySigner.fromKey(nsec);
+}
+
+/**
+ * Clear the nsec signer from memory.
+ */
+export function clearNsecSigner(): void {
+	nsecSignerInstance = null;
+}
+
+// Zero out nsec signer when the tab closes
+if (typeof window !== 'undefined') {
+	window.addEventListener('beforeunload', clearNsecSigner);
+}
+
 /**
  * Get or create the EventFactory singleton.
- * Lazily initializes with the NIP-07 ExtensionSigner and client tag.
+ * Uses nsec signer if available, otherwise falls back to NIP-07 ExtensionSigner.
  *
- * @throws {SignerUnavailableError} if no NIP-07 extension is detected
+ * @throws {SignerUnavailableError} if no signer is available
  */
 export function getEventFactory(): EventFactory {
 	if (factoryInstance) return factoryInstance;
+
+	if (nsecSignerInstance) {
+		factoryInstance = new EventFactory({
+			signer: nsecSignerInstance,
+			client: { name: CLIENT_TAG }
+		});
+		return factoryInstance;
+	}
 
 	if (typeof window === 'undefined' || !window.nostr) {
 		throw new SignerUnavailableError();
