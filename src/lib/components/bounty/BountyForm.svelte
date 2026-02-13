@@ -9,6 +9,9 @@
 	import { getMinSubmissionFee, getMaxSubmissionFee } from '$lib/utils/env';
 	import { rateLimiter } from '$lib/nostr/rate-limiter';
 	import { connectivity } from '$lib/stores/connectivity.svelte';
+	import { suggestTags, getPopularTags } from '$lib/bounty/auto-tagger';
+	import { bountyList } from '$lib/stores/bounties.svelte';
+	import TagAutoSuggest from './TagAutoSuggest.svelte';
 
 	// ── Constants ────────────────────────────────────────────────
 	const TITLE_MAX = 200;
@@ -97,6 +100,37 @@
 			e.preventDefault();
 			addTagsFromInput();
 		}
+	}
+
+	// ── Auto-tag suggestions ────────────────────────────────────
+	let dismissedSuggestions = $state<Set<string>>(new Set());
+
+	const filteredSuggestions = $derived.by(() => {
+		const raw = suggestTags(title, description);
+		return raw.filter((t) => !tags.includes(t) && !dismissedSuggestions.has(t));
+	});
+
+	function acceptSuggestion(tag: string) {
+		addTag(tag);
+	}
+
+	function dismissSuggestion(tag: string) {
+		dismissedSuggestions = new Set([...dismissedSuggestions, tag]);
+	}
+
+	// ── Community autocomplete ──────────────────────────────────
+	const autocompleteResults = $derived.by(() => {
+		const prefix = tagInput.trim();
+		if (!prefix) return [];
+		return getPopularTags(prefix, bountyList.items).filter((r) => !tags.includes(r.tag));
+	});
+
+	let showAutocomplete = $state(false);
+
+	function selectAutocomplete(tag: string) {
+		addTag(tag);
+		tagInput = '';
+		showAutocomplete = false;
 	}
 
 	// ── d-tag generation ────────────────────────────────────────
@@ -307,23 +341,57 @@
 					{/each}
 				</ul>
 			{/if}
-			<div class="flex gap-2">
-				<input
-					id="bounty-tags"
-					type="text"
-					bind:value={tagInput}
-					onkeydown={handleTagKeydown}
-					placeholder="rust, nostr, relay"
-					class="flex-1 rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
-				/>
-				<button
-					type="button"
-					onclick={addTagsFromInput}
-					disabled={!tagInput.trim()}
-					class="rounded-md border border-border bg-muted px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-				>
-					Add
-				</button>
+			<TagAutoSuggest
+				suggestedTags={filteredSuggestions}
+				onaccept={acceptSuggestion}
+				ondismiss={dismissSuggestion}
+			/>
+			<div class="relative">
+				<div class="flex gap-2">
+					<input
+						id="bounty-tags"
+						type="text"
+						bind:value={tagInput}
+						onkeydown={handleTagKeydown}
+						onfocus={() => (showAutocomplete = true)}
+						onblur={() => setTimeout(() => (showAutocomplete = false), 150)}
+						placeholder="rust, nostr, relay"
+						class="flex-1 rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
+						role="combobox"
+						aria-expanded={showAutocomplete && autocompleteResults.length > 0}
+						aria-controls="tag-autocomplete-list"
+						aria-autocomplete="list"
+					/>
+					<button
+						type="button"
+						onclick={addTagsFromInput}
+						disabled={!tagInput.trim()}
+						class="rounded-md border border-border bg-muted px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+					>
+						Add
+					</button>
+				</div>
+				{#if showAutocomplete && autocompleteResults.length > 0}
+					<ul
+						id="tag-autocomplete-list"
+						class="absolute z-10 mt-1 w-full rounded-md border border-border bg-card shadow-md"
+						role="listbox"
+						aria-label="Popular tags"
+					>
+						{#each autocompleteResults as result (result.tag)}
+							<li role="option" aria-selected="false">
+								<button
+									type="button"
+									class="flex w-full items-center justify-between px-3 py-2 text-sm text-foreground transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
+									onmousedown={() => selectAutocomplete(result.tag)}
+								>
+									<span>{result.tag}</span>
+									<span class="text-xs text-muted-foreground">{result.count} bounties</span>
+								</button>
+							</li>
+						{/each}
+					</ul>
+				{/if}
 			</div>
 			<p class="text-xs text-muted-foreground">Comma-separated or press Enter to add</p>
 		</div>
