@@ -43,7 +43,7 @@
 </script>
 
 <nav
-	class="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card sm:hidden"
+	class="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card pb-[env(safe-area-inset-bottom)] sm:hidden"
 	aria-label="Mobile navigation"
 >
 	<div class="flex items-center justify-around">
