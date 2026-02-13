@@ -216,8 +216,8 @@
 					</div>
 				</div>
 
-				<!-- Right column: Theme + Mint stacked -->
-				<div class="space-y-6">
+				<!-- Right column: Theme + Mint — side by side on md, stacked on sm and lg+ -->
+				<div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-1">
 					<!-- Theme Toggle -->
 					<div class="space-y-3 rounded-lg border border-border bg-card p-5">
 						<h2 class="text-lg font-semibold text-foreground">Theme</h2>
