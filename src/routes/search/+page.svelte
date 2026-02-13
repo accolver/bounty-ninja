@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { config } from '$lib/config';
 	import { searchStore } from '$lib/stores/search.svelte';
 	import SearchBar from '$lib/components/search/SearchBar.svelte';
 	import SearchResults from '$lib/components/search/SearchResults.svelte';
@@ -14,7 +15,7 @@
 </script>
 
 <svelte:head>
-	<title>{data.query ? `Search: ${data.query}` : 'Search'} — Bounty.ninja</title>
+	<title>{data.query ? `Search: ${data.query}` : 'Search'} — {config.app.nameCaps}</title>
 </svelte:head>
 
 <ErrorBoundary>

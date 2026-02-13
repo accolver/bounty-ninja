@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { config } from '$lib/config';
 	import type { Subscription } from 'rxjs';
 	import type { NostrEvent } from 'nostr-tools';
 	import { nip19 } from 'nostr-tools';
@@ -76,7 +77,7 @@
 </script>
 
 <svelte:head>
-	<title>{displayName} - Bounty.ninja</title>
+	<title>{displayName} - {config.app.nameCaps}</title>
 </svelte:head>
 
 <ErrorBoundary>

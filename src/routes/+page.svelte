@@ -21,6 +21,7 @@
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import type { BountySummary, BountyStatus } from '$lib/bounty/types';
+	import { config } from '$lib/config';
 
 	// --- Read initial query params ---
 	const initialParams = browser ? new URLSearchParams(window.location.search) : new URLSearchParams();
@@ -179,7 +180,7 @@
 </script>
 
 <svelte:head>
-	<title>Bounty.ninja - Decentralized Bounty Board</title>
+	<title>{config.app.nameCaps} - {config.app.tagline}</title>
 </svelte:head>
 
 <ErrorBoundary>
@@ -187,6 +188,11 @@
 		<Sidebar bind:selectedTag />
 
 		<section class="min-w-0 flex-1">
+			<!-- How it works — shown for first-time visitors until dismissed -->
+			<div class="mb-4 px-4">
+				<HowItWorks />
+			</div>
+
 			<!-- Stats bar + CTA -->
 			{#if !bountyList.loading || bountyList.items.length > 0}
 				<div class="flex flex-col gap-3 px-4 pb-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
@@ -310,7 +316,6 @@
 				</div>
 			{:else if filteredBounties.length === 0 && bountyList.items.length === 0}
 				<div class="space-y-6 py-6">
-					<HowItWorks />
 					<EmptyState
 						message="No bounties yet — be the first to post one!"
 						hint="Bounties are tasks with Bitcoin rewards. Post what you need done and builders will compete to deliver."

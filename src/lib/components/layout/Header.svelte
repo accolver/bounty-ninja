@@ -6,6 +6,7 @@
 	import RelayIndicator from '$lib/components/shared/RelayIndicator.svelte';
 	import { accountState } from '$lib/nostr/account.svelte';
 	import { searchDialog } from '$lib/stores/search-dialog.svelte';
+	import { config } from '$lib/config';
 	import SearchIcon from '@lucide/svelte/icons/search';
 </script>
 
@@ -19,15 +20,15 @@
 			<a
 				href="/"
 				class="flex items-center gap-1.5 text-foreground transition-colors hover:text-foreground/90"
-				aria-label="Bounty.ninja home"
+				aria-label="{config.app.nameCaps} home"
 			>
-				<img src="/logo-icon.svg" alt="" class="h-7 w-7" aria-hidden="true" />
+				<img src={config.app.logo} alt="" class="h-7 w-7" aria-hidden="true" />
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					viewBox="0 0 220 40"
 					fill="currentColor"
 					role="img"
-					aria-label="Bounty.ninja logo"
+					aria-label="{config.app.nameCaps} logo"
 					class="h-5 w-auto"
 				>
 					<text

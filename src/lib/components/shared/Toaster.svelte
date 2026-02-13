@@ -10,6 +10,7 @@
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import XIcon from '@lucide/svelte/icons/x';
+	import { fly } from 'svelte/transition';
 
 	/**
 	 * Style map keyed by toast type.
@@ -54,7 +55,9 @@
 			{@const styles = typeStyles[toast.type]}
 			{@const Icon = typeIcons[toast.type]}
 			<div
-				class="toast-enter flex w-80 max-w-[calc(100vw-2rem)] items-start gap-3 rounded-lg border p-3 shadow-lg {styles.container}"
+				in:fly={{ y: 20, duration: 200 }}
+				out:fly={{ y: 20, duration: 150 }}
+				class="flex w-80 max-w-[calc(100vw-2rem)] items-start gap-3 rounded-lg border p-3 shadow-lg {styles.container}"
 				role="alert"
 			>
 				<span class="mt-0.5 shrink-0 {styles.icon}" aria-hidden="true">
@@ -77,22 +80,4 @@
 	</div>
 {/if}
 
-<style>
-	/* Slide-in animation — respects prefers-reduced-motion via app.css global rule */
-	@media (prefers-reduced-motion: no-preference) {
-		.toast-enter {
-			animation: toast-slide-in 0.2s ease-out;
-		}
-	}
-
-	@keyframes toast-slide-in {
-		from {
-			opacity: 0;
-			transform: translateY(0.5rem);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
-	}
-</style>
+<!-- Transitions handled by Svelte fly directive -->

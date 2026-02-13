@@ -5,6 +5,7 @@ declare const self: ServiceWorkerGlobalScope;
 
 import { build, files, version } from '$service-worker';
 
+// NOTE: Keep prefix in sync with config.storagePrefix in src/lib/config.ts
 const CACHE_NAME = `bounty-ninja-${version}`;
 
 // Files to cache (app shell)

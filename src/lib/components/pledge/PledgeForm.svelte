@@ -8,6 +8,7 @@
 	import { rateLimiter } from '$lib/nostr/rate-limiter';
 	import { decodeToken, encodeToken, getProofsAmount } from '$lib/cashu/token';
 	import { createPledgeToken } from '$lib/cashu/escrow';
+	import { config } from '$lib/config';
 	import { MintConnectionError, DoubleSpendError } from '$lib/cashu/types';
 	import type { TokenInfo } from '$lib/cashu/types';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
@@ -143,7 +144,7 @@
 			}
 
 			// Encode the locked proofs into a token string for the event
-			const lockedTokenStr = await encodeToken(result.proofs, decodedToken.mint, 'Bounty.ninja pledge');
+			const lockedTokenStr = await encodeToken(result.proofs, decodedToken.mint, `${config.app.nameCaps} pledge`);
 			const actualAmount = getProofsAmount(result.proofs);
 
 			const template = pledgeBlueprint({

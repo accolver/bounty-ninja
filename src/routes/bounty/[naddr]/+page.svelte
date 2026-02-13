@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { config } from '$lib/config';
 	import { BountyDetailStore } from '$lib/stores/bounty-detail.svelte';
 	import BountyDetailView from '$lib/components/bounty/BountyDetailView.svelte';
 	import LoadingSpinner from '$lib/components/shared/LoadingSpinner.svelte';
@@ -19,7 +20,7 @@
 
 <svelte:head>
 	<title>
-		{store.bounty ? store.bounty.title : 'Loading Bounty...'} - Bounty.ninja
+		{store.bounty ? store.bounty.title : 'Loading Bounty...'} - {config.app.nameCaps}
 	</title>
 </svelte:head>
 

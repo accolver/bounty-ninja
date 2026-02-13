@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { config } from '$lib/config';
 	import BountyForm from '$lib/components/bounty/BountyForm.svelte';
 	import LoginButton from '$lib/components/auth/LoginButton.svelte';
 	import ErrorBoundary from '$lib/components/shared/ErrorBoundary.svelte';
@@ -6,7 +7,7 @@
 </script>
 
 <svelte:head>
-	<title>Create Bounty - Bounty.ninja</title>
+	<title>Create Bounty - {config.app.nameCaps}</title>
 </svelte:head>
 
 <ErrorBoundary>

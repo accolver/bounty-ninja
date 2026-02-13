@@ -28,9 +28,11 @@
 		<title>Bounty.ninja — Decentralized Bounty Board</title>
 
 		<!-- Synchronous theme initialization — prevents flash of wrong theme -->
+		<!-- NOTE: All hardcoded values below MUST match config.ts (can't import JS in raw HTML) -->
 		<script>
 			(function () {
 				try {
+					// MUST match config.storagePrefix + ':theme'
 					var theme = localStorage.getItem('bounty.ninja:theme');
 					if (theme === 'light') {
 						document.documentElement.classList.add('light');

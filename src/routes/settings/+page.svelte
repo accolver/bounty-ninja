@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { config, storageKey } from '$lib/config';
 	import { accountState } from '$lib/nostr/account.svelte';
 	import LoginButton from '$lib/components/auth/LoginButton.svelte';
 	import ErrorBoundary from '$lib/components/shared/ErrorBoundary.svelte';
@@ -12,8 +13,8 @@
 	import { pool } from '$lib/nostr/relay-pool';
 	import { onMount } from 'svelte';
 
-	const SETTINGS_KEY = 'bounty.ninja:settings';
-	const CACHE_LIMITS_KEY = 'bounty.ninja:cache-limits';
+	const SETTINGS_KEY = storageKey('settings');
+	const CACHE_LIMITS_KEY = storageKey('cache-limits');
 
 	/** Load settings from localStorage with safe fallback */
 	function loadSettings(): { relays: string[]; mint: string } {
@@ -144,7 +145,7 @@
 </script>
 
 <svelte:head>
-	<title>Settings — Bounty.ninja</title>
+	<title>Settings — {config.app.nameCaps}</title>
 </svelte:head>
 
 <ErrorBoundary>

@@ -13,7 +13,9 @@ import { clearCacheMeta } from './cache-meta';
 let db: NostrIDBDatabase | null = null;
 
 const CACHE_VERSION = 1;
-const CACHE_VERSION_KEY = 'bounty.ninja:cache-version';
+import { storageKey } from '$lib/config';
+
+const CACHE_VERSION_KEY = storageKey('cache-version');
 
 /**
  * Initialize the nostr-idb IndexedDB cache.

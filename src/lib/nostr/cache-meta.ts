@@ -1,6 +1,7 @@
 import type { Filter } from 'nostr-tools';
+import { storageKey } from '$lib/config';
 
-const STORAGE_KEY = 'bounty.ninja:cache-meta';
+const STORAGE_KEY = storageKey('cache-meta');
 
 export interface QueryMeta {
 	lastFetched: number;

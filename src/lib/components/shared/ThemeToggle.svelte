@@ -2,7 +2,9 @@
 	import SunIcon from '@lucide/svelte/icons/sun';
 	import MoonIcon from '@lucide/svelte/icons/moon';
 
-	const THEME_KEY = 'bounty.ninja:theme';
+	import { storageKey } from '$lib/config';
+
+	const THEME_KEY = storageKey('theme');
 
 	let isDark = $state(true);
 

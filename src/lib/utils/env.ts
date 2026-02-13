@@ -1,6 +1,7 @@
 import { env } from '$env/dynamic/public';
+import { config, storageKey } from '$lib/config';
 
-const SETTINGS_KEY = 'bounty.ninja:settings';
+const SETTINGS_KEY = storageKey('settings');
 
 /**
  * Returns all relay WebSocket URLs the app should connect to.
@@ -26,7 +27,7 @@ export function getDefaultRelays(): string[] {
 	// Fall back to env defaults
 	const raw =
 		env.PUBLIC_DEFAULT_RELAYS ??
-		'wss://relay.damus.io,wss://nos.lol,wss://relay.primal.net,wss://relay.snort.social,wss://nostr.wine,wss://relay.nostr.net,wss://nostr-pub.wellorder.net,wss://eden.nostr.land';
+		config.nostr.defaultRelays.join(',');
 	const relays = raw
 		.split(',')
 		.map((url) => url.trim())
@@ -47,30 +48,30 @@ export function getDefaultRelays(): string[] {
 
 /** Returns the default Cashu mint URL */
 export function getDefaultMint(): string {
-	return env.PUBLIC_DEFAULT_MINT ?? 'https://mint.minibits.cash/Bitcoin';
+	return env.PUBLIC_DEFAULT_MINT ?? config.payments.defaultMint;
 }
 
 /** Returns the application display name */
 export function getAppName(): string {
-	return env.PUBLIC_APP_NAME ?? 'Bounty.ninja';
+	return env.PUBLIC_APP_NAME ?? config.app.nameCaps;
 }
 
 /** Returns the application URL */
 export function getAppUrl(): string {
-	return env.PUBLIC_APP_URL ?? 'https://bounty.ninja';
+	return env.PUBLIC_APP_URL ?? config.app.url;
 }
 
 /** Returns the minimum submission fee in sats */
 export function getMinSubmissionFee(): number {
-	return parseInt(env.PUBLIC_MIN_SUBMISSION_FEE ?? '10', 10);
+	return parseInt(env.PUBLIC_MIN_SUBMISSION_FEE ?? String(config.payments.minSubmissionFee), 10);
 }
 
 /** Returns the maximum submission fee in sats */
 export function getMaxSubmissionFee(): number {
-	return parseInt(env.PUBLIC_MAX_SUBMISSION_FEE ?? '100', 10);
+	return parseInt(env.PUBLIC_MAX_SUBMISSION_FEE ?? String(config.payments.maxSubmissionFee), 10);
 }
 
 /** Returns the NIP-50 search relay URL */
 export function getSearchRelay(): string {
-	return env.PUBLIC_SEARCH_RELAY ?? 'wss://search.nos.today';
+	return env.PUBLIC_SEARCH_RELAY ?? config.nostr.searchRelay;
 }

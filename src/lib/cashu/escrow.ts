@@ -10,6 +10,7 @@
  * All operations interact with the Cashu mint via @cashu/cashu-ts Wallet.
  */
 
+import { config } from '$lib/config';
 import type { Proof, Wallet, Token } from '@cashu/cashu-ts';
 import type { NostrEvent } from 'nostr-tools';
 import type { DecodedPledge, MintResult, SwapResult, MintPayoutEntry, MultiMintPayoutResult } from './types';
@@ -298,7 +299,7 @@ export async function createPayoutToken(
  * @returns Encoded Cashu token string.
  */
 export async function encodePayoutToken(proofs: Proof[], mintUrl: string): Promise<string> {
-	return encodeToken(proofs, mintUrl, 'Bounty.ninja bounty payout');
+	return encodeToken(proofs, mintUrl, `${config.app.nameCaps} bounty payout`);
 }
 
 /**
