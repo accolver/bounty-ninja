@@ -101,7 +101,7 @@
 			aria-label="Account menu"
 		>
 			<ProfileAvatar pubkey={accountState.pubkey} size="sm" />
-			<span class="max-w-[120px] truncate text-foreground">
+			<span class="hidden max-w-[100px] truncate text-foreground sm:inline">
 				{label}
 			</span>
 			<svg

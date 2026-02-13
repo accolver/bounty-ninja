@@ -115,7 +115,11 @@
 					<LoadingSpinner size="md" />
 				</div>
 			{:else if bounties.length === 0}
-				<EmptyState message="This user hasn't posted any bounties yet." />
+				<EmptyState
+					message={isOwnProfile ? "You haven't posted any bounties yet." : "This user hasn't posted any bounties yet."}
+					hint={isOwnProfile ? "Post your first bounty to get started — describe what you need built and set a reward." : undefined}
+					action={isOwnProfile ? { label: 'Create Your First Bounty', href: '/bounty/new' } : undefined}
+				/>
 			{:else}
 				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
 					{#each bounties as bounty (bounty.id)}

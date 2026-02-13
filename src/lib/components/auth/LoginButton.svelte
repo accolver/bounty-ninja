@@ -138,11 +138,15 @@
 					</div>
 
 					<p class="text-xs text-muted-foreground">
-						Install a Nostr signer extension to sign in securely:
+						Install a browser extension to sign in securely. These manage your identity so you never share your private key:
 					</p>
 					<div class="flex flex-col gap-2">
-						<a href="https://github.com/nicehash/nos2x" target="_blank" rel="noopener noreferrer" class="text-sm text-primary underline transition-colors hover:text-primary/80">nos2x (Chrome)</a>
-						<a href="https://getalby.com" target="_blank" rel="noopener noreferrer" class="text-sm text-primary underline transition-colors hover:text-primary/80">Alby (Chrome, Firefox)</a>
+						<a href="https://github.com/nicehash/nos2x" target="_blank" rel="noopener noreferrer" class="text-sm text-primary underline transition-colors hover:text-primary/80">
+							nos2x <span class="text-muted-foreground">(Chrome) — lightweight signer</span>
+						</a>
+						<a href="https://getalby.com" target="_blank" rel="noopener noreferrer" class="text-sm text-primary underline transition-colors hover:text-primary/80">
+							Alby <span class="text-muted-foreground">(Chrome, Firefox) — also handles Bitcoin payments</span>
+						</a>
 					</div>
 					<p class="text-xs text-muted-foreground">
 						Or go back and use <button onclick={() => { showInstallLinks = false; showNsecForm = true; }} class="cursor-pointer text-primary underline transition-colors hover:text-primary/80">paste nsec</button> instead.
@@ -159,8 +163,8 @@
 						<path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
 					</svg>
 					<div class="text-left">
-						<div class="font-medium">Signer Extension</div>
-						<div class="text-xs text-muted-foreground">Recommended — nos2x, Alby, etc.</div>
+						<div class="font-medium">Browser Extension</div>
+						<div class="text-xs text-muted-foreground">Recommended — most secure sign-in method</div>
 					</div>
 				</button>
 
@@ -176,10 +180,16 @@
 						<path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
 					</svg>
 					<div class="text-left">
-						<div class="font-medium">Paste nsec</div>
-						<div class="text-xs text-muted-foreground">Less secure — key held in memory only</div>
+						<div class="font-medium">Paste Private Key</div>
+						<div class="text-xs text-muted-foreground">Less secure — use if you don't have an extension</div>
 					</div>
 				</button>
+
+				<div class="mt-2 border-t border-border pt-2">
+					<a href="https://nostr.com" target="_blank" rel="noopener noreferrer" class="text-xs text-muted-foreground transition-colors hover:text-primary">
+						What is Nostr? Learn about the protocol →
+					</a>
+				</div>
 			{:else}
 				<!-- nsec form -->
 				<div class="space-y-3">
@@ -196,8 +206,11 @@
 						<h3 class="text-sm font-medium text-card-foreground">Paste nsec</h3>
 					</div>
 
+					<p class="text-xs text-muted-foreground">
+						Your <strong>nsec</strong> is your Nostr private key — like a password that proves your identity. It starts with <code class="rounded bg-muted px-1">nsec1</code>.
+					</p>
 					<p class="text-xs text-amber-600 dark:text-amber-400">
-						⚠️ Less secure than a signer extension. Your key is kept in memory only and never stored.
+						⚠️ Less secure than an extension. Your key is kept in memory only and never stored.
 					</p>
 
 					<form

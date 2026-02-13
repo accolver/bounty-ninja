@@ -11,23 +11,24 @@
 
 <header class="border-b border-border bg-card">
 	<nav
-		class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3"
+		class="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-3 sm:gap-4"
 		aria-label="Main navigation"
 	>
 		<!-- Left: Logo -->
 		<div class="flex items-center">
 			<a
 				href="/"
-				class="flex items-center gap-2 text-foreground transition-colors hover:text-foreground/90"
+				class="flex items-center gap-1.5 text-foreground transition-colors hover:text-foreground/90"
 				aria-label="Bounty.ninja home"
 			>
+				<img src="/logo-icon.svg" alt="" class="h-7 w-7" aria-hidden="true" />
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					viewBox="0 0 220 40"
 					fill="currentColor"
 					role="img"
 					aria-label="Bounty.ninja logo"
-					class="h-6 w-auto"
+					class="h-5 w-auto"
 				>
 					<text
 						x="0"
@@ -58,17 +59,7 @@
 		</div>
 
 		<!-- Right: Mobile search icon + relay indicator + theme toggle + auth -->
-		<div class="flex items-center gap-1">
-			<!-- Mobile search icon -->
-			<button
-				type="button"
-				class="inline-flex cursor-pointer items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:text-foreground sm:hidden"
-				onclick={() => (searchDialog.open = true)}
-				aria-label="Open search"
-			>
-				<SearchIcon class="size-5" />
-			</button>
-
+		<div class="flex shrink-0 items-center gap-1">
 			<RelayIndicator />
 			<ThemeToggle />
 

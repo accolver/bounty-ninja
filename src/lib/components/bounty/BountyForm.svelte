@@ -12,6 +12,10 @@
 	import { suggestTags, getPopularTags } from '$lib/bounty/auto-tagger';
 	import { bountyList } from '$lib/stores/bounties.svelte';
 	import TagAutoSuggest from './TagAutoSuggest.svelte';
+	import Tooltip from '$lib/components/shared/Tooltip.svelte';
+
+	// Advanced settings toggle
+	let showAdvanced = $state(false);
 
 	// ── Constants ────────────────────────────────────────────────
 	const TITLE_MAX = 200;
@@ -259,7 +263,7 @@
 				required
 				rows={6}
 				maxlength={DESCRIPTION_MAX}
-				placeholder="Describe the bounty requirements in detail. Markdown is supported."
+				placeholder="What do you need built? Include:&#10;• Clear requirements and acceptance criteria&#10;• Technical details or constraints&#10;• Examples of what success looks like&#10;&#10;Markdown is supported."
 				class="rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none resize-y"
 				aria-required="true"
 				aria-invalid={description.length > 0 && (!descriptionValid || !descriptionLengthValid)}
@@ -288,7 +292,12 @@
 		<!-- Reward Amount -->
 		<div class="flex flex-col gap-1.5">
 			<label for="bounty-reward" class="text-sm font-medium text-foreground">
-				Reward Amount (sats) <span class="text-destructive" aria-hidden="true">*</span>
+				<Tooltip text="Satoshis (sats) are small units of Bitcoin. ~100K sats ≈ $50–100 USD at recent rates.">
+					{#snippet children()}
+						<span class="cursor-help border-b border-dotted border-muted-foreground/50">Reward Amount (sats)</span>
+					{/snippet}
+				</Tooltip>
+				<span class="text-destructive" aria-hidden="true">*</span>
 			</label>
 			<input
 				id="bounty-reward"
@@ -411,43 +420,65 @@
 			<p class="text-xs text-muted-foreground">Optional. Leave blank for no deadline.</p>
 		</div>
 
-		<!-- Mint URL -->
-		<div class="flex flex-col gap-1.5">
-			<label for="bounty-mint" class="text-sm font-medium text-foreground"> Cashu Mint URL </label>
-			<input
-				id="bounty-mint"
-				type="url"
-				bind:value={mintUrl}
-				placeholder="https://mint.minibits.cash/Bitcoin"
-				class="rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
-			/>
-			<p class="text-xs text-muted-foreground">Optional. Preferred mint for pledges.</p>
-		</div>
+		<!-- Advanced Settings Toggle -->
+		<button
+			type="button"
+			onclick={() => (showAdvanced = !showAdvanced)}
+			class="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+		>
+			<span class="transition-transform {showAdvanced ? 'rotate-90' : ''}" aria-hidden="true">▸</span>
+			Advanced Settings
+		</button>
 
-		<!-- Submission Fee -->
-		<div class="flex flex-col gap-1.5">
-			<label for="bounty-fee" class="text-sm font-medium text-foreground">
-				Submission Fee (sats)
-			</label>
-			<input
-				id="bounty-fee"
-				type="number"
-				bind:value={submissionFee}
-				min="0"
-				max={maxFee}
-				step="1"
-				placeholder="0"
-				class="rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
-			/>
-			{#if submissionFee !== 0 && !feeValid}
-				<p class="text-xs text-destructive" role="alert">
-					Fee must be between {minFee} and {maxFee} sats.
+		{#if showAdvanced}
+			<!-- Mint URL -->
+			<div class="flex flex-col gap-1.5 rounded-md border border-border/50 bg-muted/30 p-4">
+				<label for="bounty-mint" class="text-sm font-medium text-foreground">
+					<Tooltip text="A Cashu mint holds Bitcoin in escrow for your bounty. Think of it as the payment processor. The default works great for most users.">
+						{#snippet children()}
+							<span class="cursor-help border-b border-dotted border-muted-foreground/50">Cashu Mint URL</span>
+						{/snippet}
+					</Tooltip>
+				</label>
+				<input
+					id="bounty-mint"
+					type="url"
+					bind:value={mintUrl}
+					placeholder="https://mint.minibits.cash/Bitcoin"
+					class="rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
+				/>
+				<p class="text-xs text-muted-foreground">Leave blank to use the default mint. Most users don't need to change this.</p>
+			</div>
+
+			<!-- Submission Fee -->
+			<div class="flex flex-col gap-1.5 rounded-md border border-border/50 bg-muted/30 p-4">
+				<label for="bounty-fee" class="text-sm font-medium text-foreground">
+					<Tooltip text="A small fee that builders pay to submit a solution. This prevents spam submissions on popular bounties.">
+						{#snippet children()}
+							<span class="cursor-help border-b border-dotted border-muted-foreground/50">Submission Fee (sats)</span>
+						{/snippet}
+					</Tooltip>
+				</label>
+				<input
+					id="bounty-fee"
+					type="number"
+					bind:value={submissionFee}
+					min="0"
+					max={maxFee}
+					step="1"
+					placeholder="0"
+					class="rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
+				/>
+				{#if submissionFee !== 0 && !feeValid}
+					<p class="text-xs text-destructive" role="alert">
+						Fee must be between {minFee} and {maxFee} sats.
+					</p>
+				{/if}
+				<p class="text-xs text-muted-foreground">
+					Optional anti-spam fee ({minFee}–{maxFee} sats). Builders pay this when submitting — set to 0 for no fee.
 				</p>
-			{/if}
-			<p class="text-xs text-muted-foreground">
-				Optional anti-spam fee ({minFee}–{maxFee} sats). Solvers pay this to submit.
-			</p>
-		</div>
+			</div>
+		{/if}
 
 		<!-- Submit -->
 		<div class="flex items-center gap-3 pt-2">

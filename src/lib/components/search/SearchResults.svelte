@@ -50,7 +50,7 @@
 			<p class="text-sm text-warning">{searchStore.error}</p>
 		</div>
 	{:else if filteredResults.length === 0}
-		<EmptyState message={`No tasks found for "${searchStore.query}"`} />
+		<EmptyState message={`No bounties found for "${searchStore.query}". Try different keywords or check your spelling.`} />
 	{:else}
 		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 			{#each filteredResults as bounty (bounty.id)}

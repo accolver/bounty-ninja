@@ -19,6 +19,7 @@
 <aside class="hidden w-64 shrink-0 space-y-6 lg:block" aria-label="Category filter">
 	<div class="space-y-2">
 		<h3 class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Categories</h3>
+		<p class="text-xs text-muted-foreground/70">Filter bounties by topic</p>
 		<ul class="space-y-0.5">
 			<li>
 				<button

@@ -4,6 +4,8 @@
 	import LoadingSpinner from '$lib/components/shared/LoadingSpinner.svelte';
 	import EmptyState from '$lib/components/shared/EmptyState.svelte';
 	import ErrorBoundary from '$lib/components/shared/ErrorBoundary.svelte';
+	import Tooltip from '$lib/components/shared/Tooltip.svelte';
+	import HowItWorks from '$lib/components/shared/HowItWorks.svelte';
 	import Sidebar from '$lib/components/layout/Sidebar.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { Slider } from '$lib/components/ui/slider';
@@ -187,27 +189,31 @@
 		<section class="min-w-0 flex-1">
 			<!-- Stats bar + CTA -->
 			{#if !bountyList.loading || bountyList.items.length > 0}
-				<div class="flex items-center justify-between gap-4 px-4 pb-6">
-					<div class="flex items-center gap-5">
+				<div class="flex flex-col gap-3 px-4 pb-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+					<div class="flex flex-wrap items-center gap-3 sm:gap-5">
 						<div class="flex items-center gap-1.5 text-xs text-muted-foreground">
-							<Clock class="h-3.5 w-3.5 text-primary/70" />
+							<Clock class="h-3.5 w-3.5 shrink-0 text-primary/70" />
 							<span class="font-medium text-foreground">{recentCount}</span>
 							<span>new today</span>
 						</div>
 						<div class="flex items-center gap-1.5 text-xs text-muted-foreground">
-							<Target class="h-3.5 w-3.5 text-primary/70" />
+							<Target class="h-3.5 w-3.5 shrink-0 text-primary/70" />
 							<span class="font-medium text-foreground">{openBounties.length}</span>
 							<span>active</span>
 						</div>
-						<div class="flex items-center gap-1.5 text-xs text-muted-foreground">
-							<Zap class="h-3.5 w-3.5 text-amber-500" />
-							<span class="font-medium text-foreground">{formatSats(totalSatsAvailable)}</span>
-							<span>sats available</span>
-						</div>
+						<Tooltip text="Sats (satoshis) are the smallest unit of Bitcoin. 100,000 sats ≈ a few dollars.">
+							{#snippet children()}
+								<div class="flex items-center gap-1.5 text-xs text-muted-foreground cursor-help">
+									<Zap class="h-3.5 w-3.5 shrink-0 text-amber-500" />
+									<span class="font-medium text-foreground">{formatSats(totalSatsAvailable)}</span>
+									<span>sats available</span>
+								</div>
+							{/snippet}
+						</Tooltip>
 					</div>
 					<a
 						href="/bounty/new"
-						class="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+						class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:w-auto"
 					>
 						<Plus class="h-3.5 w-3.5" />
 						Post a Bounty
@@ -302,11 +308,21 @@
 				<div class="rounded-lg border border-destructive/50 bg-destructive/10 p-8 text-center">
 					<p class="text-sm text-destructive">{bountyList.error}</p>
 				</div>
+			{:else if filteredBounties.length === 0 && bountyList.items.length === 0}
+				<div class="space-y-6 py-6">
+					<HowItWorks />
+					<EmptyState
+						message="No bounties yet — be the first to post one!"
+						hint="Bounties are tasks with Bitcoin rewards. Post what you need done and builders will compete to deliver."
+						action={{ label: 'Post Your First Bounty', href: '/bounty/new' }}
+					/>
+				</div>
 			{:else if filteredBounties.length === 0}
 				<EmptyState
 					message={selectedTag
 						? `No bounties found for "${selectedTag}". Try a different category.`
-						: 'No bounties match the current filters.'}
+						: 'No bounties match the current filters. Try adjusting the status or minimum reward.'}
+					hint="Tip: Enable more status filters or lower the minimum sats to see more results."
 				/>
 			{:else}
 				<div>

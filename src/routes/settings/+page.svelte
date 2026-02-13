@@ -58,6 +58,7 @@
 	let cacheLimits = $state(loadCacheLimits());
 	let clearingCache = $state(false);
 	let errorLogOpen = $state(false);
+	let showAdvancedCache = $state(false);
 
 	onMount(() => {
 		cacheMonitor.startMonitoring(30_000);
@@ -162,6 +163,7 @@
 				<!-- Relay Management — takes 2 cols on desktop -->
 				<div class="space-y-4 rounded-lg border border-border bg-card p-5 lg:col-span-2">
 					<h2 class="text-lg font-semibold text-foreground">Relay Management</h2>
+					<p class="text-xs text-muted-foreground">Relays are servers that store and forward your bounties. More relays = better availability and redundancy.</p>
 					<ul class="space-y-1.5" aria-label="Configured relays">
 						{#each settings.relays as relay}
 							<li
@@ -183,7 +185,7 @@
 						<div class="flex-1">
 							<Input
 								bind:value={newRelay}
-								placeholder="wss://relay.example.com"
+								placeholder="wss://relay.example.com — find relays at nostr.watch"
 								onkeydown={(e: KeyboardEvent) => {
 									if (e.key === 'Enter') {
 										e.preventDefault();
@@ -202,6 +204,7 @@
 				<!-- Cashu Mint Selection -->
 				<div class="space-y-3 rounded-lg border border-border bg-card p-5">
 					<h2 class="text-lg font-semibold text-foreground">Cashu Mint</h2>
+					<p class="text-xs text-muted-foreground">The mint handles Bitcoin payments for bounties. The default works great for most users.</p>
 					<Input
 						bind:value={settings.mint}
 						placeholder="https://mint.example.com"
@@ -219,6 +222,7 @@
 				<!-- Cache Management -->
 				<div class="space-y-4 rounded-lg border border-border bg-card p-5">
 					<h2 class="text-lg font-semibold text-foreground">Cache Management</h2>
+					<p class="text-xs text-muted-foreground">Cached data speeds up loading. Clear the cache if you're seeing outdated information.</p>
 
 					<!-- Cache Statistics -->
 					<div class="grid grid-cols-2 gap-3">
@@ -236,37 +240,47 @@
 						</div>
 					</div>
 
-					<!-- Cache Limits -->
-					<div class="grid grid-cols-2 gap-3">
-						<div class="flex items-center gap-2">
-							<label for="max-events" class="shrink-0 text-sm text-muted-foreground">
-								Max events
-							</label>
-							<Input
-								id="max-events"
-								type="number"
-								min={1000}
-								max={100000}
-								step={1000}
-								bind:value={cacheLimits.maxEvents}
-								onblur={saveCacheLimits}
-							/>
+					<!-- Cache Limits (Advanced) -->
+					<button
+						type="button"
+						onclick={() => (showAdvancedCache = !showAdvancedCache)}
+						class="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
+					>
+						<span class="transition-transform {showAdvancedCache ? 'rotate-90' : ''}" aria-hidden="true">▸</span>
+						Advanced limits
+					</button>
+					{#if showAdvancedCache}
+						<div class="grid grid-cols-2 gap-3">
+							<div class="flex items-center gap-2">
+								<label for="max-events" class="shrink-0 text-sm text-muted-foreground">
+									Max events
+								</label>
+								<Input
+									id="max-events"
+									type="number"
+									min={1000}
+									max={100000}
+									step={1000}
+									bind:value={cacheLimits.maxEvents}
+									onblur={saveCacheLimits}
+								/>
+							</div>
+							<div class="flex items-center gap-2">
+								<label for="max-age-days" class="shrink-0 text-sm text-muted-foreground">
+									Max age (days)
+								</label>
+								<Input
+									id="max-age-days"
+									type="number"
+									min={1}
+									max={365}
+									step={1}
+									bind:value={cacheLimits.maxAgeDays}
+									onblur={saveCacheLimits}
+								/>
+							</div>
 						</div>
-						<div class="flex items-center gap-2">
-							<label for="max-age-days" class="shrink-0 text-sm text-muted-foreground">
-								Max age (days)
-							</label>
-							<Input
-								id="max-age-days"
-								type="number"
-								min={1}
-								max={365}
-								step={1}
-								bind:value={cacheLimits.maxAgeDays}
-								onblur={saveCacheLimits}
-							/>
-						</div>
-					</div>
+					{/if}
 
 					<!-- Clear Cache -->
 					<div class="flex items-center gap-3 border-t border-border pt-3">
