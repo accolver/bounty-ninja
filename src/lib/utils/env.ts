@@ -15,9 +15,15 @@ export function getDefaultRelays(): string[] {
 		.filter(Boolean);
 
 	// Include local dev relay if configured (e.g., ws://localhost:10547)
+	// Skip localhost relays in production builds
 	const local = env.PUBLIC_LOCAL_RELAY;
-	if (local && !relays.includes(local)) {
+	if (local && !relays.includes(local) && !local.includes('localhost') && !local.includes('127.0.0.1')) {
 		relays.push(local);
+	} else if (local && (local.includes('localhost') || local.includes('127.0.0.1'))) {
+		// Only include local relay in dev mode
+		if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+			relays.push(local);
+		}
 	}
 
 	return relays;
