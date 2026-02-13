@@ -126,8 +126,15 @@
 		settings.relays = settings.relays.filter((r: string) => r !== url);
 		saveSettings(settings);
 		// Disconnect and remove from live pool (normalize URL to match pool keys)
+		// Wrap in try-catch as closing may trigger RxJS ObjectUnsubscribedError
+		// on active subscriptions — these are harmless and self-heal on reconnect
 		try {
-			pool.remove(normalizeURL(url), true);
+			const normalized = normalizeURL(url);
+			const relay = pool.relays.get(normalized);
+			if (relay) {
+				try { relay.close(); } catch { /* RxJS cleanup error — safe to ignore */ }
+				pool.relays.delete(normalized);
+			}
 		} catch {
 			/* will take effect on next page load */
 		}

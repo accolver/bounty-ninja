@@ -8,11 +8,12 @@
 	import { connectDefaultRelays } from '$lib/nostr/relay-pool';
 	import { initCache } from '$lib/nostr/cache';
 	import { errorMonitor } from '$lib/stores/error-monitor.svelte';
+	import { onMount } from 'svelte';
 
 	let { children } = $props();
 
-	// Initialize Nostr connectivity on app load
-	$effect(() => {
+	// Initialize Nostr connectivity once on app load
+	onMount(() => {
 		connectDefaultRelays();
 		initCache();
 	});
