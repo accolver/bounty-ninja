@@ -10,7 +10,7 @@
 	<div>
 		<h1 class="text-2xl font-bold text-foreground">About {config.app.name}</h1>
 		<p class="mt-2 text-muted-foreground">
-			A decentralized bounty board where anyone can post tasks with Bitcoin rewards — and anyone can earn by completing them. No accounts, no middlemen, no platform lock-in.
+			A decentralized bounty board where anyone can post bounties with Bitcoin rewards — and anyone can earn by completing them. No accounts, no middlemen, no platform lock-in.
 		</p>
 	</div>
 

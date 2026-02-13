@@ -38,7 +38,7 @@
 				</div>
 				<h3 class="text-sm font-semibold text-foreground">1. Post a Bounty</h3>
 				<p class="text-xs text-muted-foreground">
-					Describe your task and set a reward in sats (small units of Bitcoin — think of them like cents to a dollar).
+					Describe your bounty and set a reward in sats (small units of Bitcoin — think of them like cents to a dollar).
 				</p>
 			</div>
 

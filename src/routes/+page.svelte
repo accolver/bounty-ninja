@@ -318,7 +318,7 @@
 				<div class="space-y-6 py-6">
 					<EmptyState
 						message="No bounties yet — be the first to post one!"
-						hint="Bounties are tasks with Bitcoin rewards. Post what you need done and builders will compete to deliver."
+						hint="Bounties are jobs with Bitcoin rewards. Post what you need done and builders will compete to deliver."
 						action={{ label: 'Post Your First Bounty', href: '/bounty/new' }}
 					/>
 				</div>

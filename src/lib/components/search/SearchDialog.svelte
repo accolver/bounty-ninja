@@ -24,7 +24,7 @@
 	const trimmedQuery = $derived(query.trim());
 	const canSearch = $derived(trimmedQuery.length >= 2);
 
-	/** Filter to only active tasks and enrich with totalPledged from bounty list store */
+	/** Filter to only active bounties and enrich with totalPledged from bounty list store */
 	const activeResults = $derived.by(() => {
 		const now = Math.floor(Date.now() / 1000);
 		// Build a lookup of enriched totalPledged from the bounty list store
@@ -34,7 +34,7 @@
 
 		return searchStore.results
 			.filter((bounty) => {
-				// Exclude expired tasks
+				// Exclude expired bounties
 				if (bounty.deadline !== null && bounty.deadline <= now) return false;
 				return true;
 			})
@@ -225,7 +225,7 @@
 						class="fixed left-1/2 top-[12%] z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2
 							rounded-xl bg-card shadow-2xl"
 					>
-						<Dialog.Title class="sr-only">Search tasks</Dialog.Title>
+						<Dialog.Title class="sr-only">Search bounties</Dialog.Title>
 
 						<!-- Search input -->
 						<div class="flex items-center gap-3 px-4">
@@ -236,7 +236,7 @@
 								bind:value={query}
 								oninput={handleInput}
 								onfocus={() => (selectedIndex = -1)}
-								placeholder="Search tasks..."
+								placeholder="Search bounties..."
 								style="outline: none; box-shadow: none;"
 								class="h-11 flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground"
 							/>
@@ -269,7 +269,7 @@
 										</div>
 									{:else if activeResults.length === 0}
 										<p class="py-6 text-center text-sm text-muted-foreground">
-											No active tasks found
+											No active bounties found
 										</p>
 									{:else}
 										<ul bind:this={listRef} role="listbox" aria-label="Search results">

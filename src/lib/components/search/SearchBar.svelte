@@ -42,14 +42,14 @@
 
 <form
 	role="search"
-	aria-label="Search tasks"
+	aria-label="Search bounties"
 	onsubmit={(e) => {
 		e.preventDefault();
 		handleSubmit();
 	}}
 	class={variant === 'hero' ? 'mx-auto max-w-xl' : 'w-full max-w-sm'}
 >
-	<label for="search-input" class="sr-only">Search tasks</label>
+	<label for="search-input" class="sr-only">Search bounties</label>
 	<div class="relative">
 		<SearchIcon
 			class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground {variant === 'hero'
@@ -62,7 +62,7 @@
 			bind:value={query}
 			onkeydown={handleKeydown}
 			disabled={!connectivity.online}
-			placeholder={connectivity.online ? 'Search tasks...' : 'Search unavailable offline'}
+			placeholder={connectivity.online ? 'Search bounties...' : 'Search unavailable offline'}
 			class={variant === 'hero' ? 'h-12 pl-10 text-lg' : 'h-9 pl-9 text-sm'}
 		/>
 	</div>
