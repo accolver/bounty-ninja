@@ -171,234 +171,236 @@
 			<LoginButton />
 		</section>
 	{:else}
-		<section class="mx-auto max-w-2xl space-y-8">
+		<section class="mx-auto max-w-5xl space-y-6">
 			<h1 class="text-2xl font-bold text-foreground">Settings</h1>
 
-			<!-- Relay Management -->
-			<div class="space-y-4 rounded-lg border border-border bg-card p-6">
-				<h2 class="text-lg font-semibold text-foreground">Relay Management</h2>
-				<ul class="space-y-2" aria-label="Configured relays">
-					{#each settings.relays as relay}
-						<li
-							class="flex items-center justify-between gap-2 rounded-md border border-border bg-background px-3 py-2"
-						>
-							<span class="truncate font-mono text-sm text-foreground">{relay}</span>
+			<!-- Top row: Relay Management (wide) + Theme & Mint (sidebar) -->
+			<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+				<!-- Relay Management — takes 2 cols on desktop -->
+				<div class="space-y-4 rounded-lg border border-border bg-card p-5 lg:col-span-2">
+					<h2 class="text-lg font-semibold text-foreground">Relay Management</h2>
+					<ul class="space-y-1.5" aria-label="Configured relays">
+						{#each settings.relays as relay}
+							<li
+								class="flex items-center justify-between gap-2 rounded-md border border-border bg-background px-3 py-1.5"
+							>
+								<span class="truncate font-mono text-sm text-foreground">{relay}</span>
+								<Button
+									variant="ghost"
+									size="sm"
+									onclick={() => removeRelay(relay)}
+									class="shrink-0 text-destructive hover:text-destructive"
+								>
+									Remove
+								</Button>
+							</li>
+						{/each}
+					</ul>
+					<div class="flex items-start gap-2">
+						<div class="flex-1">
+							<Input
+								bind:value={newRelay}
+								placeholder="wss://relay.example.com"
+								onkeydown={(e: KeyboardEvent) => {
+									if (e.key === 'Enter') {
+										e.preventDefault();
+										addRelay();
+									}
+								}}
+							/>
+							{#if relayError}
+								<p class="mt-1 text-xs text-destructive" role="alert">{relayError}</p>
+							{/if}
+						</div>
+						<Button onclick={addRelay}>Add Relay</Button>
+					</div>
+				</div>
+
+				<!-- Right column: Theme + Mint stacked -->
+				<div class="space-y-6">
+					<!-- Theme Toggle -->
+					<div class="space-y-3 rounded-lg border border-border bg-card p-5">
+						<h2 class="text-lg font-semibold text-foreground">Theme</h2>
+						<div class="flex items-center gap-3">
+							<Button
+								variant={isDark ? 'default' : 'outline'}
+								size="sm"
+								onclick={() => {
+									if (!isDark) toggleTheme();
+								}}
+							>
+								Dark
+							</Button>
+							<Button
+								variant={!isDark ? 'default' : 'outline'}
+								size="sm"
+								onclick={() => {
+									if (isDark) toggleTheme();
+								}}
+							>
+								Light
+							</Button>
+						</div>
+					</div>
+
+					<!-- Cashu Mint Selection -->
+					<div class="space-y-3 rounded-lg border border-border bg-card p-5">
+						<h2 class="text-lg font-semibold text-foreground">Cashu Mint</h2>
+						<Input
+							bind:value={settings.mint}
+							placeholder="https://mint.example.com"
+							onblur={updateMint}
+						/>
+						<div class="flex items-center justify-between">
+							<p class="truncate text-xs text-muted-foreground">Default: {getDefaultMint()}</p>
+							<Button variant="outline" size="sm" onclick={resetMint}>Reset</Button>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Bottom row: Cache Management + Error Log side by side -->
+			<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+				<!-- Cache Management -->
+				<div class="space-y-4 rounded-lg border border-border bg-card p-5">
+					<h2 class="text-lg font-semibold text-foreground">Cache Management</h2>
+
+					<!-- Cache Statistics -->
+					<div class="grid grid-cols-2 gap-3">
+						<div class="rounded-md border border-border bg-background p-3">
+							<p class="text-xs text-muted-foreground">Cached Events</p>
+							<p class="text-lg font-semibold text-foreground">
+								{cacheMonitor.eventCount.toLocaleString()}
+							</p>
+						</div>
+						<div class="rounded-md border border-border bg-background p-3">
+							<p class="text-xs text-muted-foreground">Estimated Size</p>
+							<p class="text-lg font-semibold text-foreground">
+								{cacheMonitor.estimatedSizeFormatted}
+							</p>
+						</div>
+					</div>
+
+					<!-- Cache Limits -->
+					<div class="grid grid-cols-2 gap-3">
+						<div class="flex items-center gap-2">
+							<label for="max-events" class="shrink-0 text-sm text-muted-foreground">
+								Max events
+							</label>
+							<Input
+								id="max-events"
+								type="number"
+								min={1000}
+								max={100000}
+								step={1000}
+								bind:value={cacheLimits.maxEvents}
+								onblur={saveCacheLimits}
+							/>
+						</div>
+						<div class="flex items-center gap-2">
+							<label for="max-age-days" class="shrink-0 text-sm text-muted-foreground">
+								Max age (days)
+							</label>
+							<Input
+								id="max-age-days"
+								type="number"
+								min={1}
+								max={365}
+								step={1}
+								bind:value={cacheLimits.maxAgeDays}
+								onblur={saveCacheLimits}
+							/>
+						</div>
+					</div>
+
+					<!-- Clear Cache -->
+					<div class="flex items-center gap-3 border-t border-border pt-3">
+						<Button variant="destructive" size="sm" onclick={clearCache} disabled={clearingCache}>
+							{clearingCache ? 'Clearing…' : 'Clear Cache'}
+						</Button>
+						<p class="text-xs text-muted-foreground">
+							Removes all cached events. Data re-fetched from relays.
+						</p>
+					</div>
+				</div>
+
+				<!-- Error Log (only visible when errors exist) -->
+				{#if errorMonitor.hasErrors}
+					<div class="space-y-4 rounded-lg border border-border bg-card p-5">
+						<div class="flex items-center justify-between">
+							<button
+								onclick={() => (errorLogOpen = !errorLogOpen)}
+								class="flex cursor-pointer items-center gap-2 text-lg font-semibold text-foreground transition"
+								aria-expanded={errorLogOpen}
+								aria-controls="error-log-list"
+							>
+								<span
+									class="inline-block transition-transform {errorLogOpen
+										? 'rotate-90'
+										: ''}"
+									aria-hidden="true">&#9654;</span
+								>
+								Error Log ({errorMonitor.count})
+							</button>
 							<Button
 								variant="ghost"
 								size="sm"
-								onclick={() => removeRelay(relay)}
-								class="shrink-0 text-destructive hover:text-destructive"
+								onclick={() => {
+									errorMonitor.clear();
+									toastStore.success('Error log cleared');
+								}}
+								class="text-destructive hover:text-destructive"
 							>
-								Remove
+								Clear
 							</Button>
-						</li>
-					{/each}
-				</ul>
-				<div class="flex items-start gap-2">
-					<div class="flex-1">
-						<Input
-							bind:value={newRelay}
-							placeholder="wss://relay.example.com"
-							onkeydown={(e: KeyboardEvent) => {
-								if (e.key === 'Enter') {
-									e.preventDefault();
-									addRelay();
-								}
-							}}
-						/>
-						{#if relayError}
-							<p class="mt-1 text-xs text-destructive" role="alert">{relayError}</p>
+						</div>
+
+						{#if errorLogOpen}
+							<ul
+								id="error-log-list"
+								class="max-h-64 space-y-2 overflow-y-auto"
+								aria-label="Captured errors"
+							>
+								{#each errorMonitor.entries as entry}
+									<li class="rounded-md border border-border bg-background p-2.5">
+										<div class="flex items-start justify-between gap-2">
+											<span
+												class="inline-block rounded px-1.5 py-0.5 text-xs font-medium {entry.type ===
+												'error'
+													? 'bg-destructive/20 text-destructive'
+													: entry.type === 'unhandled-rejection'
+														? 'bg-warning/20 text-warning'
+														: 'bg-muted text-muted-foreground'}"
+											>
+												{entry.type}
+											</span>
+											<time
+												class="shrink-0 text-xs text-muted-foreground"
+												datetime={new Date(entry.timestamp).toISOString()}
+											>
+												{new Date(entry.timestamp).toLocaleTimeString()}
+											</time>
+										</div>
+										<p class="mt-1 break-all font-mono text-xs text-foreground">
+											{entry.message}
+										</p>
+										{#if entry.stack}
+											<details class="mt-1">
+												<summary
+													class="cursor-pointer text-xs text-muted-foreground transition-colors hover:text-foreground"
+												>
+													Stack trace
+												</summary>
+												<pre
+													class="mt-1 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded bg-background p-2 text-xs text-muted-foreground">{entry.stack}</pre>
+											</details>
+										{/if}
+									</li>
+								{/each}
+							</ul>
 						{/if}
 					</div>
-					<Button onclick={addRelay}>Add Relay</Button>
-				</div>
-			</div>
-
-			<!-- Cashu Mint Selection -->
-			<div class="space-y-4 rounded-lg border border-border bg-card p-6">
-				<h2 class="text-lg font-semibold text-foreground">Cashu Mint</h2>
-				<div class="flex items-start gap-2">
-					<Input
-						bind:value={settings.mint}
-						placeholder="https://mint.example.com"
-						onblur={updateMint}
-						class="flex-1"
-					/>
-					<Button variant="outline" onclick={resetMint}>Reset</Button>
-				</div>
-				<p class="text-xs text-muted-foreground">Default: {getDefaultMint()}</p>
-			</div>
-
-			<!-- Theme Toggle -->
-			<div class="space-y-4 rounded-lg border border-border bg-card p-6">
-				<h2 class="text-lg font-semibold text-foreground">Theme</h2>
-				<div class="flex items-center gap-4">
-					<Button
-						variant={isDark ? 'default' : 'outline'}
-						onclick={() => {
-							if (!isDark) toggleTheme();
-						}}
-					>
-						Dark
-					</Button>
-					<Button
-						variant={!isDark ? 'default' : 'outline'}
-						onclick={() => {
-							if (isDark) toggleTheme();
-						}}
-					>
-						Light
-					</Button>
-				</div>
-			</div>
-
-			<!-- Error Log (only visible when errors exist) -->
-			{#if errorMonitor.hasErrors}
-				<div class="space-y-4 rounded-lg border border-border bg-card p-6">
-					<div class="flex items-center justify-between">
-						<button
-							onclick={() => (errorLogOpen = !errorLogOpen)}
-							class="flex items-center gap-2 text-lg font-semibold text-foreground"
-							aria-expanded={errorLogOpen}
-							aria-controls="error-log-list"
-						>
-							<span
-								class="inline-block transition-transform {errorLogOpen
-									? 'rotate-90'
-									: ''}"
-								aria-hidden="true">&#9654;</span
-							>
-							Error Log ({errorMonitor.count})
-						</button>
-						<Button
-							variant="ghost"
-							size="sm"
-							onclick={() => {
-								errorMonitor.clear();
-								toastStore.success('Error log cleared');
-							}}
-							class="text-destructive hover:text-destructive"
-						>
-							Clear errors
-						</Button>
-					</div>
-
-					{#if errorLogOpen}
-						<ul
-							id="error-log-list"
-							class="max-h-80 space-y-2 overflow-y-auto"
-							aria-label="Captured errors"
-						>
-							{#each errorMonitor.entries as entry}
-								<li class="rounded-md border border-border bg-background p-3">
-									<div class="flex items-start justify-between gap-2">
-										<span
-											class="inline-block rounded px-1.5 py-0.5 text-xs font-medium {entry.type ===
-											'error'
-												? 'bg-destructive/20 text-destructive'
-												: entry.type === 'unhandled-rejection'
-													? 'bg-warning/20 text-warning'
-													: 'bg-muted text-muted-foreground'}"
-										>
-											{entry.type}
-										</span>
-										<time
-											class="shrink-0 text-xs text-muted-foreground"
-											datetime={new Date(entry.timestamp).toISOString()}
-										>
-											{new Date(entry.timestamp).toLocaleTimeString()}
-										</time>
-									</div>
-									<p class="mt-1 break-all font-mono text-sm text-foreground">
-										{entry.message}
-									</p>
-									{#if entry.source}
-										<p class="mt-0.5 break-all text-xs text-muted-foreground">
-											{entry.source}
-										</p>
-									{/if}
-									{#if entry.stack}
-										<details class="mt-1">
-											<summary
-												class="cursor-pointer text-xs text-muted-foreground transition-colors hover:text-foreground"
-											>
-												Stack trace
-											</summary>
-											<pre
-												class="mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-all rounded bg-background p-2 text-xs text-muted-foreground">{entry.stack}</pre>
-										</details>
-									{/if}
-								</li>
-							{/each}
-						</ul>
-					{/if}
-				</div>
-			{/if}
-
-			<!-- Cache Management -->
-			<div class="space-y-4 rounded-lg border border-border bg-card p-6">
-				<h2 class="text-lg font-semibold text-foreground">Cache Management</h2>
-
-				<!-- Cache Statistics -->
-				<div class="grid grid-cols-2 gap-4">
-					<div class="rounded-md border border-border bg-background p-3">
-						<p class="text-xs text-muted-foreground">Cached Events</p>
-						<p class="text-lg font-semibold text-foreground">
-							{cacheMonitor.eventCount.toLocaleString()}
-						</p>
-					</div>
-					<div class="rounded-md border border-border bg-background p-3">
-						<p class="text-xs text-muted-foreground">Estimated Size</p>
-						<p class="text-lg font-semibold text-foreground">
-							{cacheMonitor.estimatedSizeFormatted}
-						</p>
-					</div>
-				</div>
-
-				<!-- Cache Limits -->
-				<div class="space-y-3">
-					<h3 class="text-sm font-medium text-foreground">Cache Limits</h3>
-					<div class="flex items-center gap-3">
-						<label for="max-events" class="w-32 shrink-0 text-sm text-muted-foreground">
-							Max events
-						</label>
-						<Input
-							id="max-events"
-							type="number"
-							min={1000}
-							max={100000}
-							step={1000}
-							bind:value={cacheLimits.maxEvents}
-							onblur={saveCacheLimits}
-							class="w-32"
-						/>
-					</div>
-					<div class="flex items-center gap-3">
-						<label for="max-age-days" class="w-32 shrink-0 text-sm text-muted-foreground">
-							Max age (days)
-						</label>
-						<Input
-							id="max-age-days"
-							type="number"
-							min={1}
-							max={365}
-							step={1}
-							bind:value={cacheLimits.maxAgeDays}
-							onblur={saveCacheLimits}
-							class="w-32"
-						/>
-					</div>
-				</div>
-
-				<!-- Clear Cache -->
-				<div class="flex items-center gap-3 border-t border-border pt-4">
-					<Button variant="destructive" onclick={clearCache} disabled={clearingCache}>
-						{clearingCache ? 'Clearing…' : 'Clear Cache'}
-					</Button>
-					<p class="text-xs text-muted-foreground">
-						Remove all cached events from local storage. Data will be re-fetched from relays.
-					</p>
-				</div>
+				{/if}
 			</div>
 		</section>
 	{/if}
