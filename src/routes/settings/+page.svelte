@@ -12,7 +12,6 @@
 	import { onMount } from 'svelte';
 
 	const SETTINGS_KEY = 'bounty.ninja:settings';
-	const THEME_KEY = 'bounty.ninja:theme';
 	const CACHE_LIMITS_KEY = 'bounty.ninja:cache-limits';
 
 	/** Load settings from localStorage with safe fallback */
@@ -38,11 +37,6 @@
 	let settings = $state(loadSettings());
 	let newRelay = $state('');
 	let relayError = $state<string | null>(null);
-
-	// Theme state — default to dark (Tokyo Night Storm)
-	let isDark = $state(
-		typeof document !== 'undefined' ? !document.documentElement.classList.contains('light') : true
-	);
 
 	// Cache limits state
 	interface CacheLimits {
@@ -141,22 +135,6 @@
 		toastStore.success('Mint reset to default');
 	}
 
-	function toggleTheme() {
-		isDark = !isDark;
-		if (isDark) {
-			document.documentElement.classList.remove('light');
-		} else {
-			document.documentElement.classList.add('light');
-		}
-		try {
-			localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light');
-		} catch {
-			/* ignore */
-		}
-		// Update theme-color meta tag for browser chrome
-		const meta = document.querySelector('meta[name="theme-color"]');
-		if (meta) meta.setAttribute('content', isDark ? '#141A1D' : '#EDEEE8');
-	}
 </script>
 
 <svelte:head>
@@ -174,7 +152,7 @@
 		<section class="mx-auto max-w-5xl space-y-6">
 			<h1 class="text-2xl font-bold text-foreground">Settings</h1>
 
-			<!-- Top row: Relay Management (wide) + Theme & Mint (sidebar) -->
+			<!-- Top row: Relays + Cashu Mint side by side -->
 			<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
 				<!-- Relay Management — takes 2 cols on desktop -->
 				<div class="space-y-4 rounded-lg border border-border bg-card p-5 lg:col-span-2">
@@ -216,51 +194,23 @@
 					</div>
 				</div>
 
-				<!-- Right column: Theme + Mint — side by side on md, stacked on sm and lg+ -->
-				<div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-1">
-					<!-- Theme Toggle -->
-					<div class="space-y-3 rounded-lg border border-border bg-card p-5">
-						<h2 class="text-lg font-semibold text-foreground">Theme</h2>
-						<div class="flex items-center gap-3">
-							<Button
-								variant={isDark ? 'default' : 'outline'}
-								size="sm"
-								onclick={() => {
-									if (!isDark) toggleTheme();
-								}}
-							>
-								Dark
-							</Button>
-							<Button
-								variant={!isDark ? 'default' : 'outline'}
-								size="sm"
-								onclick={() => {
-									if (isDark) toggleTheme();
-								}}
-							>
-								Light
-							</Button>
-						</div>
-					</div>
-
-					<!-- Cashu Mint Selection -->
-					<div class="space-y-3 rounded-lg border border-border bg-card p-5">
-						<h2 class="text-lg font-semibold text-foreground">Cashu Mint</h2>
-						<Input
-							bind:value={settings.mint}
-							placeholder="https://mint.example.com"
-							onblur={updateMint}
-						/>
-						<div class="flex items-center justify-between">
-							<p class="truncate text-xs text-muted-foreground">Default: {getDefaultMint()}</p>
-							<Button variant="outline" size="sm" onclick={resetMint}>Reset</Button>
-						</div>
+				<!-- Cashu Mint Selection -->
+				<div class="space-y-3 rounded-lg border border-border bg-card p-5">
+					<h2 class="text-lg font-semibold text-foreground">Cashu Mint</h2>
+					<Input
+						bind:value={settings.mint}
+						placeholder="https://mint.example.com"
+						onblur={updateMint}
+					/>
+					<div class="flex items-center justify-between">
+						<p class="truncate text-xs text-muted-foreground">Default: {getDefaultMint()}</p>
+						<Button variant="outline" size="sm" onclick={resetMint}>Reset</Button>
 					</div>
 				</div>
 			</div>
 
 			<!-- Bottom row: Cache Management + Error Log side by side -->
-			<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+			<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 				<!-- Cache Management -->
 				<div class="space-y-4 rounded-lg border border-border bg-card p-5">
 					<h2 class="text-lg font-semibold text-foreground">Cache Management</h2>
