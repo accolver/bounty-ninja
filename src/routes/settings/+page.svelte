@@ -9,6 +9,7 @@
 	import { cacheMonitor } from '$lib/nostr/cache-monitor.svelte';
 	import { getDefaultRelays, getDefaultMint } from '$lib/utils/env';
 	import { isValidRelayUrl } from '$lib/utils/relay-validation';
+	import { pool } from '$lib/nostr/relay-pool';
 	import { onMount } from 'svelte';
 
 	const SETTINGS_KEY = 'bounty.ninja:settings';
@@ -108,6 +109,8 @@
 		}
 		settings.relays = [...settings.relays, url];
 		saveSettings(settings);
+		// Add to live pool immediately
+		pool.relay(url);
 		newRelay = '';
 		relayError = null;
 		toastStore.success('Relay added');
@@ -121,6 +124,16 @@
 		}
 		settings.relays = settings.relays.filter((r: string) => r !== url);
 		saveSettings(settings);
+		// Disconnect from pool — relay will disappear from RelayIndicator
+		try {
+			const relay = pool.relays.get(url);
+			if (relay) {
+				relay.close();
+				pool.relays.delete(url);
+			}
+		} catch {
+			/* pool may not support delete — will take effect on next page load */
+		}
 		toastStore.success('Relay removed');
 	}
 
