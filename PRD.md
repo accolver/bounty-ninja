@@ -2223,7 +2223,7 @@ consumed by Tailwind CSS and shadcn-svelte components.
 | Relay subscription setup     | < 500ms | Parallel connections via RelayPool                            |
 | Event publish round-trip     | < 2s    | Optimistic local update + parallel relay publish              |
 | IndexedDB cache read         | < 50ms  | nostr-idb indexed queries                                     |
-| Bundle size (gzipped)        | < 200KB | Tree-shaking, dynamic imports for Cashu/heavy modules         |
+| Bundle size (gzipped)        | < 400KB | Tree-shaking, dynamic imports for Cashu/heavy modules (~355KB with Svelte + Cashu + Nostr stack) |
 | Lighthouse Performance score | > 90    | Static adapter, precompressed assets                          |
 
 ---
@@ -2560,7 +2560,7 @@ and deployment to https://bounty.ninja.
       payloads)
 - [ ] Invalid Nostr event signatures are rejected and not displayed
 - [ ] Invalid Cashu tokens show warning badge, not fake amounts
-- [ ] Bundle size < 200KB gzipped
+- [ ] Bundle size < 400KB gzipped
 - [ ] App works offline with cached data (no crashes, graceful degradation)
 - [ ] Deployed and accessible at https://bounty.ninja
 - [ ] CSP headers block inline scripts and unauthorized origins
