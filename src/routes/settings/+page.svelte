@@ -125,18 +125,26 @@
 		}
 		settings.relays = settings.relays.filter((r: string) => r !== url);
 		saveSettings(settings);
-		// Disconnect and remove from live pool (normalize URL to match pool keys)
-		// Wrap in try-catch as closing may trigger RxJS ObjectUnsubscribedError
-		// on active subscriptions — these are harmless and self-heal on reconnect
-		try {
-			const normalized = normalizeURL(url);
-			const relay = pool.relays.get(normalized);
-			if (relay) {
-				try { relay.close(); } catch { /* RxJS cleanup error — safe to ignore */ }
-				pool.relays.delete(normalized);
-			}
-		} catch {
-			/* will take effect on next page load */
+		// Remove from live pool — suppress async RxJS errors during teardown
+		const normalized = normalizeURL(url);
+		const relay = pool.relays.get(normalized);
+		if (relay) {
+			// Temporarily suppress uncaught errors during relay teardown
+			const suppressError = (e: ErrorEvent) => {
+				if (e.message?.includes('object unsubscribed') || e.message?.includes('ObjectUnsubscribed')) {
+					e.preventDefault();
+				}
+			};
+			window.addEventListener('error', suppressError);
+
+			// Remove from map first so nothing re-subscribes
+			pool.relays.delete(normalized);
+
+			// Then close the connection
+			try { relay.close(); } catch { /* expected */ }
+
+			// Remove suppressor after async teardown settles
+			setTimeout(() => window.removeEventListener('error', suppressError), 500);
 		}
 		toastStore.success('Relay removed');
 	}
