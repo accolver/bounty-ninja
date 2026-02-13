@@ -1,11 +1,29 @@
 import { env } from '$env/dynamic/public';
 
+const SETTINGS_KEY = 'bounty.ninja:settings';
+
 /**
  * Returns all relay WebSocket URLs the app should connect to.
- * Includes PUBLIC_DEFAULT_RELAYS + PUBLIC_LOCAL_RELAY (if configured).
- * The local relay is appended so seed data from `mise run seed` is visible.
+ * Checks localStorage first (user may have customized via Settings page),
+ * then falls back to PUBLIC_DEFAULT_RELAYS env var.
  */
 export function getDefaultRelays(): string[] {
+	// Check user-saved settings first
+	try {
+		if (typeof localStorage !== 'undefined') {
+			const raw = localStorage.getItem(SETTINGS_KEY);
+			if (raw) {
+				const parsed = JSON.parse(raw);
+				if (Array.isArray(parsed.relays) && parsed.relays.length > 0) {
+					return parsed.relays;
+				}
+			}
+		}
+	} catch {
+		/* ignore */
+	}
+
+	// Fall back to env defaults
 	const raw =
 		env.PUBLIC_DEFAULT_RELAYS ??
 		'wss://relay.damus.io,wss://nos.lol,wss://relay.primal.net,wss://relay.snort.social,wss://nostr.wine,wss://relay.nostr.net,wss://nostr-pub.wellorder.net,wss://eden.nostr.land';
@@ -15,12 +33,10 @@ export function getDefaultRelays(): string[] {
 		.filter(Boolean);
 
 	// Include local dev relay if configured (e.g., ws://localhost:10547)
-	// Skip localhost relays in production builds
 	const local = env.PUBLIC_LOCAL_RELAY;
 	if (local && !relays.includes(local) && !local.includes('localhost') && !local.includes('127.0.0.1')) {
 		relays.push(local);
 	} else if (local && (local.includes('localhost') || local.includes('127.0.0.1'))) {
-		// Only include local relay in dev mode
 		if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
 			relays.push(local);
 		}
