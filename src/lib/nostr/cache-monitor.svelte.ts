@@ -1,4 +1,5 @@
-import { getCacheEventCount, estimateCacheSize } from './cache-eviction';
+import { getCacheEventCount, estimateCacheSize, emergencyEviction } from './cache-eviction';
+import { getProfileCacheStats } from './profile-cache';
 
 /**
  * Format bytes into a human-readable string.
@@ -32,6 +33,29 @@ class CacheMonitor {
 		return formatBytes(this.estimatedSizeBytes);
 	}
 
+	/** Storage quota usage percentage (0-100) */
+	quotaPercent = $state(0);
+
+	/** Storage quota used bytes */
+	quotaUsed = $state(0);
+
+	/** Storage quota total bytes */
+	quotaTotal = $state(0);
+
+	/** Whether quota warning threshold (70%) is exceeded */
+	get quotaWarning(): boolean {
+		return this.quotaPercent >= 70;
+	}
+
+	/** Whether quota emergency threshold (80%) is exceeded */
+	get quotaEmergency(): boolean {
+		return this.quotaPercent >= 80;
+	}
+
+	/** Profile cache stats */
+	profileCacheSize = $state(0);
+	profileCacheMax = $state(500);
+
 	/** Whether a refresh is currently in progress */
 	refreshing = $state(false);
 
@@ -39,7 +63,7 @@ class CacheMonitor {
 	private intervalId: ReturnType<typeof setInterval> | null = null;
 
 	/**
-	 * Refresh cache statistics by querying IndexedDB.
+	 * Refresh cache statistics by querying IndexedDB and storage quota.
 	 * Non-blocking — updates reactive state when complete.
 	 */
 	async refresh(): Promise<void> {
@@ -51,11 +75,38 @@ class CacheMonitor {
 
 			this.eventCount = count;
 			this.estimatedSizeBytes = size;
+
+			// Profile cache stats
+			const profileStats = getProfileCacheStats();
+			this.profileCacheSize = profileStats.size;
+			this.profileCacheMax = profileStats.maxSize;
+
+			// Storage quota
+			await this.#checkStorageQuota();
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);
 			console.warn(`[cache-monitor] Failed to refresh stats: ${message}`);
 		} finally {
 			this.refreshing = false;
+		}
+	}
+
+	async #checkStorageQuota(): Promise<void> {
+		try {
+			if (navigator.storage?.estimate) {
+				const { usage = 0, quota = 0 } = await navigator.storage.estimate();
+				this.quotaUsed = usage;
+				this.quotaTotal = quota;
+				this.quotaPercent = quota > 0 ? (usage / quota) * 100 : 0;
+
+				// Emergency eviction at 80%
+				if (this.quotaPercent >= 80) {
+					console.warn(`[cache-monitor] Storage quota at ${this.quotaPercent.toFixed(1)}% — triggering emergency eviction`);
+					await emergencyEviction(null);
+				}
+			}
+		} catch {
+			// navigator.storage not available
 		}
 	}
 

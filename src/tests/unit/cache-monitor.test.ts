@@ -6,7 +6,12 @@ const mockEstimateCacheSize = vi.fn();
 
 vi.mock('$lib/nostr/cache-eviction', () => ({
 	getCacheEventCount: mockGetCacheEventCount,
-	estimateCacheSize: mockEstimateCacheSize
+	estimateCacheSize: mockEstimateCacheSize,
+	emergencyEviction: vi.fn().mockResolvedValue({ ageEvicted: 0, countEvicted: 0, remaining: 0 })
+}));
+
+vi.mock('$lib/nostr/profile-cache', () => ({
+	getProfileCacheStats: vi.fn(() => ({ size: 0, maxSize: 500 }))
 }));
 
 // Dynamic import to get fresh module after mocks are set up
@@ -16,6 +21,18 @@ beforeEach(async () => {
 	vi.useFakeTimers();
 	vi.clearAllMocks();
 
+	// Mock navigator.storage.estimate for quota checks
+	Object.defineProperty(globalThis, 'navigator', {
+		value: {
+			...globalThis.navigator,
+			storage: {
+				estimate: vi.fn().mockResolvedValue({ usage: 1000, quota: 100000 })
+			}
+		},
+		writable: true,
+		configurable: true
+	});
+
 	// Default: IDB returns reasonable values
 	mockGetCacheEventCount.mockResolvedValue(42);
 	mockEstimateCacheSize.mockResolvedValue(8192);
@@ -24,7 +41,11 @@ beforeEach(async () => {
 	vi.resetModules();
 	vi.doMock('$lib/nostr/cache-eviction', () => ({
 		getCacheEventCount: mockGetCacheEventCount,
-		estimateCacheSize: mockEstimateCacheSize
+		estimateCacheSize: mockEstimateCacheSize,
+		emergencyEviction: vi.fn().mockResolvedValue({ ageEvicted: 0, countEvicted: 0, remaining: 0 })
+	}));
+	vi.doMock('$lib/nostr/profile-cache', () => ({
+		getProfileCacheStats: vi.fn(() => ({ size: 0, maxSize: 500 }))
 	}));
 	cacheMonitorModule = await import('$lib/nostr/cache-monitor.svelte');
 });
@@ -197,15 +218,13 @@ describe('CacheMonitor', () => {
 
 			cacheMonitor.startMonitoring(10_000);
 
-			// Flush initial refresh
-			await flushMicrotasks();
-			await flushMicrotasks();
+			// Flush initial refresh (needs extra flushes for storage quota check)
+			for (let i = 0; i < 10; i++) await flushMicrotasks();
 			const initialCalls = mockGetCacheEventCount.mock.calls.length;
 
 			// Advance by one interval to trigger the setInterval callback
 			vi.advanceTimersByTime(10_000);
-			await flushMicrotasks();
-			await flushMicrotasks();
+			for (let i = 0; i < 10; i++) await flushMicrotasks();
 
 			expect(mockGetCacheEventCount.mock.calls.length).toBeGreaterThan(initialCalls);
 		});
