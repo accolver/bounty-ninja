@@ -320,7 +320,7 @@
 									{#if entry.stack}
 										<details class="mt-1">
 											<summary
-												class="cursor-pointer text-xs text-muted-foreground hover:text-foreground"
+												class="cursor-pointer text-xs text-muted-foreground transition-colors hover:text-foreground"
 											>
 												Stack trace
 											</summary>

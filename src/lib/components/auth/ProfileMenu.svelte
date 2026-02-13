@@ -193,7 +193,7 @@
 				<div class="border-t border-border py-1">
 					<button
 						onclick={handleSignOut}
-						class="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive transition-colors hover:bg-muted focus-visible:bg-muted"
+						class="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-sm text-destructive transition-colors hover:bg-muted focus-visible:bg-muted"
 						role="menuitem"
 					>
 						<svg

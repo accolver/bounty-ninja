@@ -67,7 +67,7 @@
 
 				<button
 					onclick={() => toastStore.dismiss(toast.id)}
-					class="shrink-0 rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+					class="shrink-0 cursor-pointer rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
 					aria-label="Dismiss notification"
 				>
 					<XIcon class="size-4" />

@@ -23,7 +23,7 @@
 			<li>
 				<button
 					type="button"
-					class="w-full rounded-md px-3 py-1.5 text-left text-sm transition-colors
+					class="w-full cursor-pointer rounded-md px-3 py-1.5 text-left text-sm transition-colors
 						{selectedTag === '' ? 'bg-primary/10 font-medium text-primary' : 'text-foreground hover:bg-muted'}"
 					onclick={() => (selectedTag = '')}
 				>
@@ -34,7 +34,7 @@
 				<li>
 					<button
 						type="button"
-						class="flex w-full items-center justify-between rounded-md px-3 py-1.5 text-left text-sm transition-colors
+						class="flex w-full cursor-pointer items-center justify-between rounded-md px-3 py-1.5 text-left text-sm transition-colors
 							{selectedTag === tag ? 'bg-primary/10 font-medium text-primary' : 'text-foreground hover:bg-muted'}"
 						onclick={() => (selectedTag = tag)}
 					>

@@ -66,7 +66,7 @@
 
 					<button
 						onclick={reset}
-						class="mt-3 inline-flex items-center gap-1.5 rounded-md bg-card px-3 py-1.5 text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+						class="mt-3 inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-card px-3 py-1.5 text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
 					>
 						<RotateCcwIcon class="size-3" aria-hidden="true" />
 						Try again

@@ -51,7 +51,7 @@
 			<button
 				type="button"
 				onclick={() => handleNav(item)}
-				class="flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5 px-3 py-2 text-xs transition-colors
+				class="flex min-h-[44px] min-w-[44px] cursor-pointer flex-col items-center justify-center gap-0.5 px-3 py-2 text-xs transition-colors
 					{page.url.pathname === item.href ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}"
 				aria-current={page.url.pathname === item.href ? 'page' : undefined}
 			>

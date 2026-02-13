@@ -23,7 +23,7 @@
 			{#each ['all', 'open', 'completed'] as status}
 				<button
 					type="button"
-					class="rounded-md px-3 py-1 text-xs font-medium transition-colors
+					class="cursor-pointer rounded-md px-3 py-1 text-xs font-medium transition-colors
 						{statusFilter === status
 						? 'bg-primary text-primary-foreground'
 						: 'text-muted-foreground hover:text-foreground'}"

@@ -75,7 +75,7 @@
 				Posted by
 				<a
 					href="/profile/{creatorNpub}"
-					class="font-medium text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+					class="font-medium text-primary transition-colors hover:underline focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
 				>
 					{formatNpub(creatorNpub)}
 				</a>
@@ -162,7 +162,7 @@
 							<div class="flex items-center justify-between gap-2">
 								<a
 									href="/profile/{nip19.npubEncode(solution.pubkey)}"
-									class="text-sm font-medium text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+									class="text-sm font-medium text-primary transition-colors hover:underline focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
 								>
 									{formatNpub(nip19.npubEncode(solution.pubkey))}
 								</a>
@@ -178,7 +178,7 @@
 										href={solution.deliverableUrl}
 										target="_blank"
 										rel="noopener noreferrer"
-										class="font-medium text-primary underline underline-offset-2 hover:text-primary/80 focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+										class="font-medium text-primary underline underline-offset-2 transition-colors hover:text-primary/80 focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
 									>
 										{solution.deliverableUrl}
 									</a>

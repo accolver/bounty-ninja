@@ -61,7 +61,7 @@
 			</div>
 			<button
 				type="button"
-				class="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-card px-3 py-2 text-xs font-medium text-foreground transition-colors
+				class="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md border border-border bg-card px-3 py-2 text-xs font-medium text-foreground transition-colors
 					hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
 				onclick={copyToken}
 				aria-label={copied ? 'Token copied to clipboard' : 'Copy Cashu token to clipboard'}

@@ -27,7 +27,7 @@
 		onclick={handleLogin}
 		disabled={accountState.loading}
 		aria-label="Login with Nostr"
-		class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
+		class="cursor-pointer rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
 	>
 		{#if accountState.loading}
 			Signing in...
@@ -49,7 +49,7 @@
 					href="https://github.com/nicehash/nos2x"
 					target="_blank"
 					rel="noopener noreferrer"
-					class="text-sm text-primary underline hover:text-primary/80"
+					class="text-sm text-primary underline transition-colors hover:text-primary/80"
 				>
 					nos2x (Chrome)
 				</a>
@@ -57,14 +57,14 @@
 					href="https://getalby.com"
 					target="_blank"
 					rel="noopener noreferrer"
-					class="text-sm text-primary underline hover:text-primary/80"
+					class="text-sm text-primary underline transition-colors hover:text-primary/80"
 				>
 					Alby (Chrome, Firefox)
 				</a>
 			</div>
 			<button
 				onclick={dismissPrompt}
-				class="mt-3 text-xs text-muted-foreground hover:text-foreground"
+				class="mt-3 cursor-pointer text-xs text-muted-foreground transition-colors hover:text-foreground"
 				aria-label="Dismiss install prompt"
 			>
 				Dismiss

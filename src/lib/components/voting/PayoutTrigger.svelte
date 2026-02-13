@@ -342,7 +342,7 @@
 							{#if solverNpub}
 								<a
 									href="/profile/{solverNpub}"
-									class="font-medium text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+									class="font-medium text-primary transition-colors hover:underline focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
 								>
 									{formattedSolverNpub}
 								</a>

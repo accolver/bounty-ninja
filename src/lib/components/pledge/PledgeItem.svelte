@@ -64,7 +64,7 @@
 	<div class="flex items-center justify-between gap-2">
 		<a
 			href="/profile/{npub}"
-			class="text-sm font-medium text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+			class="text-sm font-medium text-primary transition-colors hover:underline focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
 			aria-label="Pledger profile: {formatNpub(npub)}"
 		>
 			{formatNpub(npub)}

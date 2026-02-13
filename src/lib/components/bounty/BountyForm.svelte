@@ -321,7 +321,7 @@
 								<button
 									type="button"
 									onclick={() => removeTag(tag)}
-									class="ml-0.5 rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-destructive/20 hover:text-destructive focus-visible:ring-1 focus-visible:ring-ring"
+									class="ml-0.5 cursor-pointer rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-destructive/20 hover:text-destructive focus-visible:ring-1 focus-visible:ring-ring"
 									aria-label="Remove tag {tag}"
 								>
 									<svg
@@ -366,7 +366,7 @@
 						type="button"
 						onclick={addTagsFromInput}
 						disabled={!tagInput.trim()}
-						class="rounded-md border border-border bg-muted px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+						class="cursor-pointer rounded-md border border-border bg-muted px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						Add
 					</button>
@@ -382,7 +382,7 @@
 							<li role="option" aria-selected="false">
 								<button
 									type="button"
-									class="flex w-full items-center justify-between px-3 py-2 text-sm text-foreground transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
+									class="flex w-full cursor-pointer items-center justify-between px-3 py-2 text-sm text-foreground transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
 									onmousedown={() => selectAutocomplete(result.tag)}
 								>
 									<span>{result.tag}</span>
@@ -454,7 +454,7 @@
 			<button
 				type="submit"
 				disabled={!isValid}
-				class="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
+				class="inline-flex cursor-pointer items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
 				aria-busy={submitting}
 			>
 				{#if submitting}

@@ -18,7 +18,7 @@
 		<div class="flex items-center">
 			<a
 				href="/"
-				class="flex items-center gap-2 text-foreground hover:text-foreground/90"
+				class="flex items-center gap-2 text-foreground transition-colors hover:text-foreground/90"
 				aria-label="Bounty.ninja home"
 			>
 				<svg
@@ -46,7 +46,7 @@
 			<button
 				type="button"
 				onclick={() => (searchDialog.open = true)}
-				class="flex w-full max-w-sm items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+				class="flex w-full max-w-sm cursor-pointer items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
 				aria-label="Search bounties"
 			>
 				<SearchIcon class="size-4 shrink-0" />
@@ -62,7 +62,7 @@
 			<!-- Mobile search icon -->
 			<button
 				type="button"
-				class="inline-flex items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:text-foreground sm:hidden"
+				class="inline-flex cursor-pointer items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:text-foreground sm:hidden"
 				onclick={() => (searchDialog.open = true)}
 				aria-label="Open search"
 			>

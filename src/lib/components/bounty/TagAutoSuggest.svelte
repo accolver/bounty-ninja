@@ -23,7 +23,7 @@
 						<button
 							type="button"
 							onclick={() => onaccept(tag)}
-							class="ml-0.5 rounded-full p-0.5 text-primary transition-colors hover:bg-primary/20 focus-visible:ring-1 focus-visible:ring-ring"
+							class="ml-0.5 cursor-pointer rounded-full p-0.5 text-primary transition-colors hover:bg-primary/20 focus-visible:ring-1 focus-visible:ring-ring"
 							aria-label="Accept suggested tag {tag}"
 						>
 							<svg
@@ -41,7 +41,7 @@
 						<button
 							type="button"
 							onclick={() => ondismiss(tag)}
-							class="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-destructive/20 hover:text-destructive focus-visible:ring-1 focus-visible:ring-ring"
+							class="cursor-pointer rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-destructive/20 hover:text-destructive focus-visible:ring-1 focus-visible:ring-ring"
 							aria-label="Dismiss suggested tag {tag}"
 						>
 							<svg

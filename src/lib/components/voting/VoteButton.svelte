@@ -111,7 +111,7 @@
 		<!-- Approve button -->
 		<button
 			type="button"
-			class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all
+			class="inline-flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all
 				focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none
 				disabled:pointer-events-none disabled:opacity-50
 				{existingVote === 'approve'
@@ -147,7 +147,7 @@
 		<!-- Reject button -->
 		<button
 			type="button"
-			class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all
+			class="inline-flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all
 				focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none
 				disabled:pointer-events-none disabled:opacity-50
 				{existingVote === 'reject'

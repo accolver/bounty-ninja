@@ -244,7 +244,7 @@
 								type="button"
 								onclick={close}
 								tabindex={-1}
-								class="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
+								class="shrink-0 cursor-pointer rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
 								aria-label="Close search"
 							>
 								<XIcon class="size-4" />
@@ -281,7 +281,7 @@
 													<button
 														type="button"
 														tabindex={-1}
-														class="flex w-full items-center gap-4 border-b border-border/50 px-4 py-2.5 text-left text-sm transition-colors last:border-b-0 hover:bg-muted/30 {i === selectedIndex ? 'bg-muted/30' : ''}"
+														class="flex w-full cursor-pointer items-center gap-4 border-b border-border/50 px-4 py-2.5 text-left text-sm transition-colors last:border-b-0 hover:bg-muted/30 {i === selectedIndex ? 'bg-muted/30' : ''}"
 														onclick={() => navigateToTask(result.pubkey, result.dTag)}
 													>
 														<span class="min-w-0 flex-1 truncate text-foreground">
