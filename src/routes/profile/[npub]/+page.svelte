@@ -14,6 +14,9 @@
 	import ErrorBoundary from '$lib/components/shared/ErrorBoundary.svelte';
 	import ProfileAvatar from '$lib/components/auth/ProfileAvatar.svelte';
 	import { formatNpub } from '$lib/utils/format';
+	import { accountState } from '$lib/nostr/account.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import Plus from '@lucide/svelte/icons/plus';
 
 	const { data } = $props();
 
@@ -69,6 +72,7 @@
 
 	const displayName = $derived(profile?.name || profile?.display_name || formatNpub(npub));
 	const about = $derived(profile?.about || '');
+	const isOwnProfile = $derived(accountState.pubkey === data.pubkey);
 </script>
 
 <svelte:head>
@@ -92,9 +96,19 @@
 
 		<!-- Bounties by this author -->
 		<section>
-			<h2 class="mb-4 text-lg font-semibold text-foreground">
-				Bounties ({bounties.length})
-			</h2>
+			<div class="mb-4 flex items-center justify-between">
+				<h2 class="text-lg font-semibold text-foreground">
+					{isOwnProfile ? 'My Bounties' : 'Bounties'} ({bounties.length})
+				</h2>
+				{#if isOwnProfile}
+					<a href="/bounty/new">
+						<Button variant="default" size="sm" class="gap-1.5">
+							<Plus class="size-4" />
+							Create Bounty
+						</Button>
+					</a>
+				{/if}
+			</div>
 
 			{#if loading && bounties.length === 0}
 				<div class="flex items-center justify-center py-12">
