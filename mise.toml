@@ -9,7 +9,7 @@ bun = "latest"
 
 [env]
 # Default relay list (comma-separated WebSocket URLs)
-PUBLIC_DEFAULT_RELAYS = "wss://relay.damus.io,wss://nos.lol,wss://relay.primal.net"
+PUBLIC_DEFAULT_RELAYS = "wss://relay.damus.io,wss://nos.lol,wss://relay.primal.net,wss://relay.snort.social,wss://relay.nostr.band,wss://offchain.pub,wss://nostr.wine,wss://relay.nostr.net"
 # Default Cashu mint URL
 PUBLIC_DEFAULT_MINT = "https://mint.minibits.cash/Bitcoin"
 # App metadata
