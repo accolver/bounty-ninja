@@ -1,16 +1,21 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Search', () => {
-	test('home page search bar navigates to search page', async ({ page }) => {
+	test('home page search dialog opens and navigates to search page', async ({ page }) => {
 		await page.goto('/');
 
-		// Find the search input
-		const searchInput = page.locator('input[type="search"], input[placeholder*="Search"]').first();
-		await expect(searchInput).toBeVisible();
+		// Click the search trigger button in the header
+		const searchTrigger = page.locator('button[aria-label="Search bounties"]').first();
+		await expect(searchTrigger).toBeVisible();
+		await searchTrigger.click();
+
+		// Search dialog should open with an input
+		const dialogInput = page.locator('[role="dialog"] input, dialog input').first();
+		await expect(dialogInput).toBeVisible();
 
 		// Type a query and submit
-		await searchInput.fill('bitcoin');
-		await searchInput.press('Enter');
+		await dialogInput.fill('bitcoin');
+		await dialogInput.press('Enter');
 
 		// Should navigate to /search with query parameter
 		await page.waitForURL(/\/search\?q=bitcoin/);

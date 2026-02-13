@@ -16,7 +16,7 @@ export default defineConfig({
 	timeout: 30_000,
 
 	use: {
-		baseURL: 'http://localhost:4173',
+		baseURL: process.env.CI ? 'http://localhost:4173' : 'http://localhost:5188',
 		trace: 'on-first-retry',
 		screenshot: 'only-on-failure'
 	},
@@ -29,9 +29,9 @@ export default defineConfig({
 	],
 
 	webServer: {
-		command: 'bun run build && bun run preview',
-		url: 'http://localhost:4173',
-		reuseExistingServer: !process.env.CI,
-		timeout: 60_000
+		command: process.env.CI ? 'bun run build && bun run preview' : 'bun run dev --port 5188',
+		url: process.env.CI ? 'http://localhost:4173' : 'http://localhost:5188',
+		reuseExistingServer: true,
+		timeout: 120_000
 	}
 });

@@ -17,9 +17,9 @@ test.describe('Bounty Lifecycle', () => {
 		const logo = page.locator('a[aria-label="Bounty.ninja home"]');
 		await expect(logo).toBeVisible();
 
-		// Verify search bar is present (hero variant on home page)
-		const searchInput = page.locator('input[type="search"], input[placeholder*="Search"]');
-		await expect(searchInput.first()).toBeVisible();
+		// Verify search trigger button is present in header
+		const searchTrigger = page.locator('button[aria-label="Search bounties"]');
+		await expect(searchTrigger.first()).toBeVisible();
 	});
 
 	test('navigate to bounty creation page requires auth', async ({ page }) => {

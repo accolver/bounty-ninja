@@ -70,7 +70,7 @@ describe('ErrorBoundary error handling pattern', () => {
 	it('non-Error values are wrapped in Error objects (matching handleError pattern)', () => {
 		// This mirrors the error normalization in handleError:
 		// const err = error instanceof Error ? error : new Error(String(error));
-		const stringError = 'something went wrong';
+		const stringError: unknown = 'something went wrong';
 		const normalized =
 			stringError instanceof Error ? stringError : new Error(String(stringError));
 
@@ -79,7 +79,7 @@ describe('ErrorBoundary error handling pattern', () => {
 	});
 
 	it('Error instances pass through unchanged (matching handleError pattern)', () => {
-		const original = new Error('original error');
+		const original: unknown = new Error('original error');
 		const normalized = original instanceof Error ? original : new Error(String(original));
 
 		expect(normalized).toBe(original);
@@ -87,11 +87,13 @@ describe('ErrorBoundary error handling pattern', () => {
 	});
 
 	it('null/undefined values are safely converted to Error (matching handleError pattern)', () => {
-		const nullNormalized = null instanceof Error ? null : new Error(String(null));
+		const nullVal: unknown = null;
+		const nullNormalized = nullVal instanceof Error ? nullVal : new Error(String(nullVal));
 		expect(nullNormalized.message).toBe('null');
 
+		const undefVal: unknown = undefined;
 		const undefinedNormalized =
-			undefined instanceof Error ? undefined : new Error(String(undefined));
+			undefVal instanceof Error ? undefVal : new Error(String(undefVal));
 		expect(undefinedNormalized.message).toBe('undefined');
 	});
 });

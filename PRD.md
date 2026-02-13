@@ -440,7 +440,9 @@ bounty-ninja/
 │   │   │   ├── filters.ts            # Nostr filter builders for task queries
 │   │   │   ├── blueprints.ts         # Applesauce EventFactory blueprints for task events
 │   │   │   ├── helpers.ts            # Parse/extract helpers for task event tags
-│   │   │   └── voting.ts             # Square-root weighted voting calculation
+│   │   │   ├── voting.ts             # Linear weighted voting calculation
+│   │   │   ├── taxonomy.ts           # Auto-tag taxonomy: category → keyword patterns
+│   │   │   └── auto-tagger.ts        # suggestTags() — matches title/desc against taxonomy
 │   │   │
 │   │   ├── cashu/                    # === CASHU PAYMENT LAYER ===
 │   │   │   ├── mint.ts               # CashuMint + CashuWallet singleton
@@ -464,12 +466,13 @@ bounty-ninja/
 │   │   │   │   └── MobileNav.svelte  # Bottom nav for mobile
 │   │   │   │
 │   │   │   ├── task/
-│   │   │   │   ├── TaskCard.svelte       # Task summary card (for lists)
-│   │   │   │   ├── TaskDetail.svelte     # Full task view with tabs
-│   │   │   │   ├── TaskForm.svelte       # Create/edit task form
-│   │   │   │   ├── TaskStatusBadge.svelte # Status indicator (open/funded/solved/paid)
-│   │   │   │   ├── TaskTags.svelte       # Tag pills display
-│   │   │   │   └── TaskTimer.svelte      # Deadline countdown (if applicable)
+│   │   │   │   ├── BountyCard.svelte       # Task summary card (for lists)
+│   │   │   │   ├── BountyDetail.svelte     # Full task view with tabs
+│   │   │   │   ├── BountyForm.svelte       # Create/edit task form
+│   │   │   │   ├── BountyStatusBadge.svelte # Status indicator (open/funded/solved/paid)
+│   │   │   │   ├── BountyTags.svelte       # Tag pills display
+│   │   │   │   ├── BountyTimer.svelte      # Deadline countdown (if applicable)
+│   │   │   │   └── TagAutoSuggest.svelte # Taxonomy suggestions + community autocomplete
 │   │   │   │
 │   │   │   ├── pledge/
 │   │   │   │   ├── PledgeButton.svelte     # "Fund this task" CTA
@@ -576,10 +579,10 @@ The raw events follow standard Nostr structure
 ### 6.1 Event Kind Constants
 
 ```typescript
-// src/lib/task/kinds.ts
+// src/lib/bounty/kinds.ts
 
 /** Task definition — Parameterized Replaceable Event (NIP-33) */
-export const TASK_KIND = 37300;
+export const BOUNTY_KIND = 37300;
 
 /** Solution submission */
 export const SOLUTION_KIND = 73001;
@@ -601,7 +604,7 @@ by publishing a new event with the same `d` tag. The `d` tag serves as the
 unique identifier within the creator's pubkey namespace.
 
 ```typescript
-// src/lib/task/types.ts
+// src/lib/bounty/types.ts
 
 import type { NostrEvent } from "nostr-tools";
 
@@ -930,7 +933,7 @@ export interface Payout {
  * A fully hydrated task with all related events resolved.
  * Used by the task detail page.
  */
-export interface TaskDetail extends Task {
+export interface BountyDetail extends Task {
   /** All pledges for this task */
   pledges: Pledge[];
 
@@ -953,9 +956,9 @@ export interface TaskDetail extends Task {
 }
 
 /**
- * Summary for task list cards (lighter than TaskDetail).
+ * Summary for task list cards (lighter than BountyDetail).
  */
-export interface TaskSummary {
+export interface BountySummary {
   id: string;
   dTag: string;
   pubkey: string;
@@ -1032,24 +1035,24 @@ export function connectDefaultRelays(): void {
 Applesauce uses RxJS Observables. Svelte 5 uses runes. The bridge pattern:
 
 ```typescript
-// src/lib/stores/tasks.svelte.ts
+// src/lib/stores/bounties.svelte.ts
 import { eventStore } from "$lib/nostr/event-store";
-import { TASK_KIND } from "$lib/task/kinds";
-import type { TaskSummary } from "$lib/task/types";
-import { parseTaskSummary } from "$lib/task/helpers";
+import { BOUNTY_KIND } from "$lib/bounty/kinds";
+import type { BountySummary } from "$lib/bounty/types";
+import { parseBountySummary } from "$lib/bounty/helpers";
 
 class TaskListStore {
-  #items = $state<TaskSummary[]>([]);
+  #items = $state<BountySummary[]>([]);
   #loading = $state(true);
   #error = $state<string | null>(null);
 
   constructor() {
     // Subscribe to EventStore timeline for Kind 37300
-    const sub = eventStore.timeline({ kinds: [TASK_KIND] });
+    const sub = eventStore.timeline({ kinds: [BOUNTY_KIND] });
 
     sub.subscribe({
       next: (events) => {
-        this.#items = events.map(parseTaskSummary);
+        this.#items = events.map(parseBountySummary);
         this.#loading = false;
       },
       error: (err) => {
@@ -1117,8 +1120,8 @@ Svelte rune state updates → UI re-renders
 | Route             | File                                     | Description                                                                                                                                                              | Auth Required             |
 | ----------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------- |
 | `/`               | `src/routes/+page.svelte`                | **Home page.** Popular tasks ranked by total pledged sats. Search bar (NIP-50). Category filter tabs.                                                                    | No                        |
-| `/task/new`       | `src/routes/task/new/+page.svelte`       | **Create task.** Form: title, description (markdown), reward target, tags, deadline, mint preference, submission fee. Publishes Kind 37300.                              | Yes (NIP-07)              |
-| `/task/[naddr]`   | `src/routes/task/[naddr]/+page.svelte`   | **Task detail.** Full description, pledge list, solution list, vote progress. Actions: pledge, submit solution, vote. `naddr` is a NIP-19 encoded address (`naddr1...`). | No (view), Yes (interact) |
+| `/bounty/new`       | `src/routes/bounty/new/+page.svelte`       | **Create task.** Form: title, description (markdown), reward target, tags, deadline, mint preference, submission fee. Publishes Kind 37300.                              | Yes (NIP-07)              |
+| `/bounty/[naddr]`   | `src/routes/bounty/[naddr]/+page.svelte`   | **Task detail.** Full description, pledge list, solution list, vote progress. Actions: pledge, submit solution, vote. `naddr` is a NIP-19 encoded address (`naddr1...`). | No (view), Yes (interact) |
 | `/profile/[npub]` | `src/routes/profile/[npub]/+page.svelte` | **User profile.** Tasks created, solutions submitted, pledges made, reputation score. `npub` is NIP-19 encoded pubkey.                                                   | No                        |
 | `/search`         | `src/routes/search/+page.svelte`         | **Search results.** NIP-50 full-text search across tasks. Filters: status (open/completed), min reward, tags.                                                            | No                        |
 | `/settings`       | `src/routes/settings/+page.svelte`       | **User settings.** Manage relay list, preferred Cashu mint, theme (dark/light), notification preferences.                                                                | Yes (NIP-07)              |
@@ -1132,7 +1135,7 @@ All `+page.ts` load functions are client-side only (no SSR). They:
 3. Return reactive references for the page component to consume
 
 ```typescript
-// src/routes/task/[naddr]/+page.ts
+// src/routes/bounty/[naddr]/+page.ts
 import type { PageLoad } from "./$types";
 import { nip19 } from "nostr-tools";
 import { error } from "@sveltejs/kit";
@@ -1178,18 +1181,18 @@ export const load: PageLoad = ({ params }) => {
 │   ├── [Home Page] +page.svelte
 │   │   ├── SearchBar.svelte (hero variant)
 │   │   ├── Category tabs (tag filter)
-│   │   └── TaskCard.svelte (repeated)
-│   │       ├── TaskStatusBadge.svelte
-│   │       ├── TaskTags.svelte
+│   │   └── BountyCard.svelte (repeated)
+│   │       ├── BountyStatusBadge.svelte
+│   │       ├── BountyTags.svelte
 │   │       ├── SatAmount.svelte
 │   │       └── TimeAgo.svelte
 │   │
 │   ├── [Task Detail] task/[naddr]/+page.svelte
-│   │   ├── TaskDetail.svelte
-│   │   │   ├── TaskStatusBadge.svelte
+│   │   ├── BountyDetail.svelte
+│   │   │   ├── BountyStatusBadge.svelte
 │   │   │   ├── Markdown.svelte (description)
-│   │   │   ├── TaskTags.svelte
-│   │   │   ├── TaskTimer.svelte
+│   │   │   ├── BountyTags.svelte
+│   │   │   ├── BountyTimer.svelte
 │   │   │   └── SatAmount.svelte (total pledged)
 │   │   │
 │   │   ├── PledgeButton.svelte → opens PledgeForm.svelte (dialog)
@@ -1205,18 +1208,19 @@ export const load: PageLoad = ({ params }) => {
 │   │   └── VoteResults.svelte (if voting complete)
 │   │
 │   ├── [Create Task] task/new/+page.svelte
-│   │   └── TaskForm.svelte
+│   │   └── BountyForm.svelte
+│   │       └── TagAutoSuggest.svelte (taxonomy + community autocomplete)
 │   │
 │   ├── [Profile] profile/[npub]/+page.svelte
 │   │   ├── ProfileAvatar.svelte
-│   │   ├── TaskCard.svelte (repeated — user's tasks)
+│   │   ├── BountyCard.svelte (repeated — user's tasks)
 │   │   └── SolutionItem.svelte (repeated — user's solutions)
 │   │
 │   ├── [Search] search/+page.svelte
 │   │   ├── SearchBar.svelte
 │   │   ├── Filter controls
 │   │   └── SearchResults.svelte
-│   │       └── TaskCard.svelte (repeated)
+│   │       └── BountyCard.svelte (repeated)
 │   │
 │   └── [Settings] settings/+page.svelte
 │       ├── Relay list manager
@@ -1261,12 +1265,12 @@ export const load: PageLoad = ({ params }) => {
 ```
 
 ```typescript
-// src/lib/task/state-machine.ts
+// src/lib/bounty/state-machine.ts
 import type { TaskStatus } from "./types";
 import type { NostrEvent } from "nostr-tools";
 import { PAYOUT_KIND, PLEDGE_KIND, SOLUTION_KIND } from "./kinds";
 
-export function deriveTaskStatus(
+export function deriveBountyStatus(
   taskEvent: NostrEvent,
   pledges: NostrEvent[],
   solutions: NostrEvent[],
@@ -1309,7 +1313,7 @@ weight is identical regardless of how many identities the funds are spread
 across. The pledge itself (locking real Cashu tokens) serves as proof of stake.
 
 ```typescript
-// src/lib/task/voting.ts
+// src/lib/bounty/voting.ts
 
 export interface VoteTally {
   /** Total approve weight (sum of each approver's pledge amount) */
@@ -1396,19 +1400,19 @@ in Kind 73002 events). Users can search for both **Open** (no Kind 73004 payout
 yet) and **Completed** tasks using NIP-50 search filters on compatible relays.
 
 ```typescript
-// src/lib/task/filters.ts
+// src/lib/bounty/filters.ts
 import {
   PAYOUT_KIND,
   PLEDGE_KIND,
   SOLUTION_KIND,
-  TASK_KIND,
+  BOUNTY_KIND,
   VOTE_KIND,
 } from "./kinds";
 import type { Filter } from "nostr-tools";
 
 /** Fetch all open tasks (most recent first) */
 export function taskListFilter(limit = 50): Filter {
-  return { kinds: [TASK_KIND], limit };
+  return { kinds: [BOUNTY_KIND], limit };
 }
 
 /** Fetch all pledges for a specific task */
@@ -1446,7 +1450,7 @@ export function payoutForTaskFilter(taskAddress: string): Filter {
 /** NIP-50 search filter */
 export function searchTasksFilter(query: string, limit = 20): Filter {
   return {
-    kinds: [TASK_KIND],
+    kinds: [BOUNTY_KIND],
     search: query,
     limit,
   };
@@ -1455,13 +1459,512 @@ export function searchTasksFilter(query: string, limit = 20): Filter {
 /** Fetch all tasks by a specific pubkey */
 export function taskByAuthorFilter(pubkey: string): Filter {
   return {
-    kinds: [TASK_KIND],
+    kinds: [BOUNTY_KIND],
     authors: [pubkey],
   };
 }
 ```
 
-### 10.4 DVM and ContextVM Integration (Post-MVP)
+### 10.4 Auto-Tag Taxonomy
+
+Bounties on Bounty.ninja span far beyond software — from "Build a REST API" to
+"Build a park in Salt Lake City" to "Get 100,000 signatures for this petition."
+To keep discovery useful without burdening creators, the app auto-suggests tags
+by scanning the bounty title and description against a curated keyword taxonomy.
+
+#### 10.4.1 Design Principles
+
+- **Zero friction.** Tags are suggested automatically as soon as the user
+  finishes typing a title or blurs the description field. No extra clicks
+  required — suggestions appear inline and the user accepts, dismisses, or edits.
+- **Client-side only.** The entire taxonomy ships as a static TypeScript module
+  (~2-4 KB). No API calls, no network dependency, no privacy concerns.
+- **Broad coverage.** The taxonomy covers technical, creative, civic, physical,
+  legal, financial, and activist bounties — not just software.
+- **Community layering.** In addition to taxonomy matches, the input autocompletes
+  against tags already used by other bounties in the local EventStore, ranked by
+  frequency. This lets the community organically extend the taxonomy.
+- **User sovereignty.** Auto-suggested tags are _suggestions_, never
+  auto-applied. The creator always has final say over which tags are published.
+
+#### 10.4.2 Taxonomy Structure
+
+Each category maps a canonical tag name to an array of regex patterns. Patterns
+are tested against the lowercase concatenation of `title + " " + description`.
+When a pattern matches, the canonical tag is suggested. A bounty may match
+multiple categories.
+
+```typescript
+// src/lib/bounty/taxonomy.ts
+
+export interface TaxonomyEntry {
+  /** Canonical tag name (lowercase, what gets stored in the ['t', '...'] tag) */
+  tag: string;
+  /** Human-readable label for display in the suggestion UI */
+  label: string;
+  /** Keyword patterns to match against title + description */
+  patterns: RegExp[];
+}
+
+export const TAXONOMY: TaxonomyEntry[] = [
+  // ── Software & Engineering ──────────────────────────────────────────
+  {
+    tag: 'bitcoin',
+    label: 'Bitcoin',
+    patterns: [/\b(bitcoin|btc|lightning|ln|lnurl|bolt11|onchain|utxo|mempool)\b/i]
+  },
+  {
+    tag: 'nostr',
+    label: 'Nostr',
+    patterns: [/\b(nostr|nip-?\d+|relay|nsec|npub|naddr|nevent|nprofile|zap)\b/i]
+  },
+  {
+    tag: 'cashu',
+    label: 'Cashu',
+    patterns: [/\b(cashu|ecash|e-?cash|nut-?\d+|mint\s+url|cashu\s*token)\b/i]
+  },
+  {
+    tag: 'frontend',
+    label: 'Frontend',
+    patterns: [/\b(frontend|front-end|react|svelte|vue|angular|next\.?js|nuxt|css|html|tailwind|ui\s+component|responsive|dom)\b/i]
+  },
+  {
+    tag: 'backend',
+    label: 'Backend',
+    patterns: [/\b(backend|back-end|server|api|rest\s*api|graphql|grpc|microservice|endpoint|webhook|middleware)\b/i]
+  },
+  {
+    tag: 'mobile',
+    label: 'Mobile',
+    patterns: [/\b(mobile|ios|android|react\s*native|flutter|swift|kotlin|app\s+store|play\s+store)\b/i]
+  },
+  {
+    tag: 'rust',
+    label: 'Rust',
+    patterns: [/\b(rust|cargo|crate|rustc|tokio|wasm-?\s*pack)\b/i]
+  },
+  {
+    tag: 'python',
+    label: 'Python',
+    patterns: [/\b(python|pip|django|flask|fastapi|pytorch|pandas|numpy|jupyter)\b/i]
+  },
+  {
+    tag: 'javascript',
+    label: 'JavaScript',
+    patterns: [/\b(javascript|typescript|node\.?js|deno|bun|npm|yarn|pnpm|express|vite|webpack)\b/i]
+  },
+  {
+    tag: 'golang',
+    label: 'Go',
+    patterns: [/\b(golang|go\s+module|goroutine|gin\s+framework)\b/i]
+  },
+  {
+    tag: 'devops',
+    label: 'DevOps',
+    patterns: [/\b(devops|ci\/?cd|docker|kubernetes|k8s|terraform|ansible|jenkins|github\s+actions|deploy|pipeline|infrastructure)\b/i]
+  },
+  {
+    tag: 'security',
+    label: 'Security',
+    patterns: [/\b(security|vulnerability|pentest|pen-?test|audit|cve|exploit|encryption|authentication|authorization|oauth|jwt|firewall|hardening)\b/i]
+  },
+  {
+    tag: 'database',
+    label: 'Database',
+    patterns: [/\b(database|sql|postgres|mysql|sqlite|mongodb|redis|cassandra|schema|migration|query\s+optimization)\b/i]
+  },
+  {
+    tag: 'ai',
+    label: 'AI / ML',
+    patterns: [/\b(ai|artificial\s+intelligence|machine\s+learning|deep\s+learning|llm|gpt|neural\s+net|model\s+training|fine-?\s*tun|prompt\s+engineer|nlp|computer\s+vision)\b/i]
+  },
+  {
+    tag: 'data',
+    label: 'Data',
+    patterns: [/\b(data\s+(?:analysis|science|engineer|pipeline|warehouse|lake|visualization)|etl|analytics|scraping|web\s+scraper|dataset)\b/i]
+  },
+  {
+    tag: 'blockchain',
+    label: 'Blockchain',
+    patterns: [/\b(blockchain|smart\s+contract|solidity|ethereum|defi|dao|nft|token|web3|dapp)\b/i]
+  },
+  {
+    tag: 'networking',
+    label: 'Networking',
+    patterns: [/\b(networking|tcp|udp|dns|http|websocket|vpn|tor|p2p|peer-to-peer|protocol|mesh\s+network)\b/i]
+  },
+  {
+    tag: 'embedded',
+    label: 'Embedded',
+    patterns: [/\b(embedded|firmware|microcontroller|arduino|raspberry\s+pi|esp32|iot|rtos|fpga|pcb)\b/i]
+  },
+  {
+    tag: 'open-source',
+    label: 'Open Source',
+    patterns: [/\b(open[\s-]?source|foss|libre|gpl|mit\s+license|apache\s+license|contribute|contributor|maintainer)\b/i]
+  },
+  {
+    tag: 'testing',
+    label: 'Testing',
+    patterns: [/\b(testing|unit\s+test|integration\s+test|e2e|end-to-end|qa|quality\s+assurance|test\s+suite|coverage|regression)\b/i]
+  },
+  {
+    tag: 'bug',
+    label: 'Bug Fix',
+    patterns: [/\b(bug|fix|patch|issue|broken|crash|regression|debug|troubleshoot)\b/i]
+  },
+
+  // ── Design & Creative ──────────────────────────────────────────────
+  {
+    tag: 'design',
+    label: 'Design',
+    patterns: [/\b(design|ui\/?ux|user\s+interface|user\s+experience|wireframe|mockup|prototype|figma|sketch|adobe\s+xd|interaction\s+design)\b/i]
+  },
+  {
+    tag: 'branding',
+    label: 'Branding',
+    patterns: [/\b(brand|logo|visual\s+identity|style\s+guide|brand\s+kit|rebrand|color\s+palette|typography)\b/i]
+  },
+  {
+    tag: 'illustration',
+    label: 'Illustration',
+    patterns: [/\b(illustrat|drawing|artwork|sketch|comic|character\s+design|icon\s+set|infographic|vector\s+art)\b/i]
+  },
+  {
+    tag: 'video',
+    label: 'Video',
+    patterns: [/\b(video|film|animation|motion\s+graphics|editing|vfx|youtube|documentary|cinematic|footage|timelapse)\b/i]
+  },
+  {
+    tag: 'audio',
+    label: 'Audio',
+    patterns: [/\b(audio|music|sound|podcast|recording|mixing|mastering|jingle|soundtrack|voiceover|narration)\b/i]
+  },
+  {
+    tag: 'photography',
+    label: 'Photography',
+    patterns: [/\b(photo|photograph|portrait|headshot|product\s+photo|aerial\s+photo|drone\s+photo|lightroom)\b/i]
+  },
+  {
+    tag: '3d',
+    label: '3D',
+    patterns: [/\b(3d|blender|unity|unreal|cad|rendering|3d\s+model|3d\s+print)\b/i]
+  },
+  {
+    tag: 'game',
+    label: 'Game Dev',
+    patterns: [/\b(game|gamedev|game\s+design|game\s+engine|unity|unreal|godot|pixel\s+art|level\s+design)\b/i]
+  },
+
+  // ── Content & Writing ──────────────────────────────────────────────
+  {
+    tag: 'writing',
+    label: 'Writing',
+    patterns: [/\b(writing|write|article|blog\s+post|copywriting|content\s+creation|ghostwrit|editorial|essay|ebook)\b/i]
+  },
+  {
+    tag: 'documentation',
+    label: 'Documentation',
+    patterns: [/\b(documentation|docs|readme|wiki|technical\s+writ|api\s+doc|user\s+guide|tutorial|how-?\s*to)\b/i]
+  },
+  {
+    tag: 'translation',
+    label: 'Translation',
+    patterns: [/\b(translat|locali[sz]|i18n|l10n|multilingual|interpret|spanish|french|german|chinese|japanese|portuguese|arabic|hindi|korean)\b/i]
+  },
+  {
+    tag: 'education',
+    label: 'Education',
+    patterns: [/\b(education|teach|course|curriculum|lesson|workshop|training|tutor|mentor|bootcamp|lecture|webinar)\b/i]
+  },
+
+  // ── Marketing & Growth ─────────────────────────────────────────────
+  {
+    tag: 'marketing',
+    label: 'Marketing',
+    patterns: [/\b(marketing|promotion|campaign|advertising|ad\s+campaign|growth|outreach|awareness|impressions|engagement)\b/i]
+  },
+  {
+    tag: 'social-media',
+    label: 'Social Media',
+    patterns: [/\b(social\s+media|twitter|x\.com|instagram|tiktok|youtube|facebook|reddit|discord|telegram|community\s+manag|influencer)\b/i]
+  },
+  {
+    tag: 'seo',
+    label: 'SEO',
+    patterns: [/\b(seo|search\s+engine|keyword|backlink|organic\s+traffic|serp|meta\s+tag|sitemap)\b/i]
+  },
+
+  // ── Research & Analysis ────────────────────────────────────────────
+  {
+    tag: 'research',
+    label: 'Research',
+    patterns: [/\b(research|study|investigation|analysis|report|whitepaper|white\s+paper|literature\s+review|findings|methodology|peer\s+review)\b/i]
+  },
+  {
+    tag: 'survey',
+    label: 'Survey',
+    patterns: [/\b(survey|questionnaire|poll|census|feedback\s+collection|user\s+research|interview|focus\s+group)\b/i]
+  },
+
+  // ── Civic & Community ──────────────────────────────────────────────
+  {
+    tag: 'civic',
+    label: 'Civic',
+    patterns: [/\b(civic|city|municipal|public\s+space|urban|town\s+hall|government|zoning|permit|ordinance|public\s+hearing|council|mayor)\b/i]
+  },
+  {
+    tag: 'environment',
+    label: 'Environment',
+    patterns: [/\b(environment|climate|sustain|renewable|solar|wind\s+power|recycling|conservation|wildlife|pollution|clean\s+energy|carbon|reforestation|tree\s+plant)\b/i]
+  },
+  {
+    tag: 'activism',
+    label: 'Activism',
+    patterns: [/\b(activism|petition|signature|protest|rally|advocacy|campaign|mobiliz|grassroots|civil\s+rights|human\s+rights|justice|reform|movement)\b/i]
+  },
+  {
+    tag: 'nonprofit',
+    label: 'Nonprofit',
+    patterns: [/\b(nonprofit|non-?\s*profit|charity|donation|fundrais|volunteer|ngo|501c|humanitarian|relief\s+effort|philanthrop)\b/i]
+  },
+  {
+    tag: 'governance',
+    label: 'Governance',
+    patterns: [/\b(governance|policy|regulation|legislation|ballot|election|vote|referendum|democratic|constitution|bylaw)\b/i]
+  },
+
+  // ── Physical & Construction ────────────────────────────────────────
+  {
+    tag: 'construction',
+    label: 'Construction',
+    patterns: [/\b(construct|build|building|renovation|remodel|contractor|architect|blueprint|foundation|framing|roofing|plumbing|electrical|hvac)\b/i]
+  },
+  {
+    tag: 'repair',
+    label: 'Repair',
+    patterns: [/\b(repair|fix|maintenance|restore|refurbish|replace|broken|damaged|patch|overhaul)\b/i]
+  },
+  {
+    tag: 'landscaping',
+    label: 'Landscaping',
+    patterns: [/\b(landscap|garden|lawn|park|playground|trail|path|outdoor\s+space|green\s+space|irrigation|mowing|plant)\b/i]
+  },
+  {
+    tag: 'cleaning',
+    label: 'Cleaning',
+    patterns: [/\b(clean|cleanup|clean-?\s*up|trash|litter|debris|sanitation|janitorial|power\s+wash|graffiti\s+removal)\b/i]
+  },
+  {
+    tag: 'delivery',
+    label: 'Delivery / Logistics',
+    patterns: [/\b(deliver|courier|shipping|logistics|transport|freight|pickup|drop-?\s*off|moving|hauling)\b/i]
+  },
+
+  // ── Legal & Compliance ─────────────────────────────────────────────
+  {
+    tag: 'legal',
+    label: 'Legal',
+    patterns: [/\b(legal|law|attorney|lawyer|contract|compliance|regulation|litigation|intellectual\s+property|trademark|patent|copyright|terms\s+of\s+service|privacy\s+policy)\b/i]
+  },
+
+  // ── Finance & Business ─────────────────────────────────────────────
+  {
+    tag: 'finance',
+    label: 'Finance',
+    patterns: [/\b(finance|accounting|bookkeeping|tax|invoice|payroll|budget|financial\s+plan|audit|revenue|profit|loss)\b/i]
+  },
+  {
+    tag: 'business',
+    label: 'Business',
+    patterns: [/\b(business\s+plan|startup|entrepreneur|pitch\s+deck|market\s+research|competitive\s+analysis|business\s+model|go-to-market|mvp\s+strategy)\b/i]
+  },
+
+  // ── Events & Organizing ────────────────────────────────────────────
+  {
+    tag: 'event',
+    label: 'Event',
+    patterns: [/\b(event|conference|meetup|hackathon|summit|gathering|ceremony|festival|concert|party|show|exhibition|trade\s+show)\b/i]
+  },
+  {
+    tag: 'organizing',
+    label: 'Organizing',
+    patterns: [/\b(organiz|coordinat|planning|logistics|scheduling|project\s+manag|task\s+manag|volunteer\s+coordinat)\b/i]
+  },
+
+  // ── Miscellaneous ──────────────────────────────────────────────────
+  {
+    tag: 'bounty',
+    label: 'Bounty',
+    patterns: [/\b(bounty|reward|prize|competition|contest|challenge|hackathon)\b/i]
+  },
+  {
+    tag: 'privacy',
+    label: 'Privacy',
+    patterns: [/\b(privacy|anonymous|pseudonymous|tor|vpn|encryption|zero[\s-]?knowledge|zk-?\s*proof|sovereign|self[\s-]?custod|censorship[\s-]?resist)\b/i]
+  }
+];
+```
+
+#### 10.4.3 Matching Algorithm
+
+```typescript
+// src/lib/bounty/auto-tagger.ts
+
+import { TAXONOMY, type TaxonomyEntry } from './taxonomy';
+
+/** Maximum number of auto-suggested tags */
+const MAX_SUGGESTIONS = 5;
+
+/**
+ * Scan the bounty title and description for taxonomy matches.
+ *
+ * Returns an ordered array of suggested tag names (most specific matches
+ * first). The caller should present these as dismissible chips in the
+ * BountyForm UI.
+ *
+ * @param title - Bounty title text.
+ * @param description - Bounty description text (Markdown).
+ * @returns Array of canonical tag names, at most MAX_SUGGESTIONS.
+ */
+export function suggestTags(title: string, description: string): string[] {
+  const text = `${title} ${description}`.toLowerCase();
+  const matches: Array<{ tag: string; score: number }> = [];
+
+  for (const entry of TAXONOMY) {
+    let score = 0;
+    for (const pattern of entry.patterns) {
+      // Count matches — more matches = higher confidence
+      const globalPattern = new RegExp(pattern.source, 'gi');
+      const hits = text.match(globalPattern);
+      if (hits) {
+        score += hits.length;
+        // Title matches count double — they're more intentional
+        const titleHits = title.toLowerCase().match(globalPattern);
+        if (titleHits) score += titleHits.length;
+      }
+    }
+    if (score > 0) {
+      matches.push({ tag: entry.tag, score });
+    }
+  }
+
+  // Sort by score (descending), take top N
+  matches.sort((a, b) => b.score - a.score);
+  return matches.slice(0, MAX_SUGGESTIONS).map((m) => m.tag);
+}
+```
+
+#### 10.4.4 Community Tag Autocomplete
+
+When the user types into the tag input, the app also queries the local EventStore
+for tags already in use across all cached bounties. This provides an autocomplete
+list ranked by frequency, supplementing the taxonomy with community-driven tags
+that may not be in the curated dictionary.
+
+```typescript
+/**
+ * Get popular tags from the local EventStore for autocomplete.
+ *
+ * Scans all cached Kind 37300 events, counts tag frequency, and returns
+ * tags matching the given prefix sorted by popularity.
+ *
+ * @param prefix - User's partial input (e.g., "bit" matches "bitcoin", "bitkey").
+ * @param limit - Maximum number of suggestions to return.
+ * @returns Array of { tag, count } sorted by count descending.
+ */
+export function getPopularTags(
+  prefix: string,
+  limit = 10
+): Array<{ tag: string; count: number }>;
+```
+
+#### 10.4.5 BountyForm UX Integration
+
+The auto-tag flow in BountyForm works as follows:
+
+1. **On title blur or description blur:** Call `suggestTags(title, description)`.
+   Display results as ghost chips below the tag input with a label "Suggested
+   tags". Each chip has an "+" button to accept and an "×" to dismiss.
+2. **On tag input keystroke:** Query `getPopularTags(prefix)` from the EventStore
+   and show a dropdown of matching community tags below the input. Selecting a
+   tag from the dropdown adds it to the tag list.
+3. **Manual entry still works:** Users can always type arbitrary tags and press
+   Enter or comma to add them. The auto-suggest system supplements but never
+   replaces manual input.
+4. **Deduplication:** If a suggested tag is already in the user's tag list, it
+   is not shown again.
+5. **Persistence:** Only accepted tags are included in the published event's
+   `['t', '...']` tags. Dismissed suggestions are not persisted.
+
+#### 10.4.6 Taxonomy Maintenance
+
+The taxonomy is a static TypeScript file checked into the repository. It should
+be reviewed periodically as the bounty ecosystem grows:
+
+- **Adding categories:** When a cluster of bounties consistently uses a tag not
+  in the taxonomy, add it. Look at the sidebar's popular tags for candidates.
+- **Tuning patterns:** If a category produces false positives (e.g., "build"
+  matching `construction` for software bounties), tighten the regex or add
+  negative lookaheads.
+- **No external dependencies:** The taxonomy must never require a network call,
+  API key, or third-party service. It is a pure function of the input text.
+
+#### 10.4.7 Testing Requirements
+
+```typescript
+describe('suggestTags', () => {
+  it('suggests "bitcoin" for a Lightning Network bounty', () => {
+    const tags = suggestTags('Build a Lightning invoice parser', 'Parse BOLT11 invoices...');
+    expect(tags).toContain('bitcoin');
+  });
+
+  it('suggests "activism" for a petition bounty', () => {
+    const tags = suggestTags(
+      'Get 100,000 signatures for this petition',
+      'We need to mobilize grassroots support for the reform campaign...'
+    );
+    expect(tags).toContain('activism');
+  });
+
+  it('suggests "construction" and "landscaping" for a park bounty', () => {
+    const tags = suggestTags(
+      'Build a park for us in Salt Lake City',
+      'We want to construct a new green space with playground equipment and walking trails...'
+    );
+    expect(tags).toContain('construction');
+    expect(tags).toContain('landscaping');
+  });
+
+  it('suggests "nostr" and "frontend" for a Nostr client bounty', () => {
+    const tags = suggestTags(
+      'Build a NIP-07 login component for Svelte',
+      'Create a reusable Svelte component that handles NIP-07 browser extension signing...'
+    );
+    expect(tags).toContain('nostr');
+    expect(tags).toContain('frontend');
+  });
+
+  it('returns at most MAX_SUGGESTIONS tags', () => {
+    const tags = suggestTags('...broad text...', '...matches everything...');
+    expect(tags.length).toBeLessThanOrEqual(5);
+  });
+
+  it('ranks title matches higher than description matches', () => {
+    const tags = suggestTags('Rust library for Bitcoin', 'Please write some code');
+    expect(tags[0]).toBe('rust'); // or 'bitcoin' — both are title matches
+    expect(tags).toContain('rust');
+    expect(tags).toContain('bitcoin');
+  });
+
+  it('returns empty array when no patterns match', () => {
+    const tags = suggestTags('Hello world', 'Just a simple greeting');
+    expect(tags).toEqual([]);
+  });
+});
+```
+
+### 10.5 DVM and ContextVM Integration (Post-MVP)
 
 Beyond standard human labor, the board supports:
 
@@ -1750,8 +2253,8 @@ Located in `src/tests/unit/`. Run with `bun run test:unit`.
 | Test File               | What It Tests                                                                                |
 | ----------------------- | -------------------------------------------------------------------------------------------- |
 | `voting.test.ts`        | `calculateVoteWeight()`, `tallyVotes()` with various pledge distributions, quorum edge cases |
-| `state-machine.test.ts` | `deriveTaskStatus()` for all state transitions, deadline expiration, cancellation            |
-| `helpers.test.ts`       | Tag parsing, `parseTaskSummary()`, `parsePledge()`, etc.                                     |
+| `state-machine.test.ts` | `deriveBountyStatus()` for all state transitions, deadline expiration, cancellation            |
+| `helpers.test.ts`       | Tag parsing, `parseBountySummary()`, `parsePledge()`, etc.                                     |
 | `filters.test.ts`       | Nostr filter builders produce correct filter objects                                         |
 | `p2pk.test.ts`          | P2PK token locking/unlocking, refund after locktime                                          |
 
@@ -1828,7 +2331,7 @@ list of events. No task-specific logic yet — just prove the Applesauce + Svelt
 | 6  | `src/lib/nostr/signer.svelte.ts`                                                                            | NIP-07 signer detection and reactive state                                      |
 | 7  | `src/lib/nostr/account.svelte.ts`                                                                           | Current user pubkey reactive state                                              |
 | 8  | `src/lib/utils/constants.ts`, `src/lib/utils/env.ts`, `src/lib/utils/format.ts`                             | App constants, typed env access, formatting utilities                           |
-| 9  | `src/lib/task/kinds.ts`                                                                                     | Event kind constants                                                            |
+| 9  | `src/lib/bounty/kinds.ts`                                                                                     | Event kind constants                                                            |
 | 10 | `src/routes/+layout.svelte`, `src/routes/+layout.ts`                                                        | Root layout with Header/Footer, Nostr initialization                            |
 | 11 | `src/lib/components/layout/Header.svelte`, `Footer.svelte`                                                  | Basic layout components                                                         |
 | 12 | `src/lib/components/auth/LoginButton.svelte`                                                                | NIP-07 login button                                                             |
@@ -1865,29 +2368,29 @@ yet.
 
 | #  | File(s) to Create/Modify                                                                                                        | Description                                                                                                                          |
 | -- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| 1  | `src/lib/task/types.ts`                                                                                                         | All TypeScript interfaces (Task, Pledge, Solution, Vote, Payout, TaskDetail, TaskSummary)                                            |
-| 2  | `src/lib/task/helpers.ts`                                                                                                       | Tag parsing functions: `parseTaskSummary()`, `parseTaskDetail()`, `parsePledge()`, `parseSolution()`, `parseVote()`, `parsePayout()` |
-| 3  | `src/lib/task/state-machine.ts`                                                                                                 | `deriveTaskStatus()` function                                                                                                        |
-| 4  | `src/lib/task/voting.ts`                                                                                                        | `calculateVoteWeight()`, `tallyVotes()`                                                                                              |
-| 5  | `src/lib/task/filters.ts`                                                                                                       | All Nostr filter builder functions                                                                                                   |
+| 1  | `src/lib/bounty/types.ts`                                                                                                         | All TypeScript interfaces (Task, Pledge, Solution, Vote, Payout, BountyDetail, BountySummary)                                            |
+| 2  | `src/lib/bounty/helpers.ts`                                                                                                       | Tag parsing functions: `parseBountySummary()`, `parseBountyDetail()`, `parsePledge()`, `parseSolution()`, `parseVote()`, `parsePayout()` |
+| 3  | `src/lib/bounty/state-machine.ts`                                                                                                 | `deriveBountyStatus()` function                                                                                                        |
+| 4  | `src/lib/bounty/voting.ts`                                                                                                        | `calculateVoteWeight()`, `tallyVotes()`                                                                                              |
+| 5  | `src/lib/bounty/filters.ts`                                                                                                       | All Nostr filter builder functions                                                                                                   |
 | 6  | `src/lib/nostr/loaders/task-loader.ts`                                                                                          | TimelineLoader for Kind 37300                                                                                                        |
 | 7  | `src/lib/nostr/loaders/pledge-loader.ts`                                                                                        | Loader for Kind 73002 by task address                                                                                                |
 | 8  | `src/lib/nostr/loaders/solution-loader.ts`                                                                                      | Loader for Kind 73001 by task address                                                                                                |
 | 9  | `src/lib/nostr/loaders/vote-loader.ts`                                                                                          | Loader for Kind 1018 by task address                                                                                                 |
 | 10 | `src/lib/nostr/loaders/profile-loader.ts`                                                                                       | Loader for Kind 0 profiles                                                                                                           |
-| 11 | `src/lib/stores/tasks.svelte.ts`                                                                                                | Reactive task list store                                                                                                             |
+| 11 | `src/lib/stores/bounties.svelte.ts`                                                                                                | Reactive task list store                                                                                                             |
 | 12 | `src/lib/stores/task-detail.svelte.ts`                                                                                          | Single task detail store (pledges, solutions, votes)                                                                                 |
-| 13 | `src/lib/components/task/TaskCard.svelte`                                                                                       | Task summary card                                                                                                                    |
-| 14 | `src/lib/components/task/TaskStatusBadge.svelte`                                                                                | Status badge component                                                                                                               |
-| 15 | `src/lib/components/task/TaskTags.svelte`                                                                                       | Tag pills                                                                                                                            |
-| 16 | `src/lib/components/task/TaskDetail.svelte`                                                                                     | Full task detail view                                                                                                                |
-| 17 | `src/lib/components/task/TaskTimer.svelte`                                                                                      | Deadline countdown                                                                                                                   |
+| 13 | `src/lib/components/bounty/BountyCard.svelte`                                                                                       | Task summary card                                                                                                                    |
+| 14 | `src/lib/components/bounty/BountyStatusBadge.svelte`                                                                                | Status badge component                                                                                                               |
+| 15 | `src/lib/components/bounty/BountyTags.svelte`                                                                                       | Tag pills                                                                                                                            |
+| 16 | `src/lib/components/bounty/BountyDetail.svelte`                                                                                     | Full task detail view                                                                                                                |
+| 17 | `src/lib/components/bounty/BountyTimer.svelte`                                                                                      | Deadline countdown                                                                                                                   |
 | 18 | `src/lib/components/pledge/PledgeList.svelte`, `PledgeItem.svelte`                                                              | Pledge display                                                                                                                       |
 | 19 | `src/lib/components/solution/SolutionList.svelte`, `SolutionItem.svelte`                                                        | Solution display                                                                                                                     |
 | 20 | `src/lib/components/voting/VoteProgress.svelte`, `VoteResults.svelte`                                                           | Vote tally display                                                                                                                   |
 | 21 | `src/lib/components/shared/SatAmount.svelte`, `TimeAgo.svelte`, `Markdown.svelte`, `EmptyState.svelte`, `LoadingSpinner.svelte` | Shared UI components                                                                                                                 |
 | 22 | `src/routes/+page.svelte` (update)                                                                                              | Home page with task card grid, sorted by total pledged                                                                               |
-| 23 | `src/routes/task/[naddr]/+page.svelte`, `+page.ts`                                                                              | Task detail page with naddr routing                                                                                                  |
+| 23 | `src/routes/bounty/[naddr]/+page.svelte`, `+page.ts`                                                                              | Task detail page with naddr routing                                                                                                  |
 | 24 | `src/routes/profile/[npub]/+page.svelte`, `+page.ts`                                                                            | Profile page (read-only)                                                                                                             |
 | 25 | `src/tests/unit/voting.test.ts`                                                                                                 | Voting calculation tests                                                                                                             |
 | 26 | `src/tests/unit/state-machine.test.ts`                                                                                          | State machine tests                                                                                                                  |
@@ -1901,10 +2404,10 @@ yet.
 - [ ] Task cards show: title, status badge, tags, total pledged sats, solution
       count, time ago
 - [ ] Tasks are sorted by total pledged sats (descending) by default
-- [ ] Clicking a task card navigates to `/task/naddr1...` detail page
+- [ ] Clicking a task card navigates to `/bounty/naddr1...` detail page
 - [ ] Task detail page shows: full description (rendered markdown), pledge list,
       solution list, vote progress
-- [ ] `TaskStatusBadge` correctly reflects derived status
+- [ ] `BountyStatusBadge` correctly reflects derived status
       (draft/open/in_review/completed/expired)
 - [ ] `VoteProgress` shows weighted vote tally with quorum indicator
 - [ ] Profile page at `/profile/npub1...` shows user's tasks and solutions
@@ -1926,13 +2429,13 @@ functionality.
 
 | #  | File(s) to Create/Modify                                             | Description                                                        |
 | -- | -------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| 1  | `src/lib/task/blueprints.ts`                                         | Applesauce EventFactory blueprints for all task event kinds        |
+| 1  | `src/lib/bounty/blueprints.ts`                                         | Applesauce EventFactory blueprints for all task event kinds        |
 | 2  | `src/lib/cashu/mint.ts`                                              | CashuMint + CashuWallet singleton initialization                   |
 | 3  | `src/lib/cashu/token.ts`                                             | Token encoding/decoding utilities                                  |
 | 4  | `src/lib/cashu/p2pk.ts`                                              | P2PK lock/unlock helpers                                           |
 | 5  | `src/lib/cashu/escrow.ts`                                            | Escrow logic: create locked tokens, claim tokens, refund           |
 | 6  | `src/lib/cashu/types.ts`                                             | Cashu-specific TypeScript types                                    |
-| 7  | `src/lib/components/task/TaskForm.svelte`                            | Create task form (title, description, reward, tags, deadline, fee) |
+| 7  | `src/lib/components/bounty/BountyForm.svelte`                            | Create task form (title, description, reward, tags, deadline, fee) |
 | 8  | `src/lib/components/pledge/PledgeButton.svelte`                      | "Fund this task" CTA button                                        |
 | 9  | `src/lib/components/pledge/PledgeForm.svelte`                        | Pledge amount input + Cashu token creation dialog                  |
 | 10 | `src/lib/components/solution/SolutionForm.svelte`                    | Solution submission form + anti-spam fee                           |
@@ -1941,8 +2444,8 @@ functionality.
 | 13 | `src/lib/stores/toast.svelte.ts`                                     | Global toast notification state                                    |
 | 14 | `src/lib/components/shared/Toaster.svelte`                           | Toast notification container                                       |
 | 15 | `src/lib/components/shared/ErrorBoundary.svelte`                     | Error boundary wrapper                                             |
-| 16 | `src/routes/task/new/+page.svelte`                                   | Create task page                                                   |
-| 17 | Update `src/routes/task/[naddr]/+page.svelte`                        | Add pledge, solution, vote interactive elements                    |
+| 16 | `src/routes/bounty/new/+page.svelte`                                   | Create task page                                                   |
+| 17 | Update `src/routes/bounty/[naddr]/+page.svelte`                        | Add pledge, solution, vote interactive elements                    |
 | 18 | Update `src/routes/+layout.svelte`                                   | Add Toaster, ProfileMenu                                           |
 | 19 | `src/tests/unit/p2pk.test.ts`                                        | P2PK locking/unlocking tests                                       |
 | 20 | `src/tests/integration/task-store.svelte.test.ts`                    | EventStore → store → component reactivity                          |
@@ -1950,7 +2453,7 @@ functionality.
 
 **Acceptance Criteria:**
 
-- [ ] Authenticated user can create a task via `/task/new` form → Kind 37300
+- [ ] Authenticated user can create a task via `/bounty/new` form → Kind 37300
       published to relays
 - [ ] Created task appears in the home page list within 5 seconds
 - [ ] Authenticated user can pledge sats to a task → Cashu token created,
@@ -2000,6 +2503,11 @@ polish. Make the app feel complete and production-ready.
 | 14 | `src/tests/e2e/search.spec.ts`                                 | Search E2E test                                               |
 | 15 | `src/tests/e2e/auth.spec.ts`                                   | Auth E2E test                                                 |
 | 16 | `playwright.config.ts`                                         | Playwright configuration                                      |
+| 17 | `src/lib/bounty/taxonomy.ts`                                   | Auto-tag taxonomy: category → keyword regex patterns (Section 10.4) |
+| 18 | `src/lib/bounty/auto-tagger.ts`                                | `suggestTags()` — matches title + description against taxonomy |
+| 19 | `src/lib/components/bounty/TagAutoSuggest.svelte`              | Suggestion chips UI + community tag autocomplete dropdown     |
+| 20 | Update `src/lib/components/bounty/BountyForm.svelte`           | Integrate TagAutoSuggest, trigger on title/description blur   |
+| 21 | `src/tests/unit/auto-tagger.test.ts`                           | Taxonomy matching tests (technical + non-technical bounties)  |
 
 **Acceptance Criteria:**
 
@@ -2012,6 +2520,11 @@ polish. Make the app feel complete and production-ready.
 - [ ] Theme toggle switches between Tokyo Night dark and light modes (persisted)
 - [ ] Mobile-responsive layout with bottom navigation on small screens
 - [ ] Open Graph meta tags render correct preview when sharing task URLs
+- [ ] Auto-tag suggestions appear after user types a title or description, covering
+      both technical (e.g., "bitcoin", "frontend") and non-technical categories
+      (e.g., "activism", "construction", "landscaping")
+- [ ] Tag autocomplete shows community-used tags when the user types in the tag input
+- [ ] Users can accept, dismiss, or manually override all tag suggestions
 - [ ] All E2E tests pass with Playwright
 - [ ] Lighthouse scores: Performance > 90, Accessibility > 90, Best Practices >
       90
@@ -2136,7 +2649,8 @@ multi-mint support.
 - **Mobile native app** — Web-only for MVP
 - **Admin/moderation tools** — Decentralized moderation via mute lists
 - **Internationalization (i18n)** — English only for MVP
-- **Task categories/taxonomy** — Free-form tags only for MVP
+- **Task categories/taxonomy** — ~~Free-form tags only for MVP~~ Moved to
+  Section 10.4 (auto-tag taxonomy with keyword matching)
 
 ---
 

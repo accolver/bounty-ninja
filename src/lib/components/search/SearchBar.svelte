@@ -13,6 +13,10 @@
 	} = $props();
 
 	let query = $state(initialQuery);
+	// Re-sync when initialQuery prop changes (e.g. navigation)
+	$effect(() => {
+		query = initialQuery;
+	});
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 	function handleSubmit() {
