@@ -10,7 +10,6 @@
 	import { getDefaultRelays, getDefaultMint } from '$lib/utils/env';
 	import { isValidRelayUrl } from '$lib/utils/relay-validation';
 	import { pool } from '$lib/nostr/relay-pool';
-	import { normalizeURL } from 'applesauce-core/helpers/url';
 	import { onMount } from 'svelte';
 
 	const SETTINGS_KEY = 'bounty.ninja:settings';
@@ -125,28 +124,9 @@
 		}
 		settings.relays = settings.relays.filter((r: string) => r !== url);
 		saveSettings(settings);
-		// Remove from live pool — suppress async RxJS errors during teardown
-		const normalized = normalizeURL(url);
-		const relay = pool.relays.get(normalized);
-		if (relay) {
-			// Temporarily suppress uncaught errors during relay teardown
-			const suppressError = (e: ErrorEvent) => {
-				if (e.message?.includes('object unsubscribed') || e.message?.includes('ObjectUnsubscribed')) {
-					e.preventDefault();
-				}
-			};
-			window.addEventListener('error', suppressError);
-
-			// Remove from map first so nothing re-subscribes
-			pool.relays.delete(normalized);
-
-			// Then close the connection
-			try { relay.close(); } catch { /* expected */ }
-
-			// Remove suppressor after async teardown settles
-			setTimeout(() => window.removeEventListener('error', suppressError), 500);
-		}
-		toastStore.success('Relay removed');
+		toastStore.success('Relay removed — reconnecting…');
+		// Reload to cleanly reinitialize the pool with updated relay list
+		setTimeout(() => window.location.reload(), 300);
 	}
 
 	function updateMint() {
