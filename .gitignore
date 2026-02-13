@@ -1,12 +1,45 @@
-.DS_Store
+# Dependencies
 node_modules
+
+# Build output
 /build
 /.svelte-kit
 /package
+
+# Environment variables
 .env
+.env.*
 !.env.example
+
+# Wrangler / Cloudflare
+.wrangler/
+.dev.vars
+
+# Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Testing
 /playwright-report
 /test-results
 /.playwright-cli
+.playwright-mcp/
+
+# OS files
+.DS_Store
+Thumbs.db
+._*
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Credentials (catch-all safety net)
+*.pem
+*.key
+*.cert
+*.p12
+*.pfx
