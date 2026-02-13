@@ -35,11 +35,28 @@
 	const connectedCount = $derived(relays.filter((r) => r.connected).length);
 	const totalCount = $derived(relays.length);
 
-	/** red = none connected, yellow = connecting (some but not all? or 0 with relays?), green = 1+ connected */
+	/** Track whether we've ever received a connection result */
+	let hasAttempted = $state(false);
+
+	$effect(() => {
+		if (totalCount > 0 && (connectedCount > 0 || relays.some((r) => !r.connected))) {
+			hasAttempted = true;
+		}
+	});
+
+	/**
+	 * Dot color gradient:
+	 * - muted/gray: initial state before any connection attempts
+	 * - red/destructive: 0 relays connected (all failed)
+	 * - warning/yellow: some but not all connected (<75%)
+	 * - success/green: most or all connected (>=75%)
+	 */
 	const dotColor = $derived.by(() => {
-		if (totalCount === 0) return 'bg-destructive';
+		if (totalCount === 0 || !hasAttempted) return 'bg-muted-foreground';
 		if (connectedCount === 0) return 'bg-destructive';
-		return 'bg-success';
+		const ratio = connectedCount / totalCount;
+		if (ratio >= 0.75) return 'bg-success';
+		return 'bg-warning';
 	});
 
 	const statusLabel = $derived(`${connectedCount}/${totalCount} relays connected`);
