@@ -15,7 +15,28 @@
 	import Target from '@lucide/svelte/icons/target';
 	import { fly } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
+	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
+	import { browser } from '$app/environment';
 	import type { BountySummary, BountyStatus } from '$lib/bounty/types';
+
+	// --- Read initial query params ---
+	const initialParams = browser ? new URLSearchParams(window.location.search) : new URLSearchParams();
+
+	function parseInitialStatus(param: string | null): { open: boolean; inReview: boolean; completed: boolean; expired: boolean } {
+		if (!param) return { open: true, inReview: true, completed: false, expired: false };
+		const parts = param.split(',').map((s) => s.trim());
+		return {
+			open: parts.includes('open'),
+			inReview: parts.includes('in_review'),
+			completed: parts.includes('completed'),
+			expired: parts.includes('expired')
+		};
+	}
+
+	const initStatus = parseInitialStatus(initialParams.get('status'));
+	const initSort = initialParams.get('sort');
+	const validSorts = ['reward', 'newest', 'solutions'] as const;
 
 	// Start bounty list subscriptions when the page mounts (idempotent)
 	$effect(() => {
@@ -26,14 +47,16 @@
 	// not during the initial relay data stream.
 	let animate = $state(false);
 
-	let selectedTag = $state('');
-	let sortBy = $state<'reward' | 'newest' | 'solutions'>('reward');
+	let selectedTag = $state(initialParams.get('tag') ?? '');
+	let sortBy = $state<'reward' | 'newest' | 'solutions'>(
+		initSort && validSorts.includes(initSort as any) ? (initSort as 'reward' | 'newest' | 'solutions') : 'reward'
+	);
 
-	// Status filter — prechecked with Open + In Review
-	let showOpen = $state(true);
-	let showInReview = $state(true);
-	let showCompleted = $state(false);
-	let showExpired = $state(false);
+	// Status filter — initialized from URL or defaults
+	let showOpen = $state(initStatus.open);
+	let showInReview = $state(initStatus.inReview);
+	let showCompleted = $state(initStatus.completed);
+	let showExpired = $state(initStatus.expired);
 
 	const activeStatusCount = $derived(
 		[showOpen, showInReview, showCompleted, showExpired].filter(Boolean).length
@@ -61,7 +84,46 @@
 	});
 
 	// Sats slider — minimum pledge threshold
-	let minSats = $state(0);
+	const initMin = Number(initialParams.get('min')) || 0;
+	let minSats = $state(initMin);
+
+	// --- Sync filter state → URL query params ---
+	const DEFAULT_STATUS = 'open,in_review';
+
+	$effect(() => {
+		if (!browser) return;
+		// Read all reactive state to track
+		const tag = selectedTag;
+		const sort = sortBy;
+		const open = showOpen;
+		const inReview = showInReview;
+		const completed = showCompleted;
+		const expired = showExpired;
+		const min = minSats;
+
+		const params = new URLSearchParams();
+
+		if (tag) params.set('tag', tag);
+		if (sort !== 'reward') params.set('sort', sort);
+
+		// Build status string
+		const statusParts: string[] = [];
+		if (open) statusParts.push('open');
+		if (inReview) statusParts.push('in_review');
+		if (completed) statusParts.push('completed');
+		if (expired) statusParts.push('expired');
+		const statusStr = statusParts.join(',');
+		if (statusStr !== DEFAULT_STATUS) params.set('status', statusStr);
+
+		if (min > 0) params.set('min', String(min));
+
+		const qs = params.toString();
+		const newUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+
+		if (newUrl !== `${window.location.pathname}${window.location.search}`) {
+			history.replaceState(history.state, '', newUrl);
+		}
+	});
 
 	// Compute the max pledge across all items for the slider range
 	const maxPledge = $derived(
