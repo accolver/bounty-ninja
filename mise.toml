@@ -108,6 +108,32 @@ run = "bun run format"
 description = "Run svelte-check for type errors"
 run = "bun run check"
 
+[tasks.deploy]
+description = "Build and deploy to Cloudflare Pages (bounty.ninja)"
+run = """
+echo "🔨 Building..."
+bun run build
+
+echo ""
+echo "🚀 Deploying to Cloudflare Pages..."
+npx wrangler pages deploy build --project-name bounty-ninja --branch main --commit-dirty=true
+
+echo ""
+echo "✅ Deployed to https://bounty.ninja"
+"""
+
+[tasks."deploy:preview"]
+description = "Build and deploy a preview branch (not production)"
+run = """
+BRANCH="${1:-preview}"
+echo "🔨 Building..."
+bun run build
+
+echo ""
+echo "🚀 Deploying preview branch: $BRANCH"
+npx wrangler pages deploy build --project-name bounty-ninja --branch "$BRANCH" --commit-dirty=true
+"""
+
 [tasks.clean]
 description = "Remove build artifacts and caches"
 run = "rm -rf build .svelte-kit node_modules/.vite"
