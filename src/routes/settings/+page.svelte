@@ -124,15 +124,11 @@
 		}
 		settings.relays = settings.relays.filter((r: string) => r !== url);
 		saveSettings(settings);
-		// Disconnect from pool — relay will disappear from RelayIndicator
+		// Disconnect and remove from live pool
 		try {
-			const relay = pool.relays.get(url);
-			if (relay) {
-				relay.close();
-				pool.relays.delete(url);
-			}
+			pool.remove(url, true);
 		} catch {
-			/* pool may not support delete — will take effect on next page load */
+			/* will take effect on next page load */
 		}
 		toastStore.success('Relay removed');
 	}
