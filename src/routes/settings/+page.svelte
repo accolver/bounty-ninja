@@ -10,6 +10,7 @@
 	import { getDefaultRelays, getDefaultMint } from '$lib/utils/env';
 	import { isValidRelayUrl } from '$lib/utils/relay-validation';
 	import { pool } from '$lib/nostr/relay-pool';
+	import { normalizeURL } from 'applesauce-core/helpers/url';
 	import { onMount } from 'svelte';
 
 	const SETTINGS_KEY = 'bounty.ninja:settings';
@@ -124,9 +125,9 @@
 		}
 		settings.relays = settings.relays.filter((r: string) => r !== url);
 		saveSettings(settings);
-		// Disconnect and remove from live pool
+		// Disconnect and remove from live pool (normalize URL to match pool keys)
 		try {
-			pool.remove(url, true);
+			pool.remove(normalizeURL(url), true);
 		} catch {
 			/* will take effect on next page load */
 		}
