@@ -1,181 +1,134 @@
 # AGENTS.md — Bounty.ninja
 
-> Injected into every AI coding session. Read `PRD.md` for full specifications.
+> AI coding agents: read this file first. It's your context for working on this project.
 
-## What Is This?
+## What This Is
 
-**Bounty.ninja** is a decentralized, censorship-resistant task board / labor
-marketplace. Users post tasks as Nostr events, fund them with P2PK-locked Cashu
-ecash, submit solutions, vote on winners, and receive automatic payouts. Zero
-backend — entirely client-side.
+**Bounty.ninja** is a decentralized bounty board built on Nostr + Cashu + SvelteKit 5. Users post bounties with bitcoin rewards, fund them with Cashu ecash tokens, and pay solvers — all client-side, no backend. Live at https://bounty.ninja, deployed on Cloudflare Pages.
 
-**Domain:** <https://bounty.ninja>
+Read `PRD.md` for the full product spec. It is the source of truth for architecture, data models, event kinds, and implementation decisions.
 
----
+## Tech Stack
 
-## Stack — Non-Negotiable
+| Layer | Tech | Notes |
+|-------|------|-------|
+| Framework | SvelteKit 2 + Svelte 5 | Static site (`adapter-static`), SSR disabled, file-based routing |
+| Reactivity | Svelte 5 Runes | `$state`, `$derived`, `$effect` — no legacy stores |
+| Nostr | Applesauce v5 ecosystem | `applesauce-core`, `-relay`, `-loaders`, `-signers`, `-accounts`, `-actions` |
+| Relay Comms | `RelayPool` (applesauce-relay) | RxJS-based subscriptions, singleton in `src/lib/nostr/relay-pool.ts` |
+| Caching | `nostr-idb` (IndexedDB) + LRU | L1 EventStore → L2 IndexedDB → L3 relay. SWR pattern. See `src/lib/nostr/cache*.ts` |
+| Cashu | `@cashu/cashu-ts` v3 | P2PK locking (NUT-11) for trustless escrow |
+| UI | shadcn-svelte (next) + Tailwind 4 | Tokyo Night theme tokens, utility-first CSS |
+| Icons | `@lucide/svelte` | Tree-shakeable SVG icons |
+| Testing | Vitest 4 + Playwright | 578+ unit/integration tests, 16 E2E tests |
+| Build | Vite 7, Bun | `bun install`, `bun run build`, `bun run test` |
+| Deploy | Cloudflare Pages | `mise run deploy` (build + wrangler pages deploy) |
+| Config | `src/lib/config.ts` | Single source of truth for branding, relays, storage keys, external links |
 
-| Layer            | Technology                                          | Notes                                                                                   |
-| ---------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| Language         | **TypeScript**                                      | Strict mode. No `any` unless truly unavoidable.                                         |
-| Framework        | **SvelteKit 2**                                     | Static adapter, SPA mode (`ssr: false`)                                                 |
-| Reactivity       | **Svelte 5 Runes**                                  | `$state`, `$derived`, `$effect` — NO legacy `$:`, NO `writable()`/`readable()` stores   |
-| Runtime          | **Bun**                                             | Package manager AND runtime. Use `bun add`, `bun run`, etc.                             |
-| UI Components    | **shadcn-svelte** (next)                            | Accessible, composable primitives                                                       |
-| Styling          | **Tailwind CSS 4**                                  | Via `@tailwindcss/vite` plugin. Tokyo Night theme tokens.                               |
-| Nostr            | **Applesauce** libraries                            | `applesauce-core`, `applesauce-relay`, `applesauce-loaders`, `applesauce-signers`, etc. |
-| Nostr Cache      | **nostr-idb**                                       | IndexedDB-backed event cache                                                            |
-| Nostr Types      | **nostr-tools**                                     | Use `NostrEvent`, `Filter` types from here — NOT from NDK                               |
-| Cashu            | **@cashu/cashu-ts**                                 | P2PK locking via NUT-11                                                                 |
-| Reactive Streams | **RxJS**                                            | Bridged to Svelte 5 Runes in class-based stores                                         |
-| Testing          | **Vitest** (unit/integration), **Playwright** (E2E) |                                                                                         |
-| Linting          | **ESLint** + **Prettier**                           | `prettier-plugin-svelte`                                                                |
-| Build            | **Vite 6**                                          |                                                                                         |
-| Tool Management  | **mise**                                            | Manages Bun, Node, nak versions                                                         |
+## Project Structure
 
----
+```
+src/
+├── lib/
+│   ├── bounty/          # Bounty domain logic (kinds, types, state machine, filters, voting)
+│   ├── cashu/           # Cashu ecash (escrow, P2PK, token validation, mint interaction)
+│   ├── components/      # UI components (auth/, bounty/, layout/, search/, shared/, voting/)
+│   ├── nostr/           # Nostr layer (relay pool, event store, cache, loaders, signers)
+│   ├── stores/          # Svelte stores (bounty list, search dialog state)
+│   ├── utils/           # Shared utilities (env, formatting, error handling)
+│   └── config.ts        # App-wide config (branding, relays, payments, storage, links)
+├── routes/
+│   ├── +page.svelte     # Home — bounty feed with filters
+│   ├── bounty/[naddr]/  # Bounty detail (pledge, solve, vote, payout)
+│   ├── bounty/new/      # Create bounty form
+│   ├── profile/[npub]/  # User profile + their bounties
+│   ├── search/          # Search results
+│   ├── settings/        # User settings (relays, mint, cache)
+│   └── about/           # About page
+└── tests/               # Unit, integration, and E2E tests
+```
 
-## Critical Rules
+## Nostr Event Kinds
 
-### Privacy & Security
+| Kind | Purpose | Reference |
+|------|---------|-----------|
+| 37300 | Bounty (replaceable) | `src/lib/bounty/kinds.ts` |
+| 73001 | Pledge (Cashu ecash attachment) | |
+| 73002 | Solution submission | |
+| 1018 | Vote on solution | |
+| 73004 | Payout event | |
 
-- **Respect user privacy at all costs.** No PII collection. Users are
-  pseudonymous (Nostr pubkeys only).
-- **Never handle private keys.** Authentication is NIP-07 only (browser
-  extension signing). The app must never ask for, store, or transmit a private
-  key.
-- All Nostr events are public. Never create an expectation of private data.
-- Cashu tokens are bearer instruments — warn users about token security.
-- Sanitize all rendered Markdown to prevent XSS.
-- Validate event signatures and Cashu token structure.
+All events use the `#t bounty.ninja` tag for discoverability. See `PRD.md §6` for full schema.
 
-### Svelte 5 — Runes Only
+## Key Architecture Decisions
 
-- **Always use Svelte 5 runes.** `$state`, `$derived`, `$effect`, `$props`,
-  `$bindable`.
-- **Never use legacy Svelte 3/4 patterns:** no `$:` reactive declarations, no
-  `writable()`/`readable()`/`derived()` stores, no `$$props`, no `$$restProps`,
-  no `createEventDispatcher()`.
-- Reactive `.svelte.ts` files use class-based stores with `$state`/`$derived`
-  runes.
-- Use `$effect` for side effects, not `onMount` with reactive dependencies.
-- Use `{@render children()}` instead of `<slot />`.
-- Use `$props()` for component props, destructure with defaults.
+- **No backend.** Everything is client-side. All state comes from Nostr relays + local cache.
+- **Applesauce RelayPool is a singleton.** Defined in `relay-pool.ts`, shared across the app. RxJS internals mean you cannot safely unsubscribe/resubscribe — use page reload for relay changes.
+- **SWR caching.** `CachedQuery` class provides stale-while-revalidate: serve from IndexedDB instantly, revalidate from relays in background. Profile cache is LRU (500 max, 15min fresh / 24h stale).
+- **`config.ts` is the single source of truth** for app name, storage prefix, default relays, mint URL, external links. Don't hardcode these elsewhere.
+- **`min-h-dvh` not `min-h-screen`** — `100dvh` accounts for mobile browser chrome.
+- **Never use `overflow-hidden` on the header** — it clips absolutely-positioned dropdown menus.
+- **CSP uses `unsafe-inline`** for script-src because SvelteKit emits inline bootstrap scripts with build-specific hashes that aren't viable for static sites.
 
-### Bun — Always
+## Coding Conventions
 
-- Use `bun` for all package operations: `bun add`, `bun remove`, `bun run`,
-  `bun test`.
-- Never use `npm`, `yarn`, or `pnpm`.
-- Lock file is `bun.lockb`.
+### Svelte 5
+- Use **runes** (`$state`, `$derived`, `$effect`), not legacy `$:` or `writable()`.
+- Use `$props()` for component props, not `export let`.
+- Use `onMount` for one-time initialization, `$effect` for reactive side effects.
+- Prefer `{#snippet}` over slots when possible.
 
-### No Backend
+### Styling
+- **Every interactive element** (`<button>`, clickable `<div>`, `<a>`) must have `hover:cursor-pointer`.
+- **Every element with a `hover:` class** must also have a `transition` class (e.g. `transition-colors`, `transition-all`).
+- Mobile-first responsive design. Test at 375px width minimum.
+- Use Tailwind utility classes. Tokyo Night theme tokens are in `app.css`.
 
-- This is a **static SPA**. No server routes, no API endpoints, no server-side
-  logic.
-- All data comes from Nostr relay WebSocket subscriptions.
-- All state is derived client-side from events in the Applesauce `EventStore` +
-  IndexedDB cache.
-- `adapter-static` with `fallback: "index.html"`, `ssr: false`,
-  `prerender: false`.
+### TypeScript
+- Strict mode. No `any` unless absolutely necessary (and document why).
+- Type Nostr events explicitly — don't rely on `NostrEvent` generic.
 
----
+### Testing
+- Unit tests alongside source in `src/tests/unit/`.
+- E2E tests in `src/tests/e2e/`.
+- Run: `bun run test` (unit), `bun run test:e2e` (Playwright).
 
-## Architecture Patterns
+### Naming
+- This is **Bounty.ninja**, not "Tasks.fyi". All user-facing strings say "bounty/bounties", not "task/tasks".
+- Use `config.ts` values for app name, not hardcoded strings.
 
-### State Management
+## Deploy
 
-- **Applesauce `EventStore`** is the single source of truth for Nostr events
-  (in-memory).
-- **nostr-idb** persists events to IndexedDB for offline/reload resilience.
-- **Class-based `.svelte.ts` stores** bridge RxJS Observables (from Applesauce)
-  to Svelte 5 runes.
-- **Singleton pattern** for core services: `eventStore`, `pool` (RelayPool),
-  CashuMint/CashuWallet.
-- **Optimistic local updates** on event publish — insert into EventStore
-  immediately before relay confirmation.
+```bash
+mise run deploy          # Build + deploy to Cloudflare Pages (production)
+mise run deploy:preview  # Deploy to preview URL
+```
 
-### Nostr Event Kinds
+Cloudflare project: `bounty-ninja`, account: `a60d0a4430a778bba92fa9d72d7adc87`.
 
-| Kind  | Type                      | Purpose             |
-| ----- | ------------------------- | ------------------- |
-| 37300 | Parameterized Replaceable | Task definition     |
-| 73001 | Regular                   | Solution submission |
-| 73002 | Regular                   | Pledge (funding)    |
-| 1018  | Regular                   | Consensus vote      |
-| 73004 | Regular                   | Payout record       |
+## Current State (Feb 2026)
 
-### Task Lifecycle
+- **Phases 1-4 complete**, Phase 5 ~95% (CI pipeline, integration tests, bundle optimization)
+- 578+ tests passing, 0 TypeScript errors
+- Client-side caching fully implemented (SWR, LRU eviction, prefetching, quota monitoring)
+- Logo: Hooded Figure (green hood, gold eyes) — `static/logo-icon.svg`
+- DNS for `bounty.ninja` pending CNAME propagation (works via `bounty-ninja.pages.dev`)
+- No git remote configured yet
 
-`draft` → `open` → `in_review` → `completed` (side transitions: `expired`,
-`cancelled`)
+## What's Next
 
-All published events must include the tag `["client", "bounty.ninja"]`.
+- Verify `bounty.ninja` DNS
+- Set up GitHub repo + push
+- Lighthouse audit
+- Consider dedicated Nosflare relay at `relay.bounty.ninja` (see `docs/SPEC-NOSFLARE-RELAY.md`)
+- Relay removal persistence bug in settings
 
----
+## Important Files
 
-## File Conventions
-
-- **TypeScript files:** kebab-case (`relay-pool.ts`, `state-machine.ts`)
-- **Svelte components:** PascalCase (`TaskCard.svelte`, `PledgeForm.svelte`)
-- **Reactive modules:** `.svelte.ts` extension for files using runes
-  (`signer.svelte.ts`, `tasks.svelte.ts`)
-- **Path alias:** `$lib` → `./src/lib`
-- **Component organization:** Domain-based directories under
-  `src/lib/components/` (task, pledge, solution, voting, auth, search, layout,
-  shared)
-- **Tests:** `src/tests/unit/`, `src/tests/integration/`, `src/tests/e2e/`
-
----
-
-## Styling
-
-- **Tailwind CSS 4** with `@tailwindcss/vite` plugin (not PostCSS).
-- **Tokyo Night** color scheme with semantic CSS custom properties defined via
-  `@theme` in `app.css`.
-- **Dark mode default** (Tokyo Night Storm). Light mode via `.light` class
-  (Tokyo Night Day).
-- shadcn-svelte components consume semantic tokens.
-- Target **WCAG 2.1 AA**: 4.5:1 contrast ratio, keyboard navigation, screen
-  reader support, `prefers-reduced-motion`.
-
----
-
-## Performance Targets
-
-- First Contentful Paint < 1.5s
-- Time to Interactive < 3s
-- Bundle size < 200KB gzipped
-- Lighthouse score > 90
-
----
-
-## Dependencies to Exclude from Vite optimizeDeps
-
-`@noble/curves` and `@noble/hashes` — WASM compatibility requirement.
-
----
-
-## Testing Notes
-
-- Unit tests mock the `EventStore` directly — no relay connections.
-- Integration tests add events to `EventStore` and use `flushSync()` for Svelte
-  rune assertions.
-- E2E tests use a local Nostr relay (`nak serve`), mock NIP-07 via
-  `page.addInitScript()`, and mock Cashu mint.
-- Linear voting math must be tested with edge cases (zero pledges, single
-  funder, tie-breaking).
-
----
-
-## What NOT to Do
-
-- Do NOT use NDK (Nostr Development Kit) — this project uses Applesauce.
-- Do NOT use Svelte 3/4 stores or reactive syntax.
-- Do NOT add a backend, database, or server routes.
-- Do NOT handle or store private keys.
-- Do NOT use npm/yarn/pnpm — Bun only.
-- Do NOT use SSR or prerendering.
-- Do NOT skip Markdown sanitization on user content.
-- Do NOT run `terraform apply`, `terragrunt apply`, or similar infrastructure
-  commands.
+- `PRD.md` — Full product spec (the bible)
+- `src/lib/config.ts` — App-wide configuration
+- `docs/SPEC-CLIENT-CACHE.md` — Caching architecture spec
+- `docs/SPEC-NOSFLARE-RELAY.md` — Dedicated relay spec
+- `static/_headers` — CSP and security headers
+- `static/_redirects` — SPA catch-all (`/* /index.html 200`)
+- `mise.toml` — Task runner config (deploy, test, lint commands)
