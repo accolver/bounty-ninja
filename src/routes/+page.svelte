@@ -9,6 +9,10 @@
 	import { Slider } from '$lib/components/ui/slider';
 	import ArrowUpDown from '@lucide/svelte/icons/arrow-up-down';
 	import ListFilter from '@lucide/svelte/icons/list-filter';
+	import Plus from '@lucide/svelte/icons/plus';
+	import Zap from '@lucide/svelte/icons/zap';
+	import Clock from '@lucide/svelte/icons/clock';
+	import Target from '@lucide/svelte/icons/target';
 	import { fly } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
 	import type { BountySummary, BountyStatus } from '$lib/bounty/types';
@@ -88,6 +92,21 @@
 			.sort(sortFns[sortBy]);
 	});
 
+	// Stats derived from all bounties (unfiltered)
+	const now24h = $derived(Math.floor(Date.now() / 1000) - 86_400);
+
+	const recentCount = $derived(
+		bountyList.items.filter((b) => b.createdAt >= now24h).length
+	);
+
+	const openBounties = $derived(
+		bountyList.items.filter((b) => b.status === 'open' || b.status === 'in_review')
+	);
+
+	const totalSatsAvailable = $derived(
+		openBounties.reduce((sum, b) => sum + b.totalPledged, 0)
+	);
+
 	function formatSats(n: number): string {
 		if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
 		if (n >= 1_000) return `${Math.round(n / 1_000)}k`;
@@ -104,11 +123,41 @@
 		<Sidebar bind:selectedTag />
 
 		<section class="min-w-0 flex-1">
+			<!-- Stats bar + CTA -->
+			{#if !bountyList.loading || bountyList.items.length > 0}
+				<div class="flex items-center justify-between gap-4 px-4 pb-6">
+					<div class="flex items-center gap-5">
+						<div class="flex items-center gap-1.5 text-xs text-muted-foreground">
+							<Clock class="h-3.5 w-3.5 text-primary/70" />
+							<span class="font-medium text-foreground">{recentCount}</span>
+							<span>new today</span>
+						</div>
+						<div class="flex items-center gap-1.5 text-xs text-muted-foreground">
+							<Target class="h-3.5 w-3.5 text-primary/70" />
+							<span class="font-medium text-foreground">{openBounties.length}</span>
+							<span>active</span>
+						</div>
+						<div class="flex items-center gap-1.5 text-xs text-muted-foreground">
+							<Zap class="h-3.5 w-3.5 text-amber-500" />
+							<span class="font-medium text-foreground">{formatSats(totalSatsAvailable)}</span>
+							<span>sats available</span>
+						</div>
+					</div>
+					<a
+						href="/bounty/new"
+						class="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+					>
+						<Plus class="h-3.5 w-3.5" />
+						Post a Bounty
+					</a>
+				</div>
+			{/if}
+
 			<!-- List header with filters -->
 			<div class="flex flex-col gap-3 border-b border-border px-4 pb-3">
 				<div class="flex items-center justify-between">
 					<h2 class="text-sm font-medium text-foreground">
-						{selectedTag ? selectedTag : 'All tasks'}
+						{selectedTag ? selectedTag : 'All bounties'}
 					</h2>
 					<div class="relative">
 						<label for="sort-select" class="sr-only">Sort by</label>
@@ -194,8 +243,8 @@
 			{:else if filteredBounties.length === 0}
 				<EmptyState
 					message={selectedTag
-						? `No tasks found for "${selectedTag}". Try a different category.`
-						: 'No tasks match the current filters.'}
+						? `No bounties found for "${selectedTag}". Try a different category.`
+						: 'No bounties match the current filters.'}
 				/>
 			{:else}
 				<div>
