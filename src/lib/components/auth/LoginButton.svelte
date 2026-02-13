@@ -14,6 +14,7 @@
 		open = !open;
 		if (!open) {
 			showNsecForm = false;
+			showInstallLinks = false;
 			nsecValue = '';
 			nsecError = null;
 		}
@@ -22,14 +23,17 @@
 	function close() {
 		open = false;
 		showNsecForm = false;
+		showInstallLinks = false;
 		nsecValue = '';
 		nsecError = null;
 	}
 
+	let showInstallLinks = $state(false);
+
 	async function handleExtensionLogin() {
 		if (!signerState.available && !window.nostr) {
-			// No extension — stay in dropdown, show nsec form with install links
-			showNsecForm = true;
+			// No extension — show install links, not nsec form
+			showInstallLinks = true;
 			return;
 		}
 		close();
@@ -117,7 +121,34 @@
 			role="menu"
 			aria-label="Login options"
 		>
-			{#if !showNsecForm}
+			{#if showInstallLinks}
+				<!-- No extension detected — install links -->
+				<div class="space-y-3">
+					<div class="flex items-center gap-2">
+						<button
+							onclick={() => (showInstallLinks = false)}
+							class="cursor-pointer text-muted-foreground transition-colors hover:text-foreground"
+							aria-label="Back to login options"
+						>
+							<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+							</svg>
+						</button>
+						<h3 class="text-sm font-medium text-card-foreground">No Extension Detected</h3>
+					</div>
+
+					<p class="text-xs text-muted-foreground">
+						Install a Nostr signer extension to sign in securely:
+					</p>
+					<div class="flex flex-col gap-2">
+						<a href="https://github.com/nicehash/nos2x" target="_blank" rel="noopener noreferrer" class="text-sm text-primary underline transition-colors hover:text-primary/80">nos2x (Chrome)</a>
+						<a href="https://getalby.com" target="_blank" rel="noopener noreferrer" class="text-sm text-primary underline transition-colors hover:text-primary/80">Alby (Chrome, Firefox)</a>
+					</div>
+					<p class="text-xs text-muted-foreground">
+						Or go back and use <button onclick={() => { showInstallLinks = false; showNsecForm = true; }} class="cursor-pointer text-primary underline transition-colors hover:text-primary/80">paste nsec</button> instead.
+					</p>
+				</div>
+			{:else if !showNsecForm}
 				<!-- Option 1: NIP-07 Extension (preferred) -->
 				<button
 					onclick={handleExtensionLogin}
