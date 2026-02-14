@@ -13,7 +13,13 @@
 import { config } from '$lib/config';
 import type { Proof, Wallet, Token } from '@cashu/cashu-ts';
 import type { NostrEvent } from 'nostr-tools';
-import type { DecodedPledge, MintResult, SwapResult, MintPayoutEntry, MultiMintPayoutResult } from './types';
+import type {
+	DecodedPledge,
+	MintResult,
+	SwapResult,
+	MintPayoutEntry,
+	MultiMintPayoutResult
+} from './types';
 import { DoubleSpendError } from './types';
 import { decodeToken, encodeToken, getProofsAmount } from './token';
 import { createP2PKLock } from './p2pk';
@@ -337,6 +343,90 @@ export async function checkPledgeProofsSpendable(
 }
 
 /**
+ * Reclaim an expired P2PK-locked pledge token.
+ *
+ * After the locktime passes, the pledger's refund key becomes valid.
+ * This function signs the proofs with the pledger's private key and
+ * swaps them at the mint for new unlocked proofs the pledger can keep.
+ *
+ * @param pledge - The decoded pledge to reclaim.
+ * @param pledgerPrivkey - The pledger's private key (hex) for signing the refund.
+ * @returns SwapResult with the reclaimed (unlocked) proofs.
+ */
+export async function reclaimExpiredPledge(
+	pledge: DecodedPledge,
+	pledgerPrivkey: string
+): Promise<SwapResult> {
+	if (pledge.proofs.length === 0) {
+		return {
+			success: false,
+			sendProofs: [],
+			keepProofs: [],
+			fees: 0,
+			error: 'No proofs to reclaim'
+		};
+	}
+
+	const totalAmount = getProofsAmount(pledge.proofs);
+	if (totalAmount <= 0) {
+		return {
+			success: false,
+			sendProofs: [],
+			keepProofs: [],
+			fees: 0,
+			error: 'Pledge proofs have zero total amount'
+		};
+	}
+
+	try {
+		const wallet = await getWallet(pledge.mint);
+		const fees = wallet.getFeesForProofs(pledge.proofs);
+		const receiveAmount = totalAmount - fees;
+
+		if (receiveAmount <= 0) {
+			return {
+				success: false,
+				sendProofs: [],
+				keepProofs: [],
+				fees,
+				error: `Insufficient amount after fees: ${totalAmount} sats - ${fees} fee`
+			};
+		}
+
+		// Sign with the refund key (pledger's private key) — valid after locktime
+		const signedProofs = wallet.signP2PKProofs(pledge.proofs, pledgerPrivkey);
+		const { keep, send } = await wallet.send(receiveAmount, signedProofs, {
+			privkey: pledgerPrivkey
+		});
+
+		return {
+			success: true,
+			sendProofs: send,
+			keepProofs: keep,
+			fees
+		};
+	} catch (err) {
+		const message = err instanceof Error ? err.message : String(err);
+
+		if (
+			message.toLowerCase().includes('already spent') ||
+			message.toLowerCase().includes('token already spent')
+		) {
+			throw new DoubleSpendError(`Pledge tokens already spent — cannot reclaim: ${message}`);
+		}
+
+		console.error(`[cashu/escrow] reclaimExpiredPledge failed: ${message}`);
+		return {
+			success: false,
+			sendProofs: [],
+			keepProofs: [],
+			fees: 0,
+			error: message
+		};
+	}
+}
+
+/**
  * Group decoded pledges by their mint URL.
  *
  * Returns a Map keyed by mint URL, where each value is the array of
@@ -400,9 +490,7 @@ export async function processMultiMintPayout(
 
 	for (const mintUrl of mintUrls) {
 		const group = mintGroups.get(mintUrl)!;
-		const mintLabel = mintUrls.length > 1
-			? ` (${mintUrl.replace(/^https?:\/\//, '')})`
-			: '';
+		const mintLabel = mintUrls.length > 1 ? ` (${mintUrl.replace(/^https?:\/\//, '')})` : '';
 
 		try {
 			// Step 1: Connect to this mint
@@ -420,11 +508,7 @@ export async function processMultiMintPayout(
 
 			// Step 3: Create solver-locked payout token at this mint
 			onStatus?.(`Creating payout token${mintLabel}...`);
-			const payoutResult = await createPayoutToken(
-				swapResult.sendProofs,
-				solverPubkey,
-				wallet
-			);
+			const payoutResult = await createPayoutToken(swapResult.sendProofs, solverPubkey, wallet);
 
 			if (!payoutResult.success) {
 				errors.push(`Mint ${mintUrl}: ${payoutResult.error ?? 'Payout creation failed'}`);

@@ -14,6 +14,7 @@
 	import PledgeList from '$lib/components/pledge/PledgeList.svelte';
 	import PledgeButton from '$lib/components/pledge/PledgeButton.svelte';
 	import PledgeForm from '$lib/components/pledge/PledgeForm.svelte';
+	import ReclaimAlert from '$lib/components/pledge/ReclaimAlert.svelte';
 	import SolutionList from '$lib/components/solution/SolutionList.svelte';
 	import SolutionForm from '$lib/components/solution/SolutionForm.svelte';
 	import VoteButton from '$lib/components/voting/VoteButton.svelte';
@@ -82,6 +83,9 @@
 			</span>
 		</div>
 	</header>
+
+	<!-- Reclaim alert for expired bounties (prominent, persistent) -->
+	<ReclaimAlert {detail} />
 
 	<!-- Reward & Pledges summary -->
 	<section
