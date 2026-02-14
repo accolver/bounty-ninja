@@ -222,15 +222,49 @@ async function main() {
 			['fee', '21'],
 			['client', 'bounty.ninja']
 		],
-		content: `Build a Lightning Network wallet integration for a Svelte 5 web app. Requirements:
+		content: `Build a **Lightning Network wallet integration** for a Svelte 5 web app.
 
-- Connect to LND or CLN via REST API
-- Display channel balances and transaction history
-- Send and receive payments via BOLT11 invoices
-- Handle payment status callbacks
-- Include error handling for common failure modes
+## Requirements
 
-Deliverables: Working Svelte component library with TypeScript types, unit tests, and usage documentation.`
+| Feature | Details |
+|---------|---------|
+| Backend connectivity | Connect to **LND** or **CLN** via REST API |
+| Balance display | Show channel balances with real-time updates |
+| Transaction history | Paginated list with status indicators |
+| Payments | Send and receive via \`BOLT11\` invoices |
+| Callbacks | Handle payment status webhooks/polling |
+| Error handling | Graceful recovery from common failure modes |
+
+## Technical Constraints
+
+- Must use \`@sveltejs/kit\` with Svelte 5 runes (\`$state\`, \`$derived\`, \`$effect\`)
+- All components must be fully typed with **TypeScript** (strict mode)
+- Target bundle size: \`< 50KB\` gzipped for the component library
+- No external CSS frameworks — use Tailwind utility classes only
+
+## Example Usage
+
+\`\`\`svelte
+<script lang="ts">
+  import { LightningWallet } from '$lib/lightning';
+
+  let balance = $state(0);
+</script>
+
+<LightningWallet
+  endpoint="https://localhost:8080"
+  onPayment={(amt) => balance += amt}
+/>
+\`\`\`
+
+## Deliverables
+
+1. Working Svelte component library
+2. Full TypeScript types (exported via \`index.ts\`)
+3. Unit tests (>80% coverage)
+4. Usage documentation with code examples
+
+> **Note:** Preference given to solutions that support *both* LND and CLN out of the box.`
 	});
 
 	await publish('Pledge from Bob (60k sats)', bob, {
@@ -356,23 +390,52 @@ PR: https://github.com/example/lightning-svelte/pull/42`
 			['expiration', String(NEXT_WEEK)],
 			['client', 'bounty.ninja']
 		],
-		content: `Create an automated Nostr moderation bot that monitors relay feeds and flags spam.
+		content: `Create an automated **Nostr moderation bot** that monitors relay feeds and flags spam in real time.
 
 ## Requirements
-- Monitor a configurable list of relays for new events
-- Detect common spam patterns (repeated content, known spam pubkeys, URL-only posts)
-- Publish NIP-56 report events for flagged content
-- Admin dashboard to review flagged events and adjust rules
-- Configurable allowlist/blocklist
-- Rate limiting detection
 
-## Tech constraints
-- Must run as a standalone Node.js/Bun process
-- Use nostr-tools for relay communication
-- Config via TOML file
-- Logging via structured JSON logs
+### Detection Engine
+- Monitor a configurable list of relays for new Kind \`1\` and Kind \`30023\` events
+- Detect common spam patterns:
+  - *Repeated content* (exact and fuzzy duplicate detection)
+  - Known spam pubkeys (synced from shared blocklists)
+  - URL-only posts with no meaningful text
+  - Burst posting (>10 events/minute from a single pubkey)
+- Publish **NIP-56** report events for flagged content
 
-Budget: 75,000 sats for a working prototype with documentation.`
+### Admin Interface
+- Web-based dashboard to review flagged events
+- Adjust detection thresholds via UI sliders
+- One-click approve/reject with audit log
+- Configurable allowlist/blocklist with import/export
+
+> **Important:** The bot should *never* auto-ban. It should only flag content for human review unless explicitly configured otherwise.
+
+## Tech Constraints
+
+\`\`\`toml
+# Example config.toml
+[relays]
+monitor = ["wss://relay.damus.io", "wss://nos.lol"]
+
+[detection]
+duplicate_threshold = 0.85
+rate_limit_per_minute = 10
+enable_ml = false
+
+[logging]
+format = "json"
+level = "info"
+\`\`\`
+
+- Must run as a standalone **Node.js** or **Bun** process
+- Use \`nostr-tools\` for relay communication
+- Config via **TOML** file (see example above)
+- Structured JSON logs with configurable verbosity
+
+---
+
+**Budget:** 75,000 sats for a working prototype with documentation and a sample \`config.toml\`.`
 	});
 
 	await publish('Pledge from Bob (30k sats)', bob, {
@@ -508,24 +571,45 @@ Repo: https://github.com/example/nostr-sentinel`
 			['mint', 'https://mint.minibits.cash/Bitcoin'],
 			['client', 'bounty.ninja']
 		],
-		content: `Write a comprehensive, beginner-friendly tutorial on Cashu ecash for Bitcoin users.
+		content: `Write a comprehensive, **beginner-friendly tutorial** on Cashu ecash for Bitcoin users.
 
-## Must cover:
-1. What is ecash and why it matters for Bitcoin privacy
-2. How Cashu mints work (blind signatures, token issuance)
-3. Step-by-step: setting up a Cashu wallet (Nutstash, Minibits, or eNuts)
-4. Minting tokens from Lightning
-5. Sending and receiving ecash tokens
-6. P2PK locking (NUT-11) — what it is and why it is useful
-7. Security considerations (mint trust, token backup)
+> *"Ecash is the missing privacy layer for everyday Bitcoin payments."*
 
-## Format
-- Long-form article (2000-4000 words)
-- Include diagrams or illustrations where helpful
-- Publish as a Nostr long-form post (NIP-23, Kind 30023)
+## Topics to Cover
 
-## Target audience
-Bitcoin users who understand Lightning but have never used ecash.`
+### Part 1: Foundations
+1. **What is ecash?** — History (David Chaum's original vision), why it matters for Bitcoin privacy
+2. **How Cashu mints work** — Blind signatures, token issuance, and the mint/wallet trust model
+
+### Part 2: Hands-On Guide
+3. **Setting up a wallet** — Step-by-step walkthrough for at least one of:
+   - [Nutstash](https://nutstash.app) (web)
+   - [Minibits](https://www.minibits.cash) (mobile)
+   - [eNuts](https://www.enuts.cash) (mobile)
+4. **Minting tokens from Lightning** — With screenshots showing the full flow
+5. **Sending and receiving ecash** — Including token serialization format
+
+### Part 3: Advanced Topics
+6. **P2PK locking** (\`NUT-11\`) — What it is, use cases (escrow, conditional payments)
+7. **Security considerations** — Mint trust model, token backup, what happens if a mint disappears
+
+## Format Requirements
+
+| Requirement | Details |
+|------------|---------|
+| Length | 2,000-4,000 words |
+| Diagrams | At least **3** (mint flow, token lifecycle, P2PK lock/unlock) |
+| Code examples | Show token format: \`cashuBo2F...\` |
+| Publication | Nostr long-form post (**NIP-23**, Kind \`30023\`) |
+
+## Target Audience
+
+Bitcoin users who understand Lightning but have never used ecash. Assume familiarity with:
+- \`BOLT11\` invoices
+- Basic wallet operations
+- The concept of custodial vs. non-custodial
+
+> **Bonus:** Include a "cheat sheet" summary table at the end comparing Cashu to Lightning to on-chain for common payment scenarios.`
 	});
 
 	await publish('Pledge from Bob (20k sats)', bob, {
@@ -582,22 +666,48 @@ Bitcoin users who understand Lightning but have never used ecash.`
 			['expiration', String(NEXT_WEEK)],
 			['client', 'bounty.ninja']
 		],
-		content: `Build a web-based dashboard for Nostr relay operators.
+		content: `Build a **web-based monitoring dashboard** for Nostr relay operators.
 
-## Features needed:
-- Real-time event throughput graphs
-- Connected client count and bandwidth usage
-- Event kind distribution chart
-- Storage usage monitoring
-- Blocklist/allowlist management UI
-- Event search and inspection tool
+## Features
 
-## Tech stack
-- Static SPA (no backend beyond the relay itself)
-- Should work with strfry, nostr-rs-relay, and khatru
-- Use the relay management API where available
+### Real-Time Metrics
+- **Event throughput** — Live-updating graph (events/second, events/minute)
+- **Connected clients** — WebSocket connection count + bandwidth usage
+- **Kind distribution** — Pie/bar chart showing event kinds (Kind \`1\`, \`7\`, \`30023\`, etc.)
+- **Storage usage** — Disk space with projected growth rate
 
-This is a design + development task. Need both the UI design and working code.`
+### Management Tools
+- Blocklist/allowlist management with bulk import (\`.csv\` or \`.json\`)
+- Event search with filter builder (by kind, author, time range, content)
+- Event inspector — view raw JSON, verify signatures, check referenced events
+
+### Compatibility Matrix
+
+| Relay Implementation | Status API | Management API | Notes |
+|---------------------|-----------|---------------|-------|
+| **strfry** | \`/stats\` | Custom plugin | Most popular |
+| **nostr-rs-relay** | \`/metrics\` | NIP-86 | Prometheus-compatible |
+| **khatru** | Varies | Go API | Embedded-friendly |
+
+> The dashboard should auto-detect the relay type and adapt its API calls accordingly.
+
+## Tech Stack
+
+- Static SPA — **no backend** beyond the relay itself
+- Framework: Svelte, React, or Vue (your choice)
+- Charts: \`chart.js\`, \`d3\`, or equivalent
+- Responsive design (must work on mobile for quick relay checks)
+
+## Mockup Expectations
+
+Before writing code, provide a **wireframe** or **Figma mockup** showing:
+1. Main dashboard view with all metrics
+2. Event search/filter view
+3. Blocklist management view
+
+---
+
+*This is a design + development bounty.* We need both the UI design and working code. Partial submissions (design-only or code-only) will be considered at reduced payout.`
 	});
 
 	await publish('Pledge from Alice (35k sats)', alice, {
@@ -656,16 +766,49 @@ This is a design + development task. Need both the UI design and working code.`
 			['expiration', String(EXPIRED_DEADLINE)],
 			['client', 'bounty.ninja']
 		],
-		content: `Build a tool that bulk-verifies NIP-05 identifiers for a list of pubkeys.
+		content: `Build a tool that **bulk-verifies NIP-05 identifiers** for a list of Nostr pubkeys.
 
-## Requirements:
-- Input: list of pubkeys (hex or npub)
-- Output: verification status for each (valid, invalid, unreachable, expired)
-- Handle rate limiting gracefully
-- Support concurrent verification (configurable parallelism)
-- CLI tool + importable library
+## How NIP-05 Verification Works
 
-Should be fast enough to verify 1000 pubkeys in under 60 seconds.`
+For the unfamiliar: [NIP-05](https://github.com/nostr-protocol/nips/blob/master/05.md) maps human-readable identifiers (like \`alice@bounty.ninja\`) to Nostr pubkeys via a \`/.well-known/nostr.json\` endpoint.
+
+## Input/Output
+
+\`\`\`bash
+# CLI usage example
+$ nip05-verify --input pubkeys.txt --output results.json --concurrency 20
+
+# Input: one pubkey per line (hex or npub)
+npub1abc...
+a1b2c3d4e5f6...
+
+# Output: JSON array
+[
+  { "pubkey": "npub1abc...", "nip05": "alice@example.com", "status": "valid" },
+  { "pubkey": "a1b2c3...", "nip05": null, "status": "no_nip05_set" }
+]
+\`\`\`
+
+## Status Codes
+
+| Status | Meaning |
+|--------|---------|
+| \`valid\` | NIP-05 resolves and matches the pubkey |
+| \`invalid\` | NIP-05 resolves but pubkey doesn't match |
+| \`unreachable\` | Domain DNS or HTTP request failed |
+| \`no_nip05_set\` | Profile has no \`nip05\` field in Kind \`0\` |
+| \`rate_limited\` | Provider returned 429; queued for retry |
+
+## Requirements
+
+- Handle rate limiting gracefully (exponential backoff + per-domain queuing)
+- Support configurable concurrency (\`--concurrency N\`, default 10)
+- Dual interface: **CLI tool** + **importable TypeScript library**
+- Progress bar in CLI mode
+
+## Performance Target
+
+> Must verify **1,000 pubkeys in under 60 seconds** on a standard connection (assuming no rate limiting). Benchmark results should be included in the README.`
 	});
 
 	await publish('Pledge from Alice (20k sats)', alice, {
@@ -721,8 +864,37 @@ WIP repo: https://github.com/example/nip05-check`
 			['fee', '10'],
 			['client', 'bounty.ninja']
 		],
-		content:
-			'Build an embeddable Lightning tipping widget for websites. Should support LNURL-pay and zaps.'
+		content: `Build an **embeddable Lightning tipping widget** that any website can drop in with a single \`<script>\` tag.
+
+## Core Features
+
+- **LNURL-pay** support — Scan QR or click to pay via any Lightning wallet
+- **Nostr Zaps** (NIP-57) — One-click zap with configurable default amounts
+- **Customizable UI** — Themes, colors, button text, and position
+- Responsive: works on desktop *and* mobile
+- **No server required** — All communication goes directly to the Lightning/LNURL endpoint
+
+## Integration Example
+
+\`\`\`html
+<!-- Drop this anywhere on your site -->
+<script
+  src="https://cdn.example.com/ln-tip-widget.js"
+  data-lnurl="lnurl1dp68gurn8ghj7..."
+  data-theme="dark"
+  data-amounts="100,1000,5000"
+  data-zap-pubkey="npub1..."
+></script>
+\`\`\`
+
+## Deliverables
+
+1. Minified JS bundle (\`< 30KB\` gzipped)
+2. Optional CSS file for custom styling
+3. NPM package for framework integration (\`import { TipWidget } from '...\`)
+4. Documentation with examples for WordPress, Hugo, and plain HTML
+
+> **Why this matters:** Most existing tipping solutions require a backend or third-party service. This should be *fully client-side* and self-hostable.`
 	});
 
 	await publish('Delete/cancel by Bob', bob, {
@@ -758,24 +930,66 @@ WIP repo: https://github.com/example/nip05-check`
 			['expiration', String(NEXT_MONTH)],
 			['client', 'bounty.ninja']
 		],
-		content: `Conduct a security audit of 3 popular Nostr clients focusing on:
+		content: `Conduct a **comprehensive security audit** of 3 popular Nostr clients.
 
-## Scope
-- **Key management**: How are private keys stored? Is NIP-07 properly implemented?
-- **Event validation**: Are signatures verified? Are malformed events handled?
-- **XSS prevention**: Is user-generated content (notes, profiles) properly sanitized?
-- **Network security**: Are WebSocket connections secure? Is there cert pinning?
-- **Privacy leaks**: Are there metadata leaks (IP, timing, relay selection)?
+> **This is a high-value bounty (250k sats)** aimed at experienced security researchers with a track record of responsible disclosure.
 
-## Target clients
-Pick 3 from: Damus, Primal, Amethyst, Snort, Coracle, Nostrudel
+## Audit Scope
+
+### 1. Key Management
+- How are private keys stored? (\`localStorage\`, \`IndexedDB\`, Keychain, etc.)
+- Is **NIP-07** properly implemented? (Does the app *ever* touch the raw private key?)
+- Are there key derivation weaknesses?
+
+### 2. Event Validation
+- Are \`schnorr\` signatures verified on *all* incoming events?
+- How are malformed events handled? (Missing fields, oversized content, invalid JSON)
+- Is there protection against event replay or tag injection?
+
+### 3. XSS & Content Injection
+- Is user-generated content (notes, profiles, \`nip05\` fields) properly sanitized?
+- Test for Markdown injection, SVG payloads, and \`javascript:\` URIs
+- Are images loaded from user-specified URLs? (SSRF risk)
+
+### 4. Network Security
+- Are all WebSocket connections over \`wss://\` (TLS)?
+- Is there certificate pinning on mobile clients?
+- Are relay URLs validated before connection?
+
+### 5. Privacy Analysis
+- **IP leaks** — Does the client connect to relays without Tor/proxy option?
+- **Timing attacks** — Can relay operators correlate events across pubkeys?
+- **Metadata leaks** — User-Agent strings, device fingerprinting, relay selection patterns
+
+## Target Clients
+
+Pick **3** from the following:
+
+| Client | Platform | Open Source |
+|--------|----------|-------------|
+| Damus | iOS | Yes |
+| Primal | Web + Mobile | Partial |
+| Amethyst | Android | Yes |
+| Snort | Web | Yes |
+| Coracle | Web | Yes |
+| Nostrudel | Web | Yes |
+
+## Severity Rating Scale
+
+- **Critical** — Remote key extraction, arbitrary code execution
+- **High** — XSS, key exposure via side channel, auth bypass
+- **Medium** — Privacy leaks, missing validation, insecure defaults
+- **Low** — Informational findings, minor UX security issues
 
 ## Deliverables
-- Written report with severity ratings (critical/high/medium/low)
-- Responsible disclosure to affected projects
-- Public summary (after disclosure period)
 
-This is a high-value task for an experienced security researcher.`
+1. **Full report** — PDF/Markdown with findings, severity ratings, and reproduction steps
+2. **Responsible disclosure** — Contact affected projects *before* public release (30-day window)
+3. **Public summary** — Publishable after disclosure period, suitable for a Nostr long-form post
+
+---
+
+*Prior audit experience and references strongly preferred. Please include links to past work in your solution submission.*`
 	});
 
 	await publish('Pledge from Bob (100k sats)', bob, {
@@ -859,26 +1073,46 @@ This is a high-value task for an experienced security researcher.`
 			['expiration', String(NEXT_WEEK)],
 			['client', 'bounty.ninja']
 		],
-		content: `Design a logo and visual identity for a new Nostr relay aggregator service.
+		content: `Design a **logo and visual identity** for a new Nostr relay aggregator service called *"Relayscape"*.
 
-## Requirements:
-- Clean, modern logo that works at all sizes (favicon to billboard)
-- SVG format (vector)
-- Color and monochrome variants
-- Brand color palette (3-5 colors)
-- Typography recommendation
-- Usage guidelines document
+## Brand Brief
 
-## Style direction:
-- Minimalist, tech-forward
-- Should evoke "decentralization" and "connectivity"
-- No generic globe/network graphics please
-- Bonus points for creative use of the Nostr purple (#9B59B6)
+Relayscape helps users discover, compare, and monitor Nostr relays. Think of it as *"Yelp for relays"* — a place to find the best relays for your use case.
 
-## Not looking for:
-- AI-generated art (hand-crafted designs only)
-- Overly complex illustrations
-- Anything that looks like a Bitcoin/crypto logo clone`
+## Deliverables Checklist
+
+- [ ] Primary logo — full color, works from \`16x16\` favicon to billboard
+- [ ] Monochrome variant (single color, for dark *and* light backgrounds)
+- [ ] Icon-only mark (for app icon, social avatars)
+- [ ] SVG format (vector) — **required**, no raster-only submissions
+- [ ] Brand color palette (3-5 colors) with hex codes
+- [ ] Typography recommendation (heading + body font pairing)
+- [ ] 2-page usage guidelines (minimum spacing, do's and don'ts)
+
+## Style Direction
+
+**Do:**
+- Minimalist, tech-forward aesthetic
+- Evoke *"decentralization"* and *"connectivity"* abstractly
+- Creative use of Nostr purple (\`#9B59B6\`) is a bonus
+- Consider how the logo looks as a Nostr profile picture
+
+**Don't:**
+- Generic globe/network node graphics
+- AI-generated art — **hand-crafted designs only**
+- Overly complex illustrations that lose detail at small sizes
+- Bitcoin/crypto logo clones (no B symbols, no blockchain cubes)
+
+## Inspiration
+
+> For reference, we love the brand identities of: **Linear**, **Raycast**, **Vercel**. Clean, recognizable, modern.
+
+## Submission Format
+
+Please include:
+1. \`logo-primary.svg\` and \`logo-mono.svg\`
+2. \`brand-colors.md\` with hex + RGB values
+3. Mockups showing the logo on a website header, mobile app, and social avatar`
 	});
 
 	await publish('Pledge from Bob (25k sats)', bob, {
@@ -1005,20 +1239,52 @@ Deliverables:
 			['fee', '10'],
 			['client', 'bounty.ninja']
 		],
-		content: `Translate the core Nostr protocol documentation (NIPs 01, 02, 04, 05, 07, 19, 25, 50) into Spanish.
+		content: `Translate the **core Nostr protocol documentation** into Spanish.
 
-## Requirements:
-- Accurate technical translation (not machine-translated)
-- Maintain original formatting and code examples
-- Native or near-native Spanish proficiency required
-- Familiarity with Nostr/Bitcoin technical terminology
+## NIPs to Translate
 
-## Deliverables:
-- Translated markdown files matching the original NIP structure
-- Glossary of technical terms with chosen Spanish equivalents
-- PR to the nostr-protocol/nips repo (or a fork)
+| NIP | Title | Priority | Est. Words |
+|-----|-------|----------|-----------|
+| **01** | Basic protocol flow | High | ~2,000 |
+| **02** | Follow list | Medium | ~500 |
+| **04** | Encrypted DMs (legacy) | Medium | ~800 |
+| **05** | DNS-based identifiers | High | ~600 |
+| **07** | Browser extension (\`window.nostr\`) | High | ~400 |
+| **19** | \`bech32\`-encoded entities | Medium | ~1,200 |
+| **25** | Reactions | Low | ~300 |
+| **50** | Search | Low | ~600 |
 
-Partial submissions welcome — can split the reward proportionally.`
+## Translation Guidelines
+
+### Quality Bar
+- **Human translation only** — No raw ChatGPT/DeepL output. AI-assisted drafting is fine, but the final product must be reviewed and polished by a native speaker.
+- Maintain *all* original formatting: headers, code blocks, links, and tables
+- Code examples stay in English (variable names, comments, etc.)
+
+### Terminology
+
+Maintain a glossary with consistent translations. Here are some suggested starting points:
+
+| English | Suggested Spanish | Notes |
+|---------|-------------------|-------|
+| relay | *relay* (keep as-is) | Well-established in the community |
+| event | *evento* | |
+| kind | *tipo* (or *kind*) | Discuss in glossary |
+| pubkey | *clave publica* | |
+| private key | *clave privada* | |
+| signature | *firma* | |
+
+> Feel free to propose better translations, but document your reasoning in the glossary.
+
+## Deliverables
+
+1. Translated \`.md\` files matching the original NIP structure
+2. \`GLOSARIO.md\` — Full glossary of technical terms with chosen translations
+3. PR to \`nostr-protocol/nips\` repo (or a fork we can review)
+
+---
+
+**Partial submissions welcome.** If you can only translate 4-5 of the 8 NIPs, submit what you have and the reward will be split proportionally. Priority NIPs (\`01\`, \`05\`, \`07\`) should be done first.`
 	});
 
 	await publish('Pledge from Bob (30k sats)', bob, {
@@ -1073,12 +1339,48 @@ Partial submissions welcome — can split the reward proportionally.`
 			['fee', '10'],
 			['client', 'bounty.ninja']
 		],
-		content: `Simple utility: generate QR codes for Nostr naddr identifiers. Should be a reusable Svelte component.
+		content: `**Simple utility bounty** — build a reusable Svelte component that generates QR codes for Nostr \`naddr\` identifiers.
 
-Input: naddr string
-Output: SVG QR code with optional logo overlay
+## Component API
 
-Bonus: support for NIP-21 \`nostr:\` URI scheme in the QR data.`
+\`\`\`svelte
+<script lang="ts">
+  import { NostrQR } from '$lib/components';
+</script>
+
+<!-- Basic usage -->
+<NostrQR naddr="naddr1qqxnzd..." />
+
+<!-- With options -->
+<NostrQR
+  naddr="naddr1qqxnzd..."
+  size={256}
+  logo="/logo.svg"
+  scheme="nostr"
+  fgColor="#1a1b26"
+  bgColor="#ffffff"
+/>
+\`\`\`
+
+## Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| \`naddr\` | \`string\` | *required* | The \`naddr\` bech32 string |
+| \`size\` | \`number\` | \`200\` | Width/height in pixels |
+| \`logo\` | \`string?\` | \`undefined\` | URL to overlay logo (centered) |
+| \`scheme\` | \`'raw' \\| 'nostr'\` | \`'raw'\` | Use \`nostr:\` URI prefix ([NIP-21](https://github.com/nostr-protocol/nips/blob/master/21.md)) |
+| \`fgColor\` | \`string\` | \`'#000'\` | Foreground color |
+| \`bgColor\` | \`string\` | \`'#fff'\` | Background color |
+
+## Requirements
+
+- Output must be **SVG** (not canvas) for crisp rendering at any size
+- Use Svelte 5 runes (\`$props\`, \`$derived\`)
+- Zero runtime dependencies beyond the QR encoding library itself
+- Include \`aria-label\` for accessibility
+
+> **Bonus sats** if the component also supports \`npub\`, \`note\`, and \`nevent\` identifiers via a generic \`value\` prop as an alternative to \`naddr\`.`
 	});
 
 	await publish('Pledge from Frank (5k sats)', frank, {
