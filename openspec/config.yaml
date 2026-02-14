@@ -1,7 +1,7 @@
 schema: spec-driven
 
 context: |
-  Tasks.fyi — Decentralized task board / labor marketplace.
+  Bounty.ninja — Decentralized bounty board / labor marketplace.
   Tech stack: SvelteKit 2, Svelte 5 Runes, TypeScript strict, Bun, Tailwind CSS 4, shadcn-svelte (next), Applesauce (Nostr), nostr-idb, @cashu/cashu-ts, RxJS, Vitest, Playwright.
   Static SPA — no backend, no SSR. All data from Nostr relays + IndexedDB cache.
   Cashu ecash for payments via P2PK locking (NUT-11).
