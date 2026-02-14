@@ -33,7 +33,6 @@
 		"clsx": "^2.1.1",
 		"dompurify": "^3.3.1",
 		"geist": "^1.7.0",
-		"marked": "^17.0.1",
 		"nostr-idb": "^4.0.1",
 		"nostr-tools": "^2.23.0",
 		"rxjs": "^7.8.2",

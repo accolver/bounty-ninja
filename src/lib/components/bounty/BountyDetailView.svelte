@@ -9,7 +9,7 @@
 	import BountyTimer from './BountyTimer.svelte';
 	import SatAmount from '$lib/components/shared/SatAmount.svelte';
 	import TimeAgo from '$lib/components/shared/TimeAgo.svelte';
-	import Markdown from '$lib/components/shared/Markdown.svelte';
+	import MarkdownViewer from '$lib/components/shared/MarkdownViewer.svelte';
 	import Tooltip from '$lib/components/shared/Tooltip.svelte';
 	import ErrorBoundary from '$lib/components/shared/ErrorBoundary.svelte';
 	import InfoIcon from '@lucide/svelte/icons/info';
@@ -102,7 +102,7 @@
 		<section aria-label="Bounty description" class="lg:col-span-2">
 			<div class="space-y-4 rounded-lg border border-border bg-card p-5">
 				<h2 class="text-lg font-semibold text-foreground">Description</h2>
-				<Markdown content={detail.description} />
+				<MarkdownViewer content={detail.description} />
 			</div>
 		</section>
 
@@ -215,7 +215,7 @@
 									<TimeAgo timestamp={solution.createdAt} />
 								</div>
 
-								<Markdown content={solution.description} />
+								<MarkdownViewer content={solution.description} />
 
 								{#if solution.deliverableUrl}
 									<div class="text-sm">

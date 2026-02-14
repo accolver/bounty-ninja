@@ -2,7 +2,7 @@
 	import type { Solution, Vote } from '$lib/bounty/types';
 	import { nip19 } from 'nostr-tools';
 	import { formatNpub } from '$lib/utils/format';
-	import Markdown from '$lib/components/shared/Markdown.svelte';
+	import MarkdownViewer from '$lib/components/shared/MarkdownViewer.svelte';
 	import TimeAgo from '$lib/components/shared/TimeAgo.svelte';
 
 	const { solution, votes = [] }: { solution: Solution; votes?: Vote[] } = $props();
@@ -28,7 +28,7 @@
 		</div>
 
 		<!-- Description -->
-		<Markdown content={solution.description} />
+		<MarkdownViewer content={solution.description} />
 
 		<!-- Deliverable URL -->
 		{#if solution.deliverableUrl}
@@ -48,7 +48,9 @@
 
 		<!-- Vote summary (if votes exist) -->
 		{#if votes.length > 0}
-			<div class="flex items-center gap-3 border-t border-border pt-2 text-xs text-muted-foreground">
+			<div
+				class="flex items-center gap-3 border-t border-border pt-2 text-xs text-muted-foreground"
+			>
 				<span class="text-success" aria-label="{approveCount} approvals">
 					{approveCount} approve
 				</span>
