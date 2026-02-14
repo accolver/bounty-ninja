@@ -18,6 +18,8 @@
 	"type": "module",
 	"dependencies": {
 		"@cashu/cashu-ts": "^3.4.1",
+		"@milkdown/crepe": "^7.18.0",
+		"@milkdown/kit": "^7.18.0",
 		"@sveltejs/kit": "^2.50.2",
 		"@types/dompurify": "^3.2.0",
 		"applesauce-accounts": "^5.1.0",
@@ -30,6 +32,7 @@
 		"applesauce-wallet": "^5.0.0",
 		"clsx": "^2.1.1",
 		"dompurify": "^3.3.1",
+		"geist": "^1.7.0",
 		"marked": "^17.0.1",
 		"nostr-idb": "^4.0.1",
 		"nostr-tools": "^2.23.0",

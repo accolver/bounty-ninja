@@ -2,6 +2,18 @@
 @import 'tw-animate-css';
 
 /* ═══════════════════════════════════════════════════════════════════════════
+ * Self-hosted Geist Sans — variable weight (100–900)
+ * Source: https://vercel.com/font — MIT licensed
+ * ═══════════════════════════════════════════════════════════════════════════ */
+@font-face {
+	font-family: 'Geist Sans';
+	src: url('/fonts/Geist-Variable.woff2') format('woff2');
+	font-weight: 100 900;
+	font-style: normal;
+	font-display: swap;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
  * Previous theme: Tokyo Night — preserved for reference
  * ═══════════════════════════════════════════════════════════════════════════
  *
@@ -137,6 +149,7 @@ html {
 /* Base body styles */
 body {
 	font-family:
+		'Geist Sans',
 		system-ui,
 		-apple-system,
 		BlinkMacSystemFont,
