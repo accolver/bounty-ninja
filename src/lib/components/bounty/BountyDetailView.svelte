@@ -100,8 +100,7 @@
 	<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
 		<!-- Description — takes 2 cols on desktop -->
 		<section aria-label="Bounty description" class="lg:col-span-2">
-			<div class="space-y-4 rounded-lg border border-border bg-card p-5">
-				<h2 class="text-lg font-semibold text-foreground">Description</h2>
+			<div class="rounded-lg border border-border bg-card p-5">
 				<MarkdownViewer content={detail.description} />
 			</div>
 		</section>
