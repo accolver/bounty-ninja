@@ -2,7 +2,7 @@
 
 ## A Decentralized Task Board Powered by Nostr, Cashu & Svelte 5
 
-**Domain:** https://bounty.ninja **Version:** 2.0 **Last Updated:** 2026-02-10
+**Domain:** https://bounty.ninja **Version:** 2.1 **Last Updated:** 2026-02-13
 **Status:** Ready for AI-Assisted Implementation
 
 ---
@@ -45,8 +45,9 @@ server, database, or intermediary.
 
 The application is a **local-first, client-side only** SvelteKit static site.
 All state is derived from Nostr relay subscriptions and cached locally in
-IndexedDB. Financial settlement uses Cashu ecash tokens locked with P2PK
-(NUT-11) for trustless escrow.
+IndexedDB. Financial settlement uses Cashu ecash tokens with P2PK (NUT-11)
+spending conditions for pledger-controlled escrow — pledgers retain custody of
+their funds until community consensus triggers release.
 
 **Key value proposition:** A global, permissionless task board where:
 
@@ -62,8 +63,8 @@ IndexedDB. Financial settlement uses Cashu ecash tokens locked with P2PK
 
 ### Primary Goal
 
-Ship an MVP task board at https://bounty.ninja where users can create, fund, solve,
-and pay out tasks using Nostr + Cashu — with zero backend infrastructure.
+Ship an MVP task board at https://bounty.ninja where users can create, fund,
+solve, and pay out tasks using Nostr + Cashu — with zero backend infrastructure.
 
 ### Secondary Goals
 
@@ -75,13 +76,13 @@ and pay out tasks using Nostr + Cashu — with zero backend infrastructure.
 
 ### Success Metrics
 
-| Metric                         | Target | Measurement                                        |
-| ------------------------------ | ------ | -------------------------------------------------- |
+| Metric                         | Target | Measurement                                           |
+| ------------------------------ | ------ | ----------------------------------------------------- |
 | Tasks created (first 90 days)  | 100+   | Count of Kind 37300 events with `#t bounty.ninja` tag |
-| Unique pubkeys interacting     | 50+    | Distinct pubkeys across all task event kinds       |
-| Successful payouts             | 20+    | Count of Kind 73004 payout events                  |
-| Page load time (cold)          | < 3s   | Lighthouse performance audit                       |
-| Lighthouse accessibility score | > 90   | Lighthouse audit                                   |
+| Unique pubkeys interacting     | 50+    | Distinct pubkeys across all task event kinds          |
+| Successful payouts             | 20+    | Count of Kind 73004 payout events                     |
+| Page load time (cold)          | < 3s   | Lighthouse performance audit                          |
+| Lighthouse accessibility score | > 90   | Lighthouse audit                                      |
 
 ---
 
@@ -184,7 +185,13 @@ PUBLIC_APP_URL=https://bounty.ninja
 
 # Anti-spam fee range (in sats)
 PUBLIC_MIN_SUBMISSION_FEE=10
-PUBLIC_MAX_SUBMISSION_FEE=100
+PUBLIC_MAX_SUBMISSION_FEE=10000
+
+# Vote quorum threshold (percentage, default 66 for supermajority)
+PUBLIC_VOTE_QUORUM_PERCENT=66
+
+# Maximum deadline duration in days (default 365)
+PUBLIC_MAX_DEADLINE_DAYS=365
 
 # NIP-50 search relay (must support search filter)
 PUBLIC_SEARCH_RELAY=wss://search.nos.today
@@ -263,7 +270,11 @@ PUBLIC_APP_NAME = "Bounty.ninja"
 PUBLIC_APP_URL = "https://bounty.ninja"
 # Anti-spam fee range (in sats)
 PUBLIC_MIN_SUBMISSION_FEE = "10"
-PUBLIC_MAX_SUBMISSION_FEE = "100"
+PUBLIC_MAX_SUBMISSION_FEE = "10000"
+# Vote quorum threshold — percentage of total pledged sats required for consensus
+PUBLIC_VOTE_QUORUM_PERCENT = "66"
+# Maximum deadline duration in days (1 year)
+PUBLIC_MAX_DEADLINE_DAYS = "365"
 # NIP-50 search relay (must support search filter)
 PUBLIC_SEARCH_RELAY = "wss://search.nos.today"
 # Local relay URL for development
@@ -740,13 +751,30 @@ export interface Pledge {
  *
  * Content: Optional message from the funder (e.g., "Great idea, happy to fund this!")
  *
- * P2PK Locking Strategy:
- *   The Cashu token in the `cashu` tag MUST be locked (NUT-11 P2PK) to a
- *   public key derived from the task address. This ensures tokens can only
- *   be claimed by the payout process, not by arbitrary parties.
+ * P2PK Locking Strategy (Pledger-Controlled Escrow):
+ *   The Cashu token in the `cashu` tag MUST be locked (NUT-11 P2PK) to the
+ *   PLEDGER's own public key. This ensures the pledger retains custody of
+ *   their funds throughout the bounty lifecycle — no other party can spend
+ *   the tokens without the pledger's cooperation.
  *
- *   Lock target: The task creator's pubkey (they orchestrate payout).
- *   Refund: After `expiration` timestamp, tokens become claimable by the funder's pubkey.
+ *   Lock target: The pledger's own pubkey (self-custody).
+ *   Locktime: The bounty deadline (NIP-40 expiration timestamp).
+ *   Refund: After locktime expires, tokens remain spendable by the pledger
+ *           (they already own the key). The locktime ensures tokens cannot
+ *           be released to a solver after the deadline passes without the
+ *           pledger's active participation.
+ *
+ *   Payout flow (after 66% vote consensus):
+ *     1. Each pledger is prompted to release their funds by signing a swap
+ *        that creates new P2PK-locked tokens for the winning solver.
+ *     2. Pledgers who don't release within a grace period retain their funds
+ *        (the solver receives only the released portions).
+ *     3. Reputation consequences apply to pledgers who don't release after
+ *        consensus.
+ *
+ *   This model prevents rug-pulls: the bounty creator NEVER controls pledge
+ *   funds. The trade-off is that payout requires active pledger participation,
+ *   mitigated by reputation scoring and social coordination.
  */
 ```
 
@@ -863,7 +891,11 @@ export interface Vote {
  *   - Vote weight = pledgeAmountInSats (linear — 1 sat = 1 vote weight).
  *   - Each pubkey may vote once per solution. Latest event wins (replaceable by pubkey+solution).
  *   - A solution is "approved" when total approve weight > total reject weight
- *     AND total approve weight >= totalPledgedSats * 0.5 (quorum).
+ *     AND total approve weight >= totalPledgedSats * QUORUM_FRACTION (default 0.66).
+ *   - The quorum threshold is configurable via PUBLIC_VOTE_QUORUM_PERCENT env var
+ *     (default 66%). Supermajority reduces risk of contentious payouts.
+ *   - The vote serves as a coordination signal: when 66% consensus is reached,
+ *     all pledgers are prompted to release their funds to the winning solver.
  */
 ```
 
@@ -917,12 +949,19 @@ export interface Payout {
  *
  * Content: Optional payout note.
  *
- * Payout Process:
- *   1. Task creator collects all pledge tokens (Kind 73002 `cashu` tags)
- *   2. Creator swaps/consolidates tokens at the mint (they hold the P2PK key)
- *   3. Creator creates new token(s) P2PK-locked to the solver's pubkey
- *   4. Creator publishes Kind 73004 with the solver-locked tokens
- *   5. Solver claims tokens using their private key
+ * Payout Process (Pledger-Controlled Release):
+ *   1. Vote consensus is reached (66% quorum of pledged sats approve a solution)
+ *   2. The app prompts each pledger to release their funds:
+ *      a. Pledger signs a swap at the mint using their private key
+ *      b. New tokens are created P2PK-locked to the winning solver's pubkey
+ *   3. Each pledger publishes their own Kind 73004 payout event for their portion
+ *   4. Solver claims tokens from each payout event using their private key
+ *   5. Pledgers who don't release within the grace period retain their funds
+ *      but receive negative reputation impact
+ *
+ *   Note: Multiple Kind 73004 events may exist for the same bounty — one per
+ *   pledger who releases. The total payout is the sum of all released portions.
+ *   The bounty transitions to "completed" when any payout events exist.
  */
 ```
 
@@ -1120,8 +1159,8 @@ Svelte rune state updates → UI re-renders
 | Route             | File                                     | Description                                                                                                                                                              | Auth Required             |
 | ----------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------- |
 | `/`               | `src/routes/+page.svelte`                | **Home page.** Popular tasks ranked by total pledged sats. Search bar (NIP-50). Category filter tabs.                                                                    | No                        |
-| `/bounty/new`       | `src/routes/bounty/new/+page.svelte`       | **Create task.** Form: title, description (markdown), reward target, tags, deadline, mint preference, submission fee. Publishes Kind 37300.                              | Yes (NIP-07)              |
-| `/bounty/[naddr]`   | `src/routes/bounty/[naddr]/+page.svelte`   | **Task detail.** Full description, pledge list, solution list, vote progress. Actions: pledge, submit solution, vote. `naddr` is a NIP-19 encoded address (`naddr1...`). | No (view), Yes (interact) |
+| `/bounty/new`     | `src/routes/bounty/new/+page.svelte`     | **Create task.** Form: title, description (markdown), reward target, tags, deadline, mint preference, submission fee. Publishes Kind 37300.                              | Yes (NIP-07)              |
+| `/bounty/[naddr]` | `src/routes/bounty/[naddr]/+page.svelte` | **Task detail.** Full description, pledge list, solution list, vote progress. Actions: pledge, submit solution, vote. `naddr` is a NIP-19 encoded address (`naddr1...`). | No (view), Yes (interact) |
 | `/profile/[npub]` | `src/routes/profile/[npub]/+page.svelte` | **User profile.** Tasks created, solutions submitted, pledges made, reputation score. `npub` is NIP-19 encoded pubkey.                                                   | No                        |
 | `/search`         | `src/routes/search/+page.svelte`         | **Search results.** NIP-50 full-text search across tasks. Filters: status (open/completed), min reward, tags.                                                            | No                        |
 | `/settings`       | `src/routes/settings/+page.svelte`       | **User settings.** Manage relay list, preferred Cashu mint, theme (dark/light), notification preferences.                                                                | Yes (NIP-07)              |
@@ -1377,7 +1416,7 @@ export function tallyVotes(
     }
   }
 
-  const quorum = totalPledgedSats * 0.5;
+  const quorum = totalPledgedSats * 0.66; // Configurable via PUBLIC_VOTE_QUORUM_PERCENT
   const quorumPercent = quorum > 0
     ? (Math.max(approveWeight, rejectWeight) / quorum) * 100
     : 0;
@@ -1402,10 +1441,10 @@ yet) and **Completed** tasks using NIP-50 search filters on compatible relays.
 ```typescript
 // src/lib/bounty/filters.ts
 import {
+  BOUNTY_KIND,
   PAYOUT_KIND,
   PLEDGE_KIND,
   SOLUTION_KIND,
-  BOUNTY_KIND,
   VOTE_KIND,
 } from "./kinds";
 import type { Filter } from "nostr-tools";
@@ -1476,14 +1515,16 @@ by scanning the bounty title and description against a curated keyword taxonomy.
 
 - **Zero friction.** Tags are suggested automatically as soon as the user
   finishes typing a title or blurs the description field. No extra clicks
-  required — suggestions appear inline and the user accepts, dismisses, or edits.
+  required — suggestions appear inline and the user accepts, dismisses, or
+  edits.
 - **Client-side only.** The entire taxonomy ships as a static TypeScript module
   (~2-4 KB). No API calls, no network dependency, no privacy concerns.
 - **Broad coverage.** The taxonomy covers technical, creative, civic, physical,
   legal, financial, and activist bounties — not just software.
-- **Community layering.** In addition to taxonomy matches, the input autocompletes
-  against tags already used by other bounties in the local EventStore, ranked by
-  frequency. This lets the community organically extend the taxonomy.
+- **Community layering.** In addition to taxonomy matches, the input
+  autocompletes against tags already used by other bounties in the local
+  EventStore, ranked by frequency. This lets the community organically extend
+  the taxonomy.
 - **User sovereignty.** Auto-suggested tags are _suggestions_, never
   auto-applied. The creator always has final say over which tags are published.
 
@@ -1509,300 +1550,404 @@ export interface TaxonomyEntry {
 export const TAXONOMY: TaxonomyEntry[] = [
   // ── Software & Engineering ──────────────────────────────────────────
   {
-    tag: 'bitcoin',
-    label: 'Bitcoin',
-    patterns: [/\b(bitcoin|btc|lightning|ln|lnurl|bolt11|onchain|utxo|mempool)\b/i]
+    tag: "bitcoin",
+    label: "Bitcoin",
+    patterns: [
+      /\b(bitcoin|btc|lightning|ln|lnurl|bolt11|onchain|utxo|mempool)\b/i,
+    ],
   },
   {
-    tag: 'nostr',
-    label: 'Nostr',
-    patterns: [/\b(nostr|nip-?\d+|relay|nsec|npub|naddr|nevent|nprofile|zap)\b/i]
+    tag: "nostr",
+    label: "Nostr",
+    patterns: [
+      /\b(nostr|nip-?\d+|relay|nsec|npub|naddr|nevent|nprofile|zap)\b/i,
+    ],
   },
   {
-    tag: 'cashu',
-    label: 'Cashu',
-    patterns: [/\b(cashu|ecash|e-?cash|nut-?\d+|mint\s+url|cashu\s*token)\b/i]
+    tag: "cashu",
+    label: "Cashu",
+    patterns: [/\b(cashu|ecash|e-?cash|nut-?\d+|mint\s+url|cashu\s*token)\b/i],
   },
   {
-    tag: 'frontend',
-    label: 'Frontend',
-    patterns: [/\b(frontend|front-end|react|svelte|vue|angular|next\.?js|nuxt|css|html|tailwind|ui\s+component|responsive|dom)\b/i]
+    tag: "frontend",
+    label: "Frontend",
+    patterns: [
+      /\b(frontend|front-end|react|svelte|vue|angular|next\.?js|nuxt|css|html|tailwind|ui\s+component|responsive|dom)\b/i,
+    ],
   },
   {
-    tag: 'backend',
-    label: 'Backend',
-    patterns: [/\b(backend|back-end|server|api|rest\s*api|graphql|grpc|microservice|endpoint|webhook|middleware)\b/i]
+    tag: "backend",
+    label: "Backend",
+    patterns: [
+      /\b(backend|back-end|server|api|rest\s*api|graphql|grpc|microservice|endpoint|webhook|middleware)\b/i,
+    ],
   },
   {
-    tag: 'mobile',
-    label: 'Mobile',
-    patterns: [/\b(mobile|ios|android|react\s*native|flutter|swift|kotlin|app\s+store|play\s+store)\b/i]
+    tag: "mobile",
+    label: "Mobile",
+    patterns: [
+      /\b(mobile|ios|android|react\s*native|flutter|swift|kotlin|app\s+store|play\s+store)\b/i,
+    ],
   },
   {
-    tag: 'rust',
-    label: 'Rust',
-    patterns: [/\b(rust|cargo|crate|rustc|tokio|wasm-?\s*pack)\b/i]
+    tag: "rust",
+    label: "Rust",
+    patterns: [/\b(rust|cargo|crate|rustc|tokio|wasm-?\s*pack)\b/i],
   },
   {
-    tag: 'python',
-    label: 'Python',
-    patterns: [/\b(python|pip|django|flask|fastapi|pytorch|pandas|numpy|jupyter)\b/i]
+    tag: "python",
+    label: "Python",
+    patterns: [
+      /\b(python|pip|django|flask|fastapi|pytorch|pandas|numpy|jupyter)\b/i,
+    ],
   },
   {
-    tag: 'javascript',
-    label: 'JavaScript',
-    patterns: [/\b(javascript|typescript|node\.?js|deno|bun|npm|yarn|pnpm|express|vite|webpack)\b/i]
+    tag: "javascript",
+    label: "JavaScript",
+    patterns: [
+      /\b(javascript|typescript|node\.?js|deno|bun|npm|yarn|pnpm|express|vite|webpack)\b/i,
+    ],
   },
   {
-    tag: 'golang',
-    label: 'Go',
-    patterns: [/\b(golang|go\s+module|goroutine|gin\s+framework)\b/i]
+    tag: "golang",
+    label: "Go",
+    patterns: [/\b(golang|go\s+module|goroutine|gin\s+framework)\b/i],
   },
   {
-    tag: 'devops',
-    label: 'DevOps',
-    patterns: [/\b(devops|ci\/?cd|docker|kubernetes|k8s|terraform|ansible|jenkins|github\s+actions|deploy|pipeline|infrastructure)\b/i]
+    tag: "devops",
+    label: "DevOps",
+    patterns: [
+      /\b(devops|ci\/?cd|docker|kubernetes|k8s|terraform|ansible|jenkins|github\s+actions|deploy|pipeline|infrastructure)\b/i,
+    ],
   },
   {
-    tag: 'security',
-    label: 'Security',
-    patterns: [/\b(security|vulnerability|pentest|pen-?test|audit|cve|exploit|encryption|authentication|authorization|oauth|jwt|firewall|hardening)\b/i]
+    tag: "security",
+    label: "Security",
+    patterns: [
+      /\b(security|vulnerability|pentest|pen-?test|audit|cve|exploit|encryption|authentication|authorization|oauth|jwt|firewall|hardening)\b/i,
+    ],
   },
   {
-    tag: 'database',
-    label: 'Database',
-    patterns: [/\b(database|sql|postgres|mysql|sqlite|mongodb|redis|cassandra|schema|migration|query\s+optimization)\b/i]
+    tag: "database",
+    label: "Database",
+    patterns: [
+      /\b(database|sql|postgres|mysql|sqlite|mongodb|redis|cassandra|schema|migration|query\s+optimization)\b/i,
+    ],
   },
   {
-    tag: 'ai',
-    label: 'AI / ML',
-    patterns: [/\b(ai|artificial\s+intelligence|machine\s+learning|deep\s+learning|llm|gpt|neural\s+net|model\s+training|fine-?\s*tun|prompt\s+engineer|nlp|computer\s+vision)\b/i]
+    tag: "ai",
+    label: "AI / ML",
+    patterns: [
+      /\b(ai|artificial\s+intelligence|machine\s+learning|deep\s+learning|llm|gpt|neural\s+net|model\s+training|fine-?\s*tun|prompt\s+engineer|nlp|computer\s+vision)\b/i,
+    ],
   },
   {
-    tag: 'data',
-    label: 'Data',
-    patterns: [/\b(data\s+(?:analysis|science|engineer|pipeline|warehouse|lake|visualization)|etl|analytics|scraping|web\s+scraper|dataset)\b/i]
+    tag: "data",
+    label: "Data",
+    patterns: [
+      /\b(data\s+(?:analysis|science|engineer|pipeline|warehouse|lake|visualization)|etl|analytics|scraping|web\s+scraper|dataset)\b/i,
+    ],
   },
   {
-    tag: 'blockchain',
-    label: 'Blockchain',
-    patterns: [/\b(blockchain|smart\s+contract|solidity|ethereum|defi|dao|nft|token|web3|dapp)\b/i]
+    tag: "blockchain",
+    label: "Blockchain",
+    patterns: [
+      /\b(blockchain|smart\s+contract|solidity|ethereum|defi|dao|nft|token|web3|dapp)\b/i,
+    ],
   },
   {
-    tag: 'networking',
-    label: 'Networking',
-    patterns: [/\b(networking|tcp|udp|dns|http|websocket|vpn|tor|p2p|peer-to-peer|protocol|mesh\s+network)\b/i]
+    tag: "networking",
+    label: "Networking",
+    patterns: [
+      /\b(networking|tcp|udp|dns|http|websocket|vpn|tor|p2p|peer-to-peer|protocol|mesh\s+network)\b/i,
+    ],
   },
   {
-    tag: 'embedded',
-    label: 'Embedded',
-    patterns: [/\b(embedded|firmware|microcontroller|arduino|raspberry\s+pi|esp32|iot|rtos|fpga|pcb)\b/i]
+    tag: "embedded",
+    label: "Embedded",
+    patterns: [
+      /\b(embedded|firmware|microcontroller|arduino|raspberry\s+pi|esp32|iot|rtos|fpga|pcb)\b/i,
+    ],
   },
   {
-    tag: 'open-source',
-    label: 'Open Source',
-    patterns: [/\b(open[\s-]?source|foss|libre|gpl|mit\s+license|apache\s+license|contribute|contributor|maintainer)\b/i]
+    tag: "open-source",
+    label: "Open Source",
+    patterns: [
+      /\b(open[\s-]?source|foss|libre|gpl|mit\s+license|apache\s+license|contribute|contributor|maintainer)\b/i,
+    ],
   },
   {
-    tag: 'testing',
-    label: 'Testing',
-    patterns: [/\b(testing|unit\s+test|integration\s+test|e2e|end-to-end|qa|quality\s+assurance|test\s+suite|coverage|regression)\b/i]
+    tag: "testing",
+    label: "Testing",
+    patterns: [
+      /\b(testing|unit\s+test|integration\s+test|e2e|end-to-end|qa|quality\s+assurance|test\s+suite|coverage|regression)\b/i,
+    ],
   },
   {
-    tag: 'bug',
-    label: 'Bug Fix',
-    patterns: [/\b(bug|fix|patch|issue|broken|crash|regression|debug|troubleshoot)\b/i]
+    tag: "bug",
+    label: "Bug Fix",
+    patterns: [
+      /\b(bug|fix|patch|issue|broken|crash|regression|debug|troubleshoot)\b/i,
+    ],
   },
 
   // ── Design & Creative ──────────────────────────────────────────────
   {
-    tag: 'design',
-    label: 'Design',
-    patterns: [/\b(design|ui\/?ux|user\s+interface|user\s+experience|wireframe|mockup|prototype|figma|sketch|adobe\s+xd|interaction\s+design)\b/i]
+    tag: "design",
+    label: "Design",
+    patterns: [
+      /\b(design|ui\/?ux|user\s+interface|user\s+experience|wireframe|mockup|prototype|figma|sketch|adobe\s+xd|interaction\s+design)\b/i,
+    ],
   },
   {
-    tag: 'branding',
-    label: 'Branding',
-    patterns: [/\b(brand|logo|visual\s+identity|style\s+guide|brand\s+kit|rebrand|color\s+palette|typography)\b/i]
+    tag: "branding",
+    label: "Branding",
+    patterns: [
+      /\b(brand|logo|visual\s+identity|style\s+guide|brand\s+kit|rebrand|color\s+palette|typography)\b/i,
+    ],
   },
   {
-    tag: 'illustration',
-    label: 'Illustration',
-    patterns: [/\b(illustrat|drawing|artwork|sketch|comic|character\s+design|icon\s+set|infographic|vector\s+art)\b/i]
+    tag: "illustration",
+    label: "Illustration",
+    patterns: [
+      /\b(illustrat|drawing|artwork|sketch|comic|character\s+design|icon\s+set|infographic|vector\s+art)\b/i,
+    ],
   },
   {
-    tag: 'video',
-    label: 'Video',
-    patterns: [/\b(video|film|animation|motion\s+graphics|editing|vfx|youtube|documentary|cinematic|footage|timelapse)\b/i]
+    tag: "video",
+    label: "Video",
+    patterns: [
+      /\b(video|film|animation|motion\s+graphics|editing|vfx|youtube|documentary|cinematic|footage|timelapse)\b/i,
+    ],
   },
   {
-    tag: 'audio',
-    label: 'Audio',
-    patterns: [/\b(audio|music|sound|podcast|recording|mixing|mastering|jingle|soundtrack|voiceover|narration)\b/i]
+    tag: "audio",
+    label: "Audio",
+    patterns: [
+      /\b(audio|music|sound|podcast|recording|mixing|mastering|jingle|soundtrack|voiceover|narration)\b/i,
+    ],
   },
   {
-    tag: 'photography',
-    label: 'Photography',
-    patterns: [/\b(photo|photograph|portrait|headshot|product\s+photo|aerial\s+photo|drone\s+photo|lightroom)\b/i]
+    tag: "photography",
+    label: "Photography",
+    patterns: [
+      /\b(photo|photograph|portrait|headshot|product\s+photo|aerial\s+photo|drone\s+photo|lightroom)\b/i,
+    ],
   },
   {
-    tag: '3d',
-    label: '3D',
-    patterns: [/\b(3d|blender|unity|unreal|cad|rendering|3d\s+model|3d\s+print)\b/i]
+    tag: "3d",
+    label: "3D",
+    patterns: [
+      /\b(3d|blender|unity|unreal|cad|rendering|3d\s+model|3d\s+print)\b/i,
+    ],
   },
   {
-    tag: 'game',
-    label: 'Game Dev',
-    patterns: [/\b(game|gamedev|game\s+design|game\s+engine|unity|unreal|godot|pixel\s+art|level\s+design)\b/i]
+    tag: "game",
+    label: "Game Dev",
+    patterns: [
+      /\b(game|gamedev|game\s+design|game\s+engine|unity|unreal|godot|pixel\s+art|level\s+design)\b/i,
+    ],
   },
 
   // ── Content & Writing ──────────────────────────────────────────────
   {
-    tag: 'writing',
-    label: 'Writing',
-    patterns: [/\b(writing|write|article|blog\s+post|copywriting|content\s+creation|ghostwrit|editorial|essay|ebook)\b/i]
+    tag: "writing",
+    label: "Writing",
+    patterns: [
+      /\b(writing|write|article|blog\s+post|copywriting|content\s+creation|ghostwrit|editorial|essay|ebook)\b/i,
+    ],
   },
   {
-    tag: 'documentation',
-    label: 'Documentation',
-    patterns: [/\b(documentation|docs|readme|wiki|technical\s+writ|api\s+doc|user\s+guide|tutorial|how-?\s*to)\b/i]
+    tag: "documentation",
+    label: "Documentation",
+    patterns: [
+      /\b(documentation|docs|readme|wiki|technical\s+writ|api\s+doc|user\s+guide|tutorial|how-?\s*to)\b/i,
+    ],
   },
   {
-    tag: 'translation',
-    label: 'Translation',
-    patterns: [/\b(translat|locali[sz]|i18n|l10n|multilingual|interpret|spanish|french|german|chinese|japanese|portuguese|arabic|hindi|korean)\b/i]
+    tag: "translation",
+    label: "Translation",
+    patterns: [
+      /\b(translat|locali[sz]|i18n|l10n|multilingual|interpret|spanish|french|german|chinese|japanese|portuguese|arabic|hindi|korean)\b/i,
+    ],
   },
   {
-    tag: 'education',
-    label: 'Education',
-    patterns: [/\b(education|teach|course|curriculum|lesson|workshop|training|tutor|mentor|bootcamp|lecture|webinar)\b/i]
+    tag: "education",
+    label: "Education",
+    patterns: [
+      /\b(education|teach|course|curriculum|lesson|workshop|training|tutor|mentor|bootcamp|lecture|webinar)\b/i,
+    ],
   },
 
   // ── Marketing & Growth ─────────────────────────────────────────────
   {
-    tag: 'marketing',
-    label: 'Marketing',
-    patterns: [/\b(marketing|promotion|campaign|advertising|ad\s+campaign|growth|outreach|awareness|impressions|engagement)\b/i]
+    tag: "marketing",
+    label: "Marketing",
+    patterns: [
+      /\b(marketing|promotion|campaign|advertising|ad\s+campaign|growth|outreach|awareness|impressions|engagement)\b/i,
+    ],
   },
   {
-    tag: 'social-media',
-    label: 'Social Media',
-    patterns: [/\b(social\s+media|twitter|x\.com|instagram|tiktok|youtube|facebook|reddit|discord|telegram|community\s+manag|influencer)\b/i]
+    tag: "social-media",
+    label: "Social Media",
+    patterns: [
+      /\b(social\s+media|twitter|x\.com|instagram|tiktok|youtube|facebook|reddit|discord|telegram|community\s+manag|influencer)\b/i,
+    ],
   },
   {
-    tag: 'seo',
-    label: 'SEO',
-    patterns: [/\b(seo|search\s+engine|keyword|backlink|organic\s+traffic|serp|meta\s+tag|sitemap)\b/i]
+    tag: "seo",
+    label: "SEO",
+    patterns: [
+      /\b(seo|search\s+engine|keyword|backlink|organic\s+traffic|serp|meta\s+tag|sitemap)\b/i,
+    ],
   },
 
   // ── Research & Analysis ────────────────────────────────────────────
   {
-    tag: 'research',
-    label: 'Research',
-    patterns: [/\b(research|study|investigation|analysis|report|whitepaper|white\s+paper|literature\s+review|findings|methodology|peer\s+review)\b/i]
+    tag: "research",
+    label: "Research",
+    patterns: [
+      /\b(research|study|investigation|analysis|report|whitepaper|white\s+paper|literature\s+review|findings|methodology|peer\s+review)\b/i,
+    ],
   },
   {
-    tag: 'survey',
-    label: 'Survey',
-    patterns: [/\b(survey|questionnaire|poll|census|feedback\s+collection|user\s+research|interview|focus\s+group)\b/i]
+    tag: "survey",
+    label: "Survey",
+    patterns: [
+      /\b(survey|questionnaire|poll|census|feedback\s+collection|user\s+research|interview|focus\s+group)\b/i,
+    ],
   },
 
   // ── Civic & Community ──────────────────────────────────────────────
   {
-    tag: 'civic',
-    label: 'Civic',
-    patterns: [/\b(civic|city|municipal|public\s+space|urban|town\s+hall|government|zoning|permit|ordinance|public\s+hearing|council|mayor)\b/i]
+    tag: "civic",
+    label: "Civic",
+    patterns: [
+      /\b(civic|city|municipal|public\s+space|urban|town\s+hall|government|zoning|permit|ordinance|public\s+hearing|council|mayor)\b/i,
+    ],
   },
   {
-    tag: 'environment',
-    label: 'Environment',
-    patterns: [/\b(environment|climate|sustain|renewable|solar|wind\s+power|recycling|conservation|wildlife|pollution|clean\s+energy|carbon|reforestation|tree\s+plant)\b/i]
+    tag: "environment",
+    label: "Environment",
+    patterns: [
+      /\b(environment|climate|sustain|renewable|solar|wind\s+power|recycling|conservation|wildlife|pollution|clean\s+energy|carbon|reforestation|tree\s+plant)\b/i,
+    ],
   },
   {
-    tag: 'activism',
-    label: 'Activism',
-    patterns: [/\b(activism|petition|signature|protest|rally|advocacy|campaign|mobiliz|grassroots|civil\s+rights|human\s+rights|justice|reform|movement)\b/i]
+    tag: "activism",
+    label: "Activism",
+    patterns: [
+      /\b(activism|petition|signature|protest|rally|advocacy|campaign|mobiliz|grassroots|civil\s+rights|human\s+rights|justice|reform|movement)\b/i,
+    ],
   },
   {
-    tag: 'nonprofit',
-    label: 'Nonprofit',
-    patterns: [/\b(nonprofit|non-?\s*profit|charity|donation|fundrais|volunteer|ngo|501c|humanitarian|relief\s+effort|philanthrop)\b/i]
+    tag: "nonprofit",
+    label: "Nonprofit",
+    patterns: [
+      /\b(nonprofit|non-?\s*profit|charity|donation|fundrais|volunteer|ngo|501c|humanitarian|relief\s+effort|philanthrop)\b/i,
+    ],
   },
   {
-    tag: 'governance',
-    label: 'Governance',
-    patterns: [/\b(governance|policy|regulation|legislation|ballot|election|vote|referendum|democratic|constitution|bylaw)\b/i]
+    tag: "governance",
+    label: "Governance",
+    patterns: [
+      /\b(governance|policy|regulation|legislation|ballot|election|vote|referendum|democratic|constitution|bylaw)\b/i,
+    ],
   },
 
   // ── Physical & Construction ────────────────────────────────────────
   {
-    tag: 'construction',
-    label: 'Construction',
-    patterns: [/\b(construct|build|building|renovation|remodel|contractor|architect|blueprint|foundation|framing|roofing|plumbing|electrical|hvac)\b/i]
+    tag: "construction",
+    label: "Construction",
+    patterns: [
+      /\b(construct|build|building|renovation|remodel|contractor|architect|blueprint|foundation|framing|roofing|plumbing|electrical|hvac)\b/i,
+    ],
   },
   {
-    tag: 'repair',
-    label: 'Repair',
-    patterns: [/\b(repair|fix|maintenance|restore|refurbish|replace|broken|damaged|patch|overhaul)\b/i]
+    tag: "repair",
+    label: "Repair",
+    patterns: [
+      /\b(repair|fix|maintenance|restore|refurbish|replace|broken|damaged|patch|overhaul)\b/i,
+    ],
   },
   {
-    tag: 'landscaping',
-    label: 'Landscaping',
-    patterns: [/\b(landscap|garden|lawn|park|playground|trail|path|outdoor\s+space|green\s+space|irrigation|mowing|plant)\b/i]
+    tag: "landscaping",
+    label: "Landscaping",
+    patterns: [
+      /\b(landscap|garden|lawn|park|playground|trail|path|outdoor\s+space|green\s+space|irrigation|mowing|plant)\b/i,
+    ],
   },
   {
-    tag: 'cleaning',
-    label: 'Cleaning',
-    patterns: [/\b(clean|cleanup|clean-?\s*up|trash|litter|debris|sanitation|janitorial|power\s+wash|graffiti\s+removal)\b/i]
+    tag: "cleaning",
+    label: "Cleaning",
+    patterns: [
+      /\b(clean|cleanup|clean-?\s*up|trash|litter|debris|sanitation|janitorial|power\s+wash|graffiti\s+removal)\b/i,
+    ],
   },
   {
-    tag: 'delivery',
-    label: 'Delivery / Logistics',
-    patterns: [/\b(deliver|courier|shipping|logistics|transport|freight|pickup|drop-?\s*off|moving|hauling)\b/i]
+    tag: "delivery",
+    label: "Delivery / Logistics",
+    patterns: [
+      /\b(deliver|courier|shipping|logistics|transport|freight|pickup|drop-?\s*off|moving|hauling)\b/i,
+    ],
   },
 
   // ── Legal & Compliance ─────────────────────────────────────────────
   {
-    tag: 'legal',
-    label: 'Legal',
-    patterns: [/\b(legal|law|attorney|lawyer|contract|compliance|regulation|litigation|intellectual\s+property|trademark|patent|copyright|terms\s+of\s+service|privacy\s+policy)\b/i]
+    tag: "legal",
+    label: "Legal",
+    patterns: [
+      /\b(legal|law|attorney|lawyer|contract|compliance|regulation|litigation|intellectual\s+property|trademark|patent|copyright|terms\s+of\s+service|privacy\s+policy)\b/i,
+    ],
   },
 
   // ── Finance & Business ─────────────────────────────────────────────
   {
-    tag: 'finance',
-    label: 'Finance',
-    patterns: [/\b(finance|accounting|bookkeeping|tax|invoice|payroll|budget|financial\s+plan|audit|revenue|profit|loss)\b/i]
+    tag: "finance",
+    label: "Finance",
+    patterns: [
+      /\b(finance|accounting|bookkeeping|tax|invoice|payroll|budget|financial\s+plan|audit|revenue|profit|loss)\b/i,
+    ],
   },
   {
-    tag: 'business',
-    label: 'Business',
-    patterns: [/\b(business\s+plan|startup|entrepreneur|pitch\s+deck|market\s+research|competitive\s+analysis|business\s+model|go-to-market|mvp\s+strategy)\b/i]
+    tag: "business",
+    label: "Business",
+    patterns: [
+      /\b(business\s+plan|startup|entrepreneur|pitch\s+deck|market\s+research|competitive\s+analysis|business\s+model|go-to-market|mvp\s+strategy)\b/i,
+    ],
   },
 
   // ── Events & Organizing ────────────────────────────────────────────
   {
-    tag: 'event',
-    label: 'Event',
-    patterns: [/\b(event|conference|meetup|hackathon|summit|gathering|ceremony|festival|concert|party|show|exhibition|trade\s+show)\b/i]
+    tag: "event",
+    label: "Event",
+    patterns: [
+      /\b(event|conference|meetup|hackathon|summit|gathering|ceremony|festival|concert|party|show|exhibition|trade\s+show)\b/i,
+    ],
   },
   {
-    tag: 'organizing',
-    label: 'Organizing',
-    patterns: [/\b(organiz|coordinat|planning|logistics|scheduling|project\s+manag|task\s+manag|volunteer\s+coordinat)\b/i]
+    tag: "organizing",
+    label: "Organizing",
+    patterns: [
+      /\b(organiz|coordinat|planning|logistics|scheduling|project\s+manag|task\s+manag|volunteer\s+coordinat)\b/i,
+    ],
   },
 
   // ── Miscellaneous ──────────────────────────────────────────────────
   {
-    tag: 'bounty',
-    label: 'Bounty',
-    patterns: [/\b(bounty|reward|prize|competition|contest|challenge|hackathon)\b/i]
+    tag: "bounty",
+    label: "Bounty",
+    patterns: [
+      /\b(bounty|reward|prize|competition|contest|challenge|hackathon)\b/i,
+    ],
   },
   {
-    tag: 'privacy',
-    label: 'Privacy',
-    patterns: [/\b(privacy|anonymous|pseudonymous|tor|vpn|encryption|zero[\s-]?knowledge|zk-?\s*proof|sovereign|self[\s-]?custod|censorship[\s-]?resist)\b/i]
-  }
+    tag: "privacy",
+    label: "Privacy",
+    patterns: [
+      /\b(privacy|anonymous|pseudonymous|tor|vpn|encryption|zero[\s-]?knowledge|zk-?\s*proof|sovereign|self[\s-]?custod|censorship[\s-]?resist)\b/i,
+    ],
+  },
 ];
 ```
 
@@ -1811,7 +1956,7 @@ export const TAXONOMY: TaxonomyEntry[] = [
 ```typescript
 // src/lib/bounty/auto-tagger.ts
 
-import { TAXONOMY, type TaxonomyEntry } from './taxonomy';
+import { TAXONOMY, type TaxonomyEntry } from "./taxonomy";
 
 /** Maximum number of auto-suggested tags */
 const MAX_SUGGESTIONS = 5;
@@ -1835,7 +1980,7 @@ export function suggestTags(title: string, description: string): string[] {
     let score = 0;
     for (const pattern of entry.patterns) {
       // Count matches — more matches = higher confidence
-      const globalPattern = new RegExp(pattern.source, 'gi');
+      const globalPattern = new RegExp(pattern.source, "gi");
       const hits = text.match(globalPattern);
       if (hits) {
         score += hits.length;
@@ -1857,10 +2002,10 @@ export function suggestTags(title: string, description: string): string[] {
 
 #### 10.4.4 Community Tag Autocomplete
 
-When the user types into the tag input, the app also queries the local EventStore
-for tags already in use across all cached bounties. This provides an autocomplete
-list ranked by frequency, supplementing the taxonomy with community-driven tags
-that may not be in the curated dictionary.
+When the user types into the tag input, the app also queries the local
+EventStore for tags already in use across all cached bounties. This provides an
+autocomplete list ranked by frequency, supplementing the taxonomy with
+community-driven tags that may not be in the curated dictionary.
 
 ```typescript
 /**
@@ -1875,7 +2020,7 @@ that may not be in the curated dictionary.
  */
 export function getPopularTags(
   prefix: string,
-  limit = 10
+  limit = 10,
 ): Array<{ tag: string; count: number }>;
 ```
 
@@ -1883,12 +2028,13 @@ export function getPopularTags(
 
 The auto-tag flow in BountyForm works as follows:
 
-1. **On title blur or description blur:** Call `suggestTags(title, description)`.
-   Display results as ghost chips below the tag input with a label "Suggested
-   tags". Each chip has an "+" button to accept and an "×" to dismiss.
-2. **On tag input keystroke:** Query `getPopularTags(prefix)` from the EventStore
-   and show a dropdown of matching community tags below the input. Selecting a
-   tag from the dropdown adds it to the tag list.
+1. **On title blur or description blur:** Call
+   `suggestTags(title, description)`. Display results as ghost chips below the
+   tag input with a label "Suggested tags". Each chip has an "+" button to
+   accept and an "×" to dismiss.
+2. **On tag input keystroke:** Query `getPopularTags(prefix)` from the
+   EventStore and show a dropdown of matching community tags below the input.
+   Selecting a tag from the dropdown adds it to the tag list.
 3. **Manual entry still works:** Users can always type arbitrary tags and press
    Enter or comma to add them. The auto-suggest system supplements but never
    replaces manual input.
@@ -1913,52 +2059,58 @@ be reviewed periodically as the bounty ecosystem grows:
 #### 10.4.7 Testing Requirements
 
 ```typescript
-describe('suggestTags', () => {
+describe("suggestTags", () => {
   it('suggests "bitcoin" for a Lightning Network bounty', () => {
-    const tags = suggestTags('Build a Lightning invoice parser', 'Parse BOLT11 invoices...');
-    expect(tags).toContain('bitcoin');
+    const tags = suggestTags(
+      "Build a Lightning invoice parser",
+      "Parse BOLT11 invoices...",
+    );
+    expect(tags).toContain("bitcoin");
   });
 
   it('suggests "activism" for a petition bounty', () => {
     const tags = suggestTags(
-      'Get 100,000 signatures for this petition',
-      'We need to mobilize grassroots support for the reform campaign...'
+      "Get 100,000 signatures for this petition",
+      "We need to mobilize grassroots support for the reform campaign...",
     );
-    expect(tags).toContain('activism');
+    expect(tags).toContain("activism");
   });
 
   it('suggests "construction" and "landscaping" for a park bounty', () => {
     const tags = suggestTags(
-      'Build a park for us in Salt Lake City',
-      'We want to construct a new green space with playground equipment and walking trails...'
+      "Build a park for us in Salt Lake City",
+      "We want to construct a new green space with playground equipment and walking trails...",
     );
-    expect(tags).toContain('construction');
-    expect(tags).toContain('landscaping');
+    expect(tags).toContain("construction");
+    expect(tags).toContain("landscaping");
   });
 
   it('suggests "nostr" and "frontend" for a Nostr client bounty', () => {
     const tags = suggestTags(
-      'Build a NIP-07 login component for Svelte',
-      'Create a reusable Svelte component that handles NIP-07 browser extension signing...'
+      "Build a NIP-07 login component for Svelte",
+      "Create a reusable Svelte component that handles NIP-07 browser extension signing...",
     );
-    expect(tags).toContain('nostr');
-    expect(tags).toContain('frontend');
+    expect(tags).toContain("nostr");
+    expect(tags).toContain("frontend");
   });
 
-  it('returns at most MAX_SUGGESTIONS tags', () => {
-    const tags = suggestTags('...broad text...', '...matches everything...');
+  it("returns at most MAX_SUGGESTIONS tags", () => {
+    const tags = suggestTags("...broad text...", "...matches everything...");
     expect(tags.length).toBeLessThanOrEqual(5);
   });
 
-  it('ranks title matches higher than description matches', () => {
-    const tags = suggestTags('Rust library for Bitcoin', 'Please write some code');
-    expect(tags[0]).toBe('rust'); // or 'bitcoin' — both are title matches
-    expect(tags).toContain('rust');
-    expect(tags).toContain('bitcoin');
+  it("ranks title matches higher than description matches", () => {
+    const tags = suggestTags(
+      "Rust library for Bitcoin",
+      "Please write some code",
+    );
+    expect(tags[0]).toBe("rust"); // or 'bitcoin' — both are title matches
+    expect(tags).toContain("rust");
+    expect(tags).toContain("bitcoin");
   });
 
-  it('returns empty array when no patterns match', () => {
-    const tags = suggestTags('Hello world', 'Just a simple greeting');
+  it("returns empty array when no patterns match", () => {
+    const tags = suggestTags("Hello world", "Just a simple greeting");
     expect(tags).toEqual([]);
   });
 });
@@ -2211,20 +2363,148 @@ consumed by Tailwind CSS and shadcn-svelte components.
 - Validate Cashu token structure before displaying amounts.
 - CSP headers configured in static hosting (Cloudflare Pages / Vercel).
 
+### 14.5 Pledger-Controlled Escrow Architecture
+
+The original escrow design locked pledge tokens to the bounty creator's pubkey
+using NUT-11 P2PK. This created a critical vulnerability: the creator could
+spend pledged tokens at the mint at any time, bypassing the voting process
+entirely. The mint only enforces P2PK signatures — it has no knowledge of bounty
+logic, voting outcomes, or solver identity.
+
+#### 14.5.1 Why NUT-11 Multisig Cannot Solve This
+
+NUT-11 provides two multisig pathways:
+
+- **Locktime Multisig**: Requires `n_sigs` of `m` pubkeys (via `pubkeys` tag and
+  `n_sigs` tag). All signing pubkeys must be known at token creation time.
+- **Refund Multisig**: Additional pubkeys that can spend after locktime (via
+  `refund` tag and `n_sigs_refund` tag).
+
+`@cashu/cashu-ts` v3 fully supports these via `P2PKOptions`:
+
+```typescript
+type P2PKOptions = {
+  pubkey: string | string[]; // Lock pubkeys (n_sigs threshold)
+  requiredSignatures?: number; // n_sigs
+  locktime?: number; // Unix timestamp
+  refundKeys?: string[]; // Refund pubkeys (active after locktime)
+  requiredRefundSignatures?: number; // n_sigs_refund
+  sigFlag?: SigFlag; // SIG_INPUTS or SIG_ALL
+};
+```
+
+**The fundamental problem**: Each pledge creates independent P2PK-locked proofs.
+The spending conditions (pubkeys, n_sigs) are fixed per-proof at creation time
+and cannot be modified retroactively. For open bounties with dynamic
+participants:
+
+1. The solver is unknown at pledge time — they cannot be included in the
+   multisig.
+2. Each pledger is different — a single multisig config cannot represent all
+   pledgers.
+3. New pledgers arriving after the first pledge cannot be added to existing
+   proofs' spending conditions.
+
+A trusted arbiter (e.g., a bounty.ninja keypair) would solve this but
+re-introduces centralization — the very problem Bounty.ninja exists to avoid.
+
+#### 14.5.2 The Solution: Pledger-Controlled Escrow
+
+Instead of locking tokens to the creator, each pledger locks tokens to **their
+own pubkey**. This ensures:
+
+- **No single party can rug-pull**: The creator never controls pledge funds.
+- **Pledgers retain sovereignty**: Funds stay under the pledger's control until
+  they actively choose to release.
+- **Locktime protects against permanent lock**: After the bounty deadline,
+  pledgers can reclaim their tokens if they choose not to release.
+
+#### 14.5.3 Payout Flow After Consensus
+
+```
+Vote consensus reached (66% of pledged sats approve a solution)
+  │
+  ▼
+App transitions bounty to "releasing" state
+  │
+  ▼
+Each pledger sees a "Release Funds" prompt in the bounty detail page
+  │
+  ├──[Pledger approves]──▶ Pledger signs a swap at the mint:
+  │                          1. Swap P2PK-locked proofs (self-locked) for
+  │                             new proofs P2PK-locked to the solver's pubkey
+  │                          2. Publish Kind 73004 payout event with solver-locked tokens
+  │                          3. Solver claims using their private key
+  │
+  └──[Pledger ghosts]───▶ No release. Solver doesn't receive this portion.
+                           After deadline, pledger reclaims their tokens.
+                           Reputation score decremented.
+```
+
+#### 14.5.4 Bounty Status Extensions
+
+The pledger-controlled model adds a new status to the bounty lifecycle:
+
+```
+open → in_review → consensus_reached → releasing → completed
+                                          │
+                                          └── Shows "X/Y pledgers released (Z% of funds)"
+```
+
+- **`consensus_reached`**: Vote quorum met, waiting for pledgers to release.
+- **`releasing`**: At least one pledger has released, others pending.
+- **`completed`**: All pledgers have released (or deadline passed for
+  remaining).
+
+#### 14.5.5 Reputation Tracking
+
+Track pledger reliability via derived Kind 0 profile metadata or a custom event
+kind:
+
+| Metric                   | Derivation                                                |
+| ------------------------ | --------------------------------------------------------- |
+| Pledges made             | Count of Kind 73002 events by this pubkey                 |
+| Pledges released on time | Count of Kind 73004 events by this pubkey after consensus |
+| Release rate             | released / total pledges (0-100%)                         |
+| Funds released           | Total sats released via Kind 73004                        |
+
+Display a reliability badge on profiles: "98% release rate (49/50 pledges)".
+Bounty creators and solvers can use this to assess whether a pledger will follow
+through.
+
+#### 14.5.6 Trade-offs and Mitigations
+
+| Trade-off                                                           | Mitigation                                                                                                 |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Payout requires active pledger participation                        | Prominent UI prompts, push notifications (future NIP-04 DMs), reputation consequences                      |
+| Solver may not receive 100% of pledged funds if some pledgers ghost | Transparent "X% released" indicator; solver can see expected vs. actual payout before claiming             |
+| More complex UX than single-party payout                            | Clear step-by-step release flow; auto-release option (future: pledger pre-authorizes release on consensus) |
+| Multiple Kind 73004 events per bounty                               | Aggregate payout amounts across events; display total released vs. total pledged                           |
+
+#### 14.5.7 Deadline Enforcement
+
+Bounty deadlines are now mandatory for pledge security (configurable max via
+`PUBLIC_MAX_DEADLINE_DAYS`, default 365 days):
+
+- **Maximum deadline**: 1 year from creation. Prevents indefinite token locks.
+- **Deadline serves as locktime**: P2PK proofs use the bounty deadline as the
+  locktime parameter. After expiry, pledgers can reclaim unreleased funds.
+- **Form validation**: The bounty creation form enforces the maximum deadline.
+
 ---
 
 ## 15. Performance Requirements
 
-| Metric                       | Target  | How to Achieve                                                |
-| ---------------------------- | ------- | ------------------------------------------------------------- |
-| First Contentful Paint       | < 1.5s  | Static site, code splitting, minimal JS bundle                |
-| Time to Interactive          | < 3s    | Lazy-load relay connections, progressive data loading         |
-| Task list render (50 items)  | < 100ms | Svelte 5 fine-grained reactivity, virtual scrolling if needed |
-| Relay subscription setup     | < 500ms | Parallel connections via RelayPool                            |
-| Event publish round-trip     | < 2s    | Optimistic local update + parallel relay publish              |
-| IndexedDB cache read         | < 50ms  | nostr-idb indexed queries                                     |
+| Metric                       | Target  | How to Achieve                                                                                   |
+| ---------------------------- | ------- | ------------------------------------------------------------------------------------------------ |
+| First Contentful Paint       | < 1.5s  | Static site, code splitting, minimal JS bundle                                                   |
+| Time to Interactive          | < 3s    | Lazy-load relay connections, progressive data loading                                            |
+| Task list render (50 items)  | < 100ms | Svelte 5 fine-grained reactivity, virtual scrolling if needed                                    |
+| Relay subscription setup     | < 500ms | Parallel connections via RelayPool                                                               |
+| Event publish round-trip     | < 2s    | Optimistic local update + parallel relay publish                                                 |
+| IndexedDB cache read         | < 50ms  | nostr-idb indexed queries                                                                        |
 | Bundle size (gzipped)        | < 400KB | Tree-shaking, dynamic imports for Cashu/heavy modules (~355KB with Svelte + Cashu + Nostr stack) |
-| Lighthouse Performance score | > 90    | Static adapter, precompressed assets                          |
+| Lighthouse Performance score | > 90    | Static adapter, precompressed assets                                                             |
 
 ---
 
@@ -2253,8 +2533,8 @@ Located in `src/tests/unit/`. Run with `bun run test:unit`.
 | Test File               | What It Tests                                                                                |
 | ----------------------- | -------------------------------------------------------------------------------------------- |
 | `voting.test.ts`        | `calculateVoteWeight()`, `tallyVotes()` with various pledge distributions, quorum edge cases |
-| `state-machine.test.ts` | `deriveBountyStatus()` for all state transitions, deadline expiration, cancellation            |
-| `helpers.test.ts`       | Tag parsing, `parseBountySummary()`, `parsePledge()`, etc.                                     |
+| `state-machine.test.ts` | `deriveBountyStatus()` for all state transitions, deadline expiration, cancellation          |
+| `helpers.test.ts`       | Tag parsing, `parseBountySummary()`, `parsePledge()`, etc.                                   |
 | `filters.test.ts`       | Nostr filter builders produce correct filter objects                                         |
 | `p2pk.test.ts`          | P2PK token locking/unlocking, refund after locktime                                          |
 
@@ -2331,7 +2611,7 @@ list of events. No task-specific logic yet — just prove the Applesauce + Svelt
 | 6  | `src/lib/nostr/signer.svelte.ts`                                                                            | NIP-07 signer detection and reactive state                                      |
 | 7  | `src/lib/nostr/account.svelte.ts`                                                                           | Current user pubkey reactive state                                              |
 | 8  | `src/lib/utils/constants.ts`, `src/lib/utils/env.ts`, `src/lib/utils/format.ts`                             | App constants, typed env access, formatting utilities                           |
-| 9  | `src/lib/bounty/kinds.ts`                                                                                     | Event kind constants                                                            |
+| 9  | `src/lib/bounty/kinds.ts`                                                                                   | Event kind constants                                                            |
 | 10 | `src/routes/+layout.svelte`, `src/routes/+layout.ts`                                                        | Root layout with Header/Footer, Nostr initialization                            |
 | 11 | `src/lib/components/layout/Header.svelte`, `Footer.svelte`                                                  | Basic layout components                                                         |
 | 12 | `src/lib/components/auth/LoginButton.svelte`                                                                | NIP-07 login button                                                             |
@@ -2366,36 +2646,36 @@ yet.
 
 **Deliverables:**
 
-| #  | File(s) to Create/Modify                                                                                                        | Description                                                                                                                          |
-| -- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| 1  | `src/lib/bounty/types.ts`                                                                                                         | All TypeScript interfaces (Task, Pledge, Solution, Vote, Payout, BountyDetail, BountySummary)                                            |
-| 2  | `src/lib/bounty/helpers.ts`                                                                                                       | Tag parsing functions: `parseBountySummary()`, `parseBountyDetail()`, `parsePledge()`, `parseSolution()`, `parseVote()`, `parsePayout()` |
-| 3  | `src/lib/bounty/state-machine.ts`                                                                                                 | `deriveBountyStatus()` function                                                                                                        |
-| 4  | `src/lib/bounty/voting.ts`                                                                                                        | `calculateVoteWeight()`, `tallyVotes()`                                                                                              |
-| 5  | `src/lib/bounty/filters.ts`                                                                                                       | All Nostr filter builder functions                                                                                                   |
-| 6  | `src/lib/nostr/loaders/task-loader.ts`                                                                                          | TimelineLoader for Kind 37300                                                                                                        |
-| 7  | `src/lib/nostr/loaders/pledge-loader.ts`                                                                                        | Loader for Kind 73002 by task address                                                                                                |
-| 8  | `src/lib/nostr/loaders/solution-loader.ts`                                                                                      | Loader for Kind 73001 by task address                                                                                                |
-| 9  | `src/lib/nostr/loaders/vote-loader.ts`                                                                                          | Loader for Kind 1018 by task address                                                                                                 |
-| 10 | `src/lib/nostr/loaders/profile-loader.ts`                                                                                       | Loader for Kind 0 profiles                                                                                                           |
-| 11 | `src/lib/stores/bounties.svelte.ts`                                                                                                | Reactive task list store                                                                                                             |
-| 12 | `src/lib/stores/task-detail.svelte.ts`                                                                                          | Single task detail store (pledges, solutions, votes)                                                                                 |
-| 13 | `src/lib/components/bounty/BountyCard.svelte`                                                                                       | Task summary card                                                                                                                    |
-| 14 | `src/lib/components/bounty/BountyStatusBadge.svelte`                                                                                | Status badge component                                                                                                               |
-| 15 | `src/lib/components/bounty/BountyTags.svelte`                                                                                       | Tag pills                                                                                                                            |
-| 16 | `src/lib/components/bounty/BountyDetail.svelte`                                                                                     | Full task detail view                                                                                                                |
-| 17 | `src/lib/components/bounty/BountyTimer.svelte`                                                                                      | Deadline countdown                                                                                                                   |
-| 18 | `src/lib/components/pledge/PledgeList.svelte`, `PledgeItem.svelte`                                                              | Pledge display                                                                                                                       |
-| 19 | `src/lib/components/solution/SolutionList.svelte`, `SolutionItem.svelte`                                                        | Solution display                                                                                                                     |
-| 20 | `src/lib/components/voting/VoteProgress.svelte`, `VoteResults.svelte`                                                           | Vote tally display                                                                                                                   |
-| 21 | `src/lib/components/shared/SatAmount.svelte`, `TimeAgo.svelte`, `Markdown.svelte`, `EmptyState.svelte`, `LoadingSpinner.svelte` | Shared UI components                                                                                                                 |
-| 22 | `src/routes/+page.svelte` (update)                                                                                              | Home page with task card grid, sorted by total pledged                                                                               |
-| 23 | `src/routes/bounty/[naddr]/+page.svelte`, `+page.ts`                                                                              | Task detail page with naddr routing                                                                                                  |
-| 24 | `src/routes/profile/[npub]/+page.svelte`, `+page.ts`                                                                            | Profile page (read-only)                                                                                                             |
-| 25 | `src/tests/unit/voting.test.ts`                                                                                                 | Voting calculation tests                                                                                                             |
-| 26 | `src/tests/unit/state-machine.test.ts`                                                                                          | State machine tests                                                                                                                  |
-| 27 | `src/tests/unit/helpers.test.ts`                                                                                                | Tag parsing tests                                                                                                                    |
-| 28 | `src/tests/unit/filters.test.ts`                                                                                                | Filter builder tests                                                                                                                 |
+| #  | File(s) to Create/Modify                                                                                                        | Description                                                                                                                              |
+| -- | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| 1  | `src/lib/bounty/types.ts`                                                                                                       | All TypeScript interfaces (Task, Pledge, Solution, Vote, Payout, BountyDetail, BountySummary)                                            |
+| 2  | `src/lib/bounty/helpers.ts`                                                                                                     | Tag parsing functions: `parseBountySummary()`, `parseBountyDetail()`, `parsePledge()`, `parseSolution()`, `parseVote()`, `parsePayout()` |
+| 3  | `src/lib/bounty/state-machine.ts`                                                                                               | `deriveBountyStatus()` function                                                                                                          |
+| 4  | `src/lib/bounty/voting.ts`                                                                                                      | `calculateVoteWeight()`, `tallyVotes()`                                                                                                  |
+| 5  | `src/lib/bounty/filters.ts`                                                                                                     | All Nostr filter builder functions                                                                                                       |
+| 6  | `src/lib/nostr/loaders/task-loader.ts`                                                                                          | TimelineLoader for Kind 37300                                                                                                            |
+| 7  | `src/lib/nostr/loaders/pledge-loader.ts`                                                                                        | Loader for Kind 73002 by task address                                                                                                    |
+| 8  | `src/lib/nostr/loaders/solution-loader.ts`                                                                                      | Loader for Kind 73001 by task address                                                                                                    |
+| 9  | `src/lib/nostr/loaders/vote-loader.ts`                                                                                          | Loader for Kind 1018 by task address                                                                                                     |
+| 10 | `src/lib/nostr/loaders/profile-loader.ts`                                                                                       | Loader for Kind 0 profiles                                                                                                               |
+| 11 | `src/lib/stores/bounties.svelte.ts`                                                                                             | Reactive task list store                                                                                                                 |
+| 12 | `src/lib/stores/task-detail.svelte.ts`                                                                                          | Single task detail store (pledges, solutions, votes)                                                                                     |
+| 13 | `src/lib/components/bounty/BountyCard.svelte`                                                                                   | Task summary card                                                                                                                        |
+| 14 | `src/lib/components/bounty/BountyStatusBadge.svelte`                                                                            | Status badge component                                                                                                                   |
+| 15 | `src/lib/components/bounty/BountyTags.svelte`                                                                                   | Tag pills                                                                                                                                |
+| 16 | `src/lib/components/bounty/BountyDetail.svelte`                                                                                 | Full task detail view                                                                                                                    |
+| 17 | `src/lib/components/bounty/BountyTimer.svelte`                                                                                  | Deadline countdown                                                                                                                       |
+| 18 | `src/lib/components/pledge/PledgeList.svelte`, `PledgeItem.svelte`                                                              | Pledge display                                                                                                                           |
+| 19 | `src/lib/components/solution/SolutionList.svelte`, `SolutionItem.svelte`                                                        | Solution display                                                                                                                         |
+| 20 | `src/lib/components/voting/VoteProgress.svelte`, `VoteResults.svelte`                                                           | Vote tally display                                                                                                                       |
+| 21 | `src/lib/components/shared/SatAmount.svelte`, `TimeAgo.svelte`, `Markdown.svelte`, `EmptyState.svelte`, `LoadingSpinner.svelte` | Shared UI components                                                                                                                     |
+| 22 | `src/routes/+page.svelte` (update)                                                                                              | Home page with task card grid, sorted by total pledged                                                                                   |
+| 23 | `src/routes/bounty/[naddr]/+page.svelte`, `+page.ts`                                                                            | Task detail page with naddr routing                                                                                                      |
+| 24 | `src/routes/profile/[npub]/+page.svelte`, `+page.ts`                                                                            | Profile page (read-only)                                                                                                                 |
+| 25 | `src/tests/unit/voting.test.ts`                                                                                                 | Voting calculation tests                                                                                                                 |
+| 26 | `src/tests/unit/state-machine.test.ts`                                                                                          | State machine tests                                                                                                                      |
+| 27 | `src/tests/unit/helpers.test.ts`                                                                                                | Tag parsing tests                                                                                                                        |
+| 28 | `src/tests/unit/filters.test.ts`                                                                                                | Filter builder tests                                                                                                                     |
 
 **Acceptance Criteria:**
 
@@ -2429,13 +2709,13 @@ functionality.
 
 | #  | File(s) to Create/Modify                                             | Description                                                        |
 | -- | -------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| 1  | `src/lib/bounty/blueprints.ts`                                         | Applesauce EventFactory blueprints for all task event kinds        |
+| 1  | `src/lib/bounty/blueprints.ts`                                       | Applesauce EventFactory blueprints for all task event kinds        |
 | 2  | `src/lib/cashu/mint.ts`                                              | CashuMint + CashuWallet singleton initialization                   |
 | 3  | `src/lib/cashu/token.ts`                                             | Token encoding/decoding utilities                                  |
 | 4  | `src/lib/cashu/p2pk.ts`                                              | P2PK lock/unlock helpers                                           |
 | 5  | `src/lib/cashu/escrow.ts`                                            | Escrow logic: create locked tokens, claim tokens, refund           |
 | 6  | `src/lib/cashu/types.ts`                                             | Cashu-specific TypeScript types                                    |
-| 7  | `src/lib/components/bounty/BountyForm.svelte`                            | Create task form (title, description, reward, tags, deadline, fee) |
+| 7  | `src/lib/components/bounty/BountyForm.svelte`                        | Create task form (title, description, reward, tags, deadline, fee) |
 | 8  | `src/lib/components/pledge/PledgeButton.svelte`                      | "Fund this task" CTA button                                        |
 | 9  | `src/lib/components/pledge/PledgeForm.svelte`                        | Pledge amount input + Cashu token creation dialog                  |
 | 10 | `src/lib/components/solution/SolutionForm.svelte`                    | Solution submission form + anti-spam fee                           |
@@ -2444,8 +2724,8 @@ functionality.
 | 13 | `src/lib/stores/toast.svelte.ts`                                     | Global toast notification state                                    |
 | 14 | `src/lib/components/shared/Toaster.svelte`                           | Toast notification container                                       |
 | 15 | `src/lib/components/shared/ErrorBoundary.svelte`                     | Error boundary wrapper                                             |
-| 16 | `src/routes/bounty/new/+page.svelte`                                   | Create task page                                                   |
-| 17 | Update `src/routes/bounty/[naddr]/+page.svelte`                        | Add pledge, solution, vote interactive elements                    |
+| 16 | `src/routes/bounty/new/+page.svelte`                                 | Create task page                                                   |
+| 17 | Update `src/routes/bounty/[naddr]/+page.svelte`                      | Add pledge, solution, vote interactive elements                    |
 | 18 | Update `src/routes/+layout.svelte`                                   | Add Toaster, ProfileMenu                                           |
 | 19 | `src/tests/unit/p2pk.test.ts`                                        | P2PK locking/unlocking tests                                       |
 | 20 | `src/tests/integration/task-store.svelte.test.ts`                    | EventStore → store → component reactivity                          |
@@ -2485,29 +2765,29 @@ polish. Make the app feel complete and production-ready.
 
 **Deliverables:**
 
-| #  | File(s) to Create/Modify                                       | Description                                                   |
-| -- | -------------------------------------------------------------- | ------------------------------------------------------------- |
-| 1  | `src/lib/stores/search.svelte.ts`                              | NIP-50 search state management                                |
-| 2  | `src/lib/components/search/SearchBar.svelte`                   | Search input with debounce                                    |
-| 3  | `src/lib/components/search/SearchResults.svelte`               | Search results display                                        |
-| 4  | `src/routes/search/+page.svelte`, `+page.ts`                   | Search results page                                           |
-| 5  | `src/routes/settings/+page.svelte`                             | Settings page: relay management, mint selection, theme toggle |
-| 6  | `src/lib/components/layout/Sidebar.svelte`                     | Category/tag filter sidebar                                   |
-| 7  | `src/lib/components/layout/MobileNav.svelte`                   | Mobile bottom navigation                                      |
-| 8  | `src/lib/stores/user-profile.svelte.ts`                        | Current user profile state                                    |
-| 9  | Update `src/routes/+page.svelte`                               | Add search bar (hero), category tabs, improved layout         |
-| 10 | Update `src/lib/components/layout/Header.svelte`               | Add search bar, responsive design                             |
-| 11 | `static/favicon.ico`, `static/logo.svg`, `static/og-image.png` | Branding assets                                               |
-| 12 | Update `src/app.html`                                          | Meta tags, Open Graph tags, favicon                           |
-| 13 | `src/tests/e2e/task-lifecycle.spec.ts`                         | Full lifecycle E2E test                                       |
-| 14 | `src/tests/e2e/search.spec.ts`                                 | Search E2E test                                               |
-| 15 | `src/tests/e2e/auth.spec.ts`                                   | Auth E2E test                                                 |
-| 16 | `playwright.config.ts`                                         | Playwright configuration                                      |
+| #  | File(s) to Create/Modify                                       | Description                                                         |
+| -- | -------------------------------------------------------------- | ------------------------------------------------------------------- |
+| 1  | `src/lib/stores/search.svelte.ts`                              | NIP-50 search state management                                      |
+| 2  | `src/lib/components/search/SearchBar.svelte`                   | Search input with debounce                                          |
+| 3  | `src/lib/components/search/SearchResults.svelte`               | Search results display                                              |
+| 4  | `src/routes/search/+page.svelte`, `+page.ts`                   | Search results page                                                 |
+| 5  | `src/routes/settings/+page.svelte`                             | Settings page: relay management, mint selection, theme toggle       |
+| 6  | `src/lib/components/layout/Sidebar.svelte`                     | Category/tag filter sidebar                                         |
+| 7  | `src/lib/components/layout/MobileNav.svelte`                   | Mobile bottom navigation                                            |
+| 8  | `src/lib/stores/user-profile.svelte.ts`                        | Current user profile state                                          |
+| 9  | Update `src/routes/+page.svelte`                               | Add search bar (hero), category tabs, improved layout               |
+| 10 | Update `src/lib/components/layout/Header.svelte`               | Add search bar, responsive design                                   |
+| 11 | `static/favicon.ico`, `static/logo.svg`, `static/og-image.png` | Branding assets                                                     |
+| 12 | Update `src/app.html`                                          | Meta tags, Open Graph tags, favicon                                 |
+| 13 | `src/tests/e2e/task-lifecycle.spec.ts`                         | Full lifecycle E2E test                                             |
+| 14 | `src/tests/e2e/search.spec.ts`                                 | Search E2E test                                                     |
+| 15 | `src/tests/e2e/auth.spec.ts`                                   | Auth E2E test                                                       |
+| 16 | `playwright.config.ts`                                         | Playwright configuration                                            |
 | 17 | `src/lib/bounty/taxonomy.ts`                                   | Auto-tag taxonomy: category → keyword regex patterns (Section 10.4) |
-| 18 | `src/lib/bounty/auto-tagger.ts`                                | `suggestTags()` — matches title + description against taxonomy |
-| 19 | `src/lib/components/bounty/TagAutoSuggest.svelte`              | Suggestion chips UI + community tag autocomplete dropdown     |
-| 20 | Update `src/lib/components/bounty/BountyForm.svelte`           | Integrate TagAutoSuggest, trigger on title/description blur   |
-| 21 | `src/tests/unit/auto-tagger.test.ts`                           | Taxonomy matching tests (technical + non-technical bounties)  |
+| 18 | `src/lib/bounty/auto-tagger.ts`                                | `suggestTags()` — matches title + description against taxonomy      |
+| 19 | `src/lib/components/bounty/TagAutoSuggest.svelte`              | Suggestion chips UI + community tag autocomplete dropdown           |
+| 20 | Update `src/lib/components/bounty/BountyForm.svelte`           | Integrate TagAutoSuggest, trigger on title/description blur         |
+| 21 | `src/tests/unit/auto-tagger.test.ts`                           | Taxonomy matching tests (technical + non-technical bounties)        |
 
 **Acceptance Criteria:**
 
@@ -2520,10 +2800,11 @@ polish. Make the app feel complete and production-ready.
 - [ ] Theme toggle switches between Tokyo Night dark and light modes (persisted)
 - [ ] Mobile-responsive layout with bottom navigation on small screens
 - [ ] Open Graph meta tags render correct preview when sharing task URLs
-- [ ] Auto-tag suggestions appear after user types a title or description, covering
-      both technical (e.g., "bitcoin", "frontend") and non-technical categories
-      (e.g., "activism", "construction", "landscaping")
-- [ ] Tag autocomplete shows community-used tags when the user types in the tag input
+- [ ] Auto-tag suggestions appear after user types a title or description,
+      covering both technical (e.g., "bitcoin", "frontend") and non-technical
+      categories (e.g., "activism", "construction", "landscaping")
+- [ ] Tag autocomplete shows community-used tags when the user types in the tag
+      input
 - [ ] Users can accept, dismiss, or manually override all tag suggestions
 - [ ] All E2E tests pass with Playwright
 - [ ] Lighthouse scores: Performance > 90, Accessibility > 90, Best Practices >
@@ -2579,7 +2860,11 @@ multi-mint support.
 
 - DVM (NIP-90) job request/result integration
 - ContextVM bridge for MCP-powered AI solvers
-- Reputation scoring based on completed tasks and successful solutions
+- Reputation scoring based on pledge release rates, completed tasks, and
+  successful solutions
+- Auto-release: pledgers can pre-authorize automatic release on consensus
+- Push notifications via NIP-04 DMs when consensus is reached and release is
+  needed
 - Multi-mint Cashu support with automatic mint selection
 - Task templates and categories
 - Notification system (NIP-04 DMs for task updates)
@@ -2641,7 +2926,8 @@ multi-mint support.
 - **Multi-mint Cashu support** — MVP uses a single configured mint
 - **NIP-60 wallet UI** — Full in-app Cashu wallet management
 - **Notification system** — NIP-04 DMs for task updates
-- **Reputation / trust scores** — Derived from historical task completion
+- **Full reputation system** — Basic pledge release rate tracking is in-scope
+  (Section 14.5.5); advanced reputation with weighted scoring is post-MVP
 - **Task templates** — Pre-filled forms for common task types
 - **Relay list discovery** — NIP-65 relay list metadata
 - **Lightning Network payments** — Direct LN invoice support (Cashu-only for
@@ -2656,15 +2942,15 @@ multi-mint support.
 
 ## 21. Open Questions
 
-| # | Question                                                                                                                     | Impact                                    | Proposed Resolution                                                                                                                      |
-| - | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| 1 | **Which Cashu mint(s) should be the default?** The mint is a trust dependency — users trust the mint to honor tokens.        | High — affects all financial operations   | Default to a well-known mint (e.g., `https://mint.minibits.cash/Bitcoin`). Allow user override in settings. Display mint trust warning.  |
-| 2 | **How should the payout process work when the task creator goes offline?** The creator holds the P2PK key for pledge tokens. | High — single point of failure for payout | For MVP: creator must be online to orchestrate payout. Post-MVP: explore multi-sig escrow where a quorum of pledgers can trigger payout. |
-| 3 | **Should votes have a time limit?** Currently voting is open-ended.                                                          | Medium — could lead to stale tasks        | Add optional `voting_deadline` tag to Kind 37300. Default: 7 days after first solution.                                                  |
-| 4 | **How to handle tasks with pledges from multiple mints?**                                                                    | Medium — complicates payout               | MVP: require all pledges use the task's specified mint. Post-MVP: support cross-mint swaps.                                              |
-| 5 | **What is the exact quorum formula?** Current: `totalPledgedSats * 0.5`. Is this too low/high?                               | Medium — affects governance               | Start with proposed formula, gather data, adjust based on real usage patterns.                                                           |
-| 6 | **Should the anti-spam fee scale with task size?**                                                                           | Low — affects UX                          | MVP: fixed range (10-100 sats). Post-MVP: percentage-based or task-creator-defined.                                                      |
-| 7 | **Are event kinds 37300, 73001, 73002, 1018, 73004 registered or proposed NIPs?**                                            | Medium — interoperability                 | Research existing task NIPs. If none exist, propose a NIP. Use these kinds for MVP regardless.                                           |
+| # | Question                                                                                                              | Impact                                  | Proposed Resolution                                                                                                                                                                                         |
+| - | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 | **Which Cashu mint(s) should be the default?** The mint is a trust dependency — users trust the mint to honor tokens. | High — affects all financial operations | Default to a well-known mint (e.g., `https://mint.minibits.cash/Bitcoin`). Allow user override in settings. Display mint trust warning.                                                                     |
+| 2 | **How should the payout process work when the task creator goes offline?**                                            | Low — no longer a blocker               | ✅ Resolved: Pledger-controlled escrow means the creator never holds pledge funds. Each pledger releases their own portion directly to the solver after consensus. Creator offline has no impact on payout. |
+| 3 | **Should votes have a time limit?** Currently voting is open-ended.                                                   | Medium — could lead to stale tasks      | Add optional `voting_deadline` tag to Kind 37300. Default: 7 days after first solution.                                                                                                                     |
+| 4 | **How to handle tasks with pledges from multiple mints?**                                                             | Medium — complicates payout             | MVP: require all pledges use the task's specified mint. Post-MVP: support cross-mint swaps.                                                                                                                 |
+| 5 | **What is the exact quorum formula?**                                                                                 | Low — resolved                          | ✅ Resolved: 66% supermajority (configurable via `PUBLIC_VOTE_QUORUM_PERCENT`). Higher threshold protects pledgers and ensures broader consensus before triggering the release phase.                       |
+| 6 | **Should the anti-spam fee scale with task size?**                                                                    | Low — affects UX                        | MVP: fixed range (10-100 sats). Post-MVP: percentage-based or task-creator-defined.                                                                                                                         |
+| 7 | **Are event kinds 37300, 73001, 73002, 1018, 73004 registered or proposed NIPs?**                                     | Medium — interoperability               | Research existing task NIPs. If none exist, propose a NIP. Use these kinds for MVP regardless.                                                                                                              |
 
 ---
 
@@ -2696,23 +2982,23 @@ multi-mint support.
 
 ### 22.3 Technical Risks
 
-| Risk                                        | Severity | Mitigation                                                                                                                                                                                   |
-| ------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Cashu mint trust**                        | High     | The mint is a trusted third party. If it goes down or is malicious, pledged tokens are lost. Mitigation: allow user-selected mints, display trust warnings, support multiple mints post-MVP. |
-| **Task creator as single point of failure** | High     | Creator holds P2PK keys for all pledge tokens. If they disappear, funds are locked until refund locktime. Mitigation: set reasonable locktime (e.g., 30 days), explore multi-sig post-MVP.   |
-| **Relay censorship**                        | Medium   | A relay could refuse to store task events. Mitigation: publish to multiple relays, allow user-configured relay lists.                                                                        |
-| **Event kind conflicts**                    | Medium   | Custom kinds (37300, etc.) could conflict with other apps. Mitigation: use `client` tag for filtering, propose a NIP for standardization.                                                    |
-| **Applesauce API stability**                | Medium   | Applesauce is actively developed (v5 released recently). API may change. Mitigation: pin versions, wrap Applesauce calls in adapter layer.                                                   |
-| **Cashu token double-spend**                | Medium   | A funder could pledge the same token to multiple tasks. Mitigation: verify tokens against mint on receipt (async validation).                                                                |
-| **Large event payloads**                    | Low      | Cashu tokens in tags can be large. Some relays may reject events exceeding size limits. Mitigation: compress tokens, split large pledges.                                                    |
+| Risk                         | Severity | Mitigation                                                                                                                                                                                                                                                         |
+| ---------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Cashu mint trust**         | High     | The mint is a trusted third party. If it goes down or is malicious, pledged tokens are lost. Mitigation: allow user-selected mints, display trust warnings, support multiple mints post-MVP.                                                                       |
+| **Pledger non-cooperation**  | Medium   | Pledgers retain custody and must actively release funds after consensus. If they ghost, the solver doesn't receive their portion. Mitigation: reputation scoring, social pressure via "X/Y released" UI, locktime reclaim ensures funds aren't permanently locked. |
+| **Relay censorship**         | Medium   | A relay could refuse to store task events. Mitigation: publish to multiple relays, allow user-configured relay lists.                                                                                                                                              |
+| **Event kind conflicts**     | Medium   | Custom kinds (37300, etc.) could conflict with other apps. Mitigation: use `client` tag for filtering, propose a NIP for standardization.                                                                                                                          |
+| **Applesauce API stability** | Medium   | Applesauce is actively developed (v5 released recently). API may change. Mitigation: pin versions, wrap Applesauce calls in adapter layer.                                                                                                                         |
+| **Cashu token double-spend** | Medium   | A funder could pledge the same token to multiple tasks. Mitigation: verify tokens against mint on receipt (async validation).                                                                                                                                      |
+| **Large event payloads**     | Low      | Cashu tokens in tags can be large. Some relays may reject events exceeding size limits. Mitigation: compress tokens, split large pledges.                                                                                                                          |
 
 ### 22.4 Suggested Simplifications for MVP
 
 1. **Single mint only**: Don't support multi-mint in Phase 1-4. All pledges must
    use the task's configured mint.
-2. **Creator-initiated payout only**: Don't implement automatic payout on
-   consensus. The creator manually triggers payout after reviewing the vote
-   results.
+2. **Pledger-initiated release**: Each pledger individually releases their funds
+   to the solver after 66% consensus is reached. No automatic payout — pledgers
+   must actively participate in the release phase.
 3. **No real-time token verification**: Verify Cashu tokens lazily (on demand)
    rather than on every event received. Show "unverified" badge until checked.
 4. **Skip DVM/ContextVM entirely**: These are complex integrations that don't
@@ -2727,33 +3013,36 @@ multi-mint support.
 
 ## 23. Glossary
 
-| Term              | Definition                                                                                                                    |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **Task**          | A task posted on Bounty.ninja with a bitcoin reward, represented as a Kind 37300 Nostr event                                     |
-| **Pledge**        | A funding contribution to a task, containing P2PK-locked Cashu tokens (Kind 73002)                                            |
-| **Solution**      | A submission claiming to fulfill a task's requirements (Kind 73001)                                                           |
-| **Vote**          | A funder's approval or rejection of a solution (Kind 1018)                                                                    |
-| **Payout**        | The transfer of pledged tokens to the winning solver (Kind 73004)                                                             |
-| **Cashu**         | An open-source ecash protocol for Bitcoin, enabling bearer tokens                                                             |
-| **P2PK**          | Pay-to-Public-Key — a Cashu spending condition (NUT-11) that locks tokens to a specific public key                            |
-| **NIP**           | Nostr Implementation Possibility — a specification for Nostr protocol features                                                |
-| **NIP-07**        | Browser extension signer standard for Nostr (e.g., nos2x, Alby)                                                               |
-| **NIP-19**        | Bech32-encoded Nostr identifiers (npub, naddr, nevent, etc.)                                                                  |
-| **NIP-33**        | Parameterized Replaceable Events — events that can be updated by the same author                                              |
-| **NIP-40**        | Expiration Timestamp — events with an expiration date                                                                         |
-| **NIP-50**        | Search Capability — relay-side full-text search                                                                               |
-| **NIP-90**        | Data Vending Machine — protocol for on-demand computation services                                                            |
-| **DVM**           | Data Vending Machine (NIP-90)                                                                                                 |
-| **ContextVM**     | A bridge between Nostr and Model Context Protocol (MCP) for AI agent integration                                              |
-| **Applesauce**    | A collection of TypeScript libraries for building Nostr web clients (by hzrd149)                                              |
-| **EventStore**    | Applesauce's reactive in-memory database for Nostr events                                                                     |
-| **RelayPool**     | Applesauce's relay connection manager                                                                                         |
-| **Runes**         | Svelte 5's reactivity primitives (`$state`, `$derived`, `$effect`)                                                            |
-| **naddr**         | NIP-19 encoded address for parameterized replaceable events (used for task URLs)                                              |
-| **npub**          | NIP-19 encoded public key (used for profile URLs)                                                                             |
-| **Linear Voting** | Voting mechanism where weight = pledge amount (1 sat = 1 vote weight), chosen over square-root weighting for Sybil resistance |
-| **Anti-spam fee** | A small, non-refundable Cashu token attached to solution submissions to deter spam                                            |
-| **Tokyo Night**   | A popular dark/light color scheme used as the app's visual theme                                                              |
+| Term                          | Definition                                                                                                                                                       |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Task**                      | A task posted on Bounty.ninja with a bitcoin reward, represented as a Kind 37300 Nostr event                                                                     |
+| **Pledge**                    | A funding contribution to a task, containing P2PK-locked Cashu tokens (Kind 73002)                                                                               |
+| **Solution**                  | A submission claiming to fulfill a task's requirements (Kind 73001)                                                                                              |
+| **Vote**                      | A funder's approval or rejection of a solution (Kind 1018)                                                                                                       |
+| **Payout**                    | The transfer of pledged tokens to the winning solver (Kind 73004)                                                                                                |
+| **Cashu**                     | An open-source ecash protocol for Bitcoin, enabling bearer tokens                                                                                                |
+| **P2PK**                      | Pay-to-Public-Key — a Cashu spending condition (NUT-11) that locks tokens to a specific public key                                                               |
+| **NIP**                       | Nostr Implementation Possibility — a specification for Nostr protocol features                                                                                   |
+| **NIP-07**                    | Browser extension signer standard for Nostr (e.g., nos2x, Alby)                                                                                                  |
+| **NIP-19**                    | Bech32-encoded Nostr identifiers (npub, naddr, nevent, etc.)                                                                                                     |
+| **NIP-33**                    | Parameterized Replaceable Events — events that can be updated by the same author                                                                                 |
+| **NIP-40**                    | Expiration Timestamp — events with an expiration date                                                                                                            |
+| **NIP-50**                    | Search Capability — relay-side full-text search                                                                                                                  |
+| **NIP-90**                    | Data Vending Machine — protocol for on-demand computation services                                                                                               |
+| **DVM**                       | Data Vending Machine (NIP-90)                                                                                                                                    |
+| **ContextVM**                 | A bridge between Nostr and Model Context Protocol (MCP) for AI agent integration                                                                                 |
+| **Applesauce**                | A collection of TypeScript libraries for building Nostr web clients (by hzrd149)                                                                                 |
+| **EventStore**                | Applesauce's reactive in-memory database for Nostr events                                                                                                        |
+| **RelayPool**                 | Applesauce's relay connection manager                                                                                                                            |
+| **Runes**                     | Svelte 5's reactivity primitives (`$state`, `$derived`, `$effect`)                                                                                               |
+| **naddr**                     | NIP-19 encoded address for parameterized replaceable events (used for task URLs)                                                                                 |
+| **npub**                      | NIP-19 encoded public key (used for profile URLs)                                                                                                                |
+| **Linear Voting**             | Voting mechanism where weight = pledge amount (1 sat = 1 vote weight), chosen over square-root weighting for Sybil resistance                                    |
+| **Pledger-Controlled Escrow** | The escrow model where pledgers lock tokens to their own pubkey (not the creator's), retaining custody until they actively release to the solver after consensus |
+| **Release**                   | The act of a pledger swapping their self-locked tokens for solver-locked tokens after vote consensus                                                             |
+| **Release Rate**              | A pledger's reputation metric: percentage of pledges released on time after consensus was reached                                                                |
+| **Anti-spam fee**             | A small, non-refundable Cashu token attached to solution submissions to deter spam                                                                               |
+| **Tokyo Night**               | A popular dark/light color scheme used as the app's visual theme                                                                                                 |
 
 ---
 
