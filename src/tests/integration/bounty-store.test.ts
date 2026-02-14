@@ -7,10 +7,16 @@
  *
  * Uses the real EventStore (from applesauce-core) with no relay connections.
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { firstValueFrom, take, skip } from 'rxjs';
 import { EventStore } from 'applesauce-core';
 import type { NostrEvent } from 'nostr-tools';
+
+// Mock env before importing helpers (which transitively imports voting → env)
+vi.mock('$lib/utils/env', () => ({
+	getVoteQuorumFraction: () => 0.66
+}));
+
 import { BOUNTY_KIND, PLEDGE_KIND, SOLUTION_KIND, VOTE_KIND, PAYOUT_KIND } from '$lib/bounty/kinds';
 import {
 	parseBountySummary,
@@ -267,27 +273,29 @@ describe('parseBountyDetail composition', () => {
 		expect(detail.solutions).toHaveLength(1);
 		expect(detail.solutionCount).toBe(1);
 		expect(detail.votesBySolution.get(solution.id)).toHaveLength(1);
-		expect(detail.payout).toBeNull();
+		expect(detail.payouts).toEqual([]);
 	});
 
-	it('includes payout when present', () => {
+	it('includes payouts when present', () => {
 		const bountyAddress = `${BOUNTY_KIND}:${PUBKEY_A}:payout-test`;
 		const bountyEvent = makeBountyEvent('payout-test', 'Payout Test', 25000);
 		const solution = makeSolutionEvent(bountyAddress);
+		// Payout pubkey must be a pledger — add a pledge from PUBKEY_A
+		const pledge = makePledgeEvent(bountyAddress, 10000, PUBKEY_A);
 		const payout = makePayoutEvent(bountyAddress, solution.id);
 
 		const detail = parseBountyDetail(
 			bountyEvent,
-			[], // no pledges
+			[pledge],
 			[solution],
 			[], // no votes
 			[payout],
 			[]
 		)!;
 
-		expect(detail.payout).not.toBeNull();
-		expect(detail.payout?.amount).toBe(10000);
-		expect(detail.payout?.solutionId).toBe(solution.id);
+		expect(detail.payouts).toHaveLength(1);
+		expect(detail.payouts[0].amount).toBe(10000);
+		expect(detail.payouts[0].solutionId).toBe(solution.id);
 	});
 
 	it('groups votes by solution ID', () => {
@@ -323,9 +331,29 @@ describe('parseBountyDetail composition', () => {
 		const reviewDetail = parseBountyDetail(bountyEvent, [pledge], [solution], [], [], [])!;
 		expect(reviewDetail.status).toBe('in_review');
 
-		// Completed: has payout
-		const payout = makePayoutEvent(bountyAddress, solution.id);
-		const completedDetail = parseBountyDetail(bountyEvent, [pledge], [solution], [], [payout], [])!;
+		// Completed: has payout (payout pubkey must match a pledger)
+		// The pledge was created by PUBKEY_B, so payout must also be from PUBKEY_B
+		const payoutEvt = mockEvent({
+			kind: PAYOUT_KIND,
+			pubkey: PUBKEY_B,
+			tags: [
+				['a', bountyAddress],
+				['e', solution.id],
+				['p', PUBKEY_B],
+				['amount', '5000'],
+				['cashu', 'cashuA_payout_token'],
+				['client', 'bounty.ninja']
+			],
+			content: ''
+		});
+		const completedDetail = parseBountyDetail(
+			bountyEvent,
+			[pledge],
+			[solution],
+			[],
+			[payoutEvt],
+			[]
+		)!;
 		expect(completedDetail.status).toBe('completed');
 	});
 });

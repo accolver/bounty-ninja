@@ -1,21 +1,30 @@
 <script lang="ts">
-	import type { Solution, Payout, VoteTally } from '$lib/bounty/types';
+	import type { Solution, Payout, Pledge, VoteTally } from '$lib/bounty/types';
 	import { nip19 } from 'nostr-tools';
 	import { formatNpub } from '$lib/utils/format';
 	import SatAmount from '$lib/components/shared/SatAmount.svelte';
 
 	const {
 		winningSolution,
-		payout,
+		payouts = [],
+		pledges = [],
 		tally
 	}: {
 		winningSolution?: Solution;
-		payout?: Payout;
+		payouts?: Payout[];
+		pledges?: Pledge[];
 		tally?: VoteTally;
 	} = $props();
 
-	const solverNpub = $derived(
-		winningSolution ? nip19.npubEncode(winningSolution.pubkey) : null
+	const solverNpub = $derived(winningSolution ? nip19.npubEncode(winningSolution.pubkey) : null);
+
+	/** Release progress */
+	const totalReleased = $derived(payouts.reduce((sum, p) => sum + p.amount, 0));
+	const uniquePledgers = $derived(new Set(pledges.map((p) => p.pubkey)).size);
+	const releasedPledgers = $derived(new Set(payouts.map((p) => p.pubkey)).size);
+	const totalPledged = $derived(pledges.reduce((sum, p) => sum + p.amount, 0));
+	const releasePercent = $derived(
+		totalPledged > 0 ? Math.round((totalReleased / totalPledged) * 100) : 0
 	);
 </script>
 
@@ -39,8 +48,8 @@
 				<h3 class="text-sm font-semibold text-warning">Vote Tied</h3>
 			</div>
 			<p class="text-sm text-muted-foreground">
-				Votes are evenly split. More votes are needed to reach a decision.
-				A strict majority is required for approval.
+				Votes are evenly split. More votes are needed to reach a decision. A strict majority is
+				required for approval.
 			</p>
 		</div>
 	{:else if winningSolution && solverNpub}
@@ -64,22 +73,38 @@
 				Solved by
 				<a
 					href="/profile/{solverNpub}"
-					class="font-medium text-primary transition-colors hover:underline focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+					class="font-medium text-primary transition-colors hover:underline hover:cursor-pointer focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
 				>
 					{formatNpub(solverNpub)}
 				</a>
 			</p>
 
-			{#if payout}
+			{#if payouts.length > 0}
 				<div class="flex items-center gap-2 text-sm">
-					<span class="text-muted-foreground">Payout:</span>
-					<SatAmount amount={payout.amount} />
+					<span class="text-muted-foreground">Total Released:</span>
+					<SatAmount amount={totalReleased} />
 				</div>
+
+				<!-- Release progress -->
+				{#if uniquePledgers > 0}
+					<div class="text-xs text-muted-foreground">
+						<p>
+							Consensus reached — {releasedPledgers} of {uniquePledgers} pledger{uniquePledgers ===
+							1
+								? ''
+								: 's'} have released funds ({releasePercent}%)
+						</p>
+						<div class="mt-1.5 h-1.5 w-full rounded-full bg-muted">
+							<div
+								class="h-full rounded-full bg-success transition-all"
+								style="width: {releasePercent}%"
+							></div>
+						</div>
+					</div>
+				{/if}
 			{/if}
 		</div>
 	{:else}
-		<p class="text-sm text-muted-foreground">
-			No winning solution determined.
-		</p>
+		<p class="text-sm text-muted-foreground">No winning solution determined.</p>
 	{/if}
 </div>

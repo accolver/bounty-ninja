@@ -45,8 +45,10 @@
 
 	/** Find the winning solution (approved by consensus) */
 	const winningSolution = $derived.by(() => {
-		if (detail.status === 'completed' && detail.payout) {
-			return detail.solutions.find((s) => s.id === detail.payout?.solutionId);
+		// Check if any payout references a solution
+		if (detail.payouts.length > 0) {
+			const solutionId = detail.payouts[0].solutionId;
+			return detail.solutions.find((s) => s.id === solutionId);
 		}
 		// Check for consensus-approved solutions (pre-payout)
 		for (const solution of detail.solutions) {
@@ -56,6 +58,11 @@
 		}
 		return undefined;
 	});
+
+	/** Whether the bounty is in a release phase */
+	const isReleasePhase = $derived(
+		detail.status === 'consensus_reached' || detail.status === 'releasing'
+	);
 
 	let pledgeFormOpen = $state(false);
 </script>
@@ -76,7 +83,7 @@
 				Posted by
 				<a
 					href="/profile/{creatorNpub}"
-					class="font-medium text-primary transition-colors hover:underline focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+					class="font-medium text-primary transition-colors hover:underline hover:cursor-pointer focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
 				>
 					{formatNpub(creatorNpub)}
 				</a>
@@ -133,7 +140,7 @@
 				</h2>
 				<PledgeButton taskStatus={detail.status} onPledge={() => (pledgeFormOpen = true)} />
 			</div>
-			<PledgeList pledges={detail.pledges} />
+			<PledgeList pledges={detail.pledges} payouts={detail.payouts} />
 			<PledgeForm
 				{bountyAddress}
 				creatorPubkey={detail.pubkey}
@@ -166,7 +173,7 @@
 							<div class="flex items-center justify-between gap-2">
 								<a
 									href="/profile/{nip19.npubEncode(solution.pubkey)}"
-									class="text-sm font-medium text-primary transition-colors hover:underline focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+									class="text-sm font-medium text-primary transition-colors hover:underline hover:cursor-pointer focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
 								>
 									{formatNpub(nip19.npubEncode(solution.pubkey))}
 								</a>
@@ -182,7 +189,7 @@
 										href={solution.deliverableUrl}
 										target="_blank"
 										rel="noopener noreferrer"
-										class="font-medium text-primary underline underline-offset-2 transition-colors hover:text-primary/80 focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+										class="font-medium text-primary underline underline-offset-2 transition-colors hover:text-primary/80 hover:cursor-pointer focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
 									>
 										{solution.deliverableUrl}
 									</a>
@@ -196,7 +203,7 @@
 								</div>
 							{/if}
 
-							<!-- Vote buttons (only when bounty is in_review) -->
+							<!-- Vote buttons (only when bounty is in_review or open) -->
 							{#if detail.status === 'in_review' || detail.status === 'open'}
 								<div class="border-t border-border pt-3">
 									<VoteButton
@@ -212,7 +219,13 @@
 							{#if tally.isApproved}
 								<div class="rounded-md border border-success/40 bg-success/10 p-2 text-center">
 									<p class="text-sm font-medium text-success">
-										Solution approved! Awaiting payout from bounty creator.
+										{#if isReleasePhase}
+											Solution approved! Pledgers are releasing funds to the solver.
+										{:else if detail.payouts.length > 0}
+											Solution approved! Funds have been released.
+										{:else}
+											Solution approved! Awaiting fund releases from pledgers.
+										{/if}
 									</p>
 								</div>
 							{/if}
@@ -233,37 +246,31 @@
 		</section>
 	</ErrorBoundary>
 
-	<!-- Payout section -->
+	<!-- Payout / Release section -->
 	<ErrorBoundary>
-		<!-- Payout trigger for creator when a solution has consensus -->
-		{#if winningSolution && !detail.payout}
+		<!-- Release trigger for pledgers when consensus reached or releasing -->
+		{#if winningSolution && (isReleasePhase || detail.payouts.length > 0)}
 			<section aria-label="Payout">
 				<h2 class="mb-3 text-lg font-semibold text-foreground">Payout</h2>
-				{#if isCreator}
-					<PayoutTrigger {bountyAddress} {winningSolution} pledges={detail.pledges} {isCreator} />
-				{:else}
-					<div class="rounded-lg border border-border bg-card p-4 text-center">
-						<p class="text-sm text-muted-foreground">Awaiting payout from bounty creator.</p>
-					</div>
-				{/if}
+				<div class="space-y-3">
+					<PayoutTrigger
+						{bountyAddress}
+						{winningSolution}
+						pledges={detail.pledges}
+						payouts={detail.payouts}
+					/>
+					<SolverClaim payouts={detail.payouts} pledges={detail.pledges} />
+					<VoteResults {winningSolution} payouts={detail.payouts} pledges={detail.pledges} />
+				</div>
 			</section>
 		{/if}
 
-		<!-- Solver claim notification when payout exists -->
-		{#if detail.payout}
-			<section aria-label="Payout claim">
-				<h2 class="mb-3 text-lg font-semibold text-foreground">Payout</h2>
-				<SolverClaim payout={detail.payout} />
-				<VoteResults {winningSolution} payout={detail.payout} />
+		<!-- Completed bounty with no release phase visible (e.g. loaded after completion) -->
+		{#if detail.status === 'completed' && detail.payouts.length > 0 && !isReleasePhase && !winningSolution}
+			<section aria-label="Vote results">
+				<h2 class="mb-3 text-lg font-semibold text-foreground">Results</h2>
+				<VoteResults payouts={detail.payouts} pledges={detail.pledges} />
 			</section>
 		{/if}
 	</ErrorBoundary>
-
-	<!-- Vote Results (if completed, no payout section already shown) -->
-	{#if detail.status === 'completed' && !detail.payout}
-		<section aria-label="Vote results">
-			<h2 class="mb-3 text-lg font-semibold text-foreground">Results</h2>
-			<VoteResults {winningSolution} payout={detail.payout ?? undefined} />
-		</section>
-	{/if}
 </article>

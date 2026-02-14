@@ -1,6 +1,13 @@
 import type { NostrEvent } from 'nostr-tools';
 
-export type BountyStatus = 'open' | 'in_review' | 'completed' | 'expired' | 'cancelled';
+export type BountyStatus =
+	| 'open'
+	| 'in_review'
+	| 'consensus_reached'
+	| 'releasing'
+	| 'completed'
+	| 'expired'
+	| 'cancelled';
 
 export interface Bounty {
 	event: NostrEvent;
@@ -88,7 +95,7 @@ export interface BountyDetail extends Bounty {
 	pledges: Pledge[];
 	solutions: Solution[];
 	votesBySolution: Map<string, Vote[]>;
-	payout: Payout | null;
+	payouts: Payout[];
 	creatorProfile: Record<string, string> | null;
 }
 

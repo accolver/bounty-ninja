@@ -1,5 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import type { NostrEvent } from 'nostr-tools';
+
+// Mock env before importing helpers (which transitively imports voting → env)
+vi.mock('$lib/utils/env', () => ({
+	getVoteQuorumFraction: () => 0.66
+}));
+
 import {
 	parseBountySummary,
 	parsePledge,
@@ -346,6 +352,60 @@ describe('parsePayout', () => {
 		const result = parsePayout(event);
 		expect(result).toBeNull();
 	});
+
+	it('returns null when pubkey is not in pledgerPubkeys', () => {
+		const event = mockEvent({
+			kind: 73004,
+			pubkey: PUBKEY_D,
+			tags: [
+				['a', VALID_TASK_ADDR],
+				['e', EVENT_ID_1],
+				['p', PUBKEY_C],
+				['amount', '50000'],
+				['cashu', 'cashuCtoken']
+			]
+		});
+
+		// PUBKEY_D is not a pledger
+		const result = parsePayout(event, [PUBKEY_A, PUBKEY_B]);
+		expect(result).toBeNull();
+	});
+
+	it('succeeds when pubkey is in pledgerPubkeys', () => {
+		const event = mockEvent({
+			kind: 73004,
+			pubkey: PUBKEY_B,
+			tags: [
+				['a', VALID_TASK_ADDR],
+				['e', EVENT_ID_1],
+				['p', PUBKEY_C],
+				['amount', '50000'],
+				['cashu', 'cashuCtoken']
+			]
+		});
+
+		const result = parsePayout(event, [PUBKEY_A, PUBKEY_B]);
+		expect(result).not.toBeNull();
+		expect(result!.amount).toBe(50000);
+	});
+
+	it('skips authorization check when pledgerPubkeys omitted', () => {
+		const event = mockEvent({
+			kind: 73004,
+			pubkey: PUBKEY_D,
+			tags: [
+				['a', VALID_TASK_ADDR],
+				['e', EVENT_ID_1],
+				['p', PUBKEY_C],
+				['amount', '50000'],
+				['cashu', 'cashuCtoken']
+			]
+		});
+
+		// No pledgerPubkeys — backward compat, no authorization check
+		const result = parsePayout(event);
+		expect(result).not.toBeNull();
+	});
 });
 
 describe('parseBountyDetail', () => {
@@ -416,8 +476,9 @@ describe('parseBountyDetail', () => {
 		expect(detail.solutionCount).toBe(1);
 		expect(detail.pledges).toHaveLength(1);
 		expect(detail.solutions).toHaveLength(1);
-		expect(detail.payout).toBeNull();
-		expect(detail.status).toBe('in_review');
+		expect(detail.payouts).toEqual([]);
+		// The sole pledger (PUBKEY_C) approved the solution → 100% > 66% quorum → consensus reached
+		expect(detail.status).toBe('consensus_reached');
 		expect(detail.mintUrl).toBe(VALID_MINT_URL);
 		expect(detail.description).toBe('A full bounty description');
 		expect(detail.creatorProfile).toBeNull();
@@ -446,7 +507,7 @@ describe('parseBountyDetail', () => {
 		expect(detail.pledges).toEqual([]);
 		expect(detail.solutions).toEqual([]);
 		expect(detail.votesBySolution.size).toBe(0);
-		expect(detail.payout).toBeNull();
+		expect(detail.payouts).toEqual([]);
 		expect(detail.status).toBe('open');
 	});
 
@@ -462,22 +523,35 @@ describe('parseBountyDetail', () => {
 			]
 		});
 
+		// Need a pledge event so the payout pubkey passes authorization
+		const pledgeEvent = mockEvent({
+			kind: 73002,
+			pubkey: PUBKEY_C,
+			tags: [
+				['a', taskAddr],
+				['amount', '100000'],
+				['cashu', 'pledgeToken'],
+				['mint', VALID_MINT_URL]
+			]
+		});
+
 		const payoutEvent = mockEvent({
 			kind: 73004,
+			pubkey: PUBKEY_C, // Must match a pledger pubkey
 			tags: [
 				['a', taskAddr],
 				['e', EVENT_ID_1],
-				['p', PUBKEY_C],
+				['p', PUBKEY_D],
 				['amount', '100000'],
 				['cashu', 'payoutToken']
 			]
 		});
 
-		const detail = parseBountyDetail(bountyEvent, [], [], [], [payoutEvent], [])!;
+		const detail = parseBountyDetail(bountyEvent, [pledgeEvent], [], [], [payoutEvent], [])!;
 
 		expect(detail.status).toBe('completed');
-		expect(detail.payout).not.toBeNull();
-		expect(detail.payout!.amount).toBe(100000);
+		expect(detail.payouts).toHaveLength(1);
+		expect(detail.payouts[0].amount).toBe(100000);
 	});
 
 	it('sets status to cancelled when delete events exist', () => {

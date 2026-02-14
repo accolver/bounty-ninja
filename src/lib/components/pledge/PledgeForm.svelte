@@ -21,6 +21,8 @@
 
 	let {
 		bountyAddress,
+		// creatorPubkey is used for the `p` notification tag in the pledge event,
+		// NOT for token locking. Tokens are P2PK-locked to the pledger's own pubkey.
 		creatorPubkey,
 		mintUrl,
 		deadline = null,
@@ -129,13 +131,12 @@
 		submitting = true;
 
 		try {
-			// Create P2PK-locked token for the bounty creator
+			// Create P2PK-locked token to pledger's own pubkey (self-custody)
 			const result = await createPledgeToken(
 				decodedToken.proofs,
-				creatorPubkey,
+				accountState.pubkey,
 				decodedToken.mint,
-				deadline ?? undefined,
-				accountState.pubkey
+				deadline ?? undefined
 			);
 
 			if (!result.success) {
@@ -273,12 +274,10 @@
 					<div class="space-y-2">
 						<p class="text-sm font-medium text-warning">Bearer instrument warning</p>
 						<p class="text-xs text-foreground/80">
-							Cashu tokens are like cash. Once pledged, the tokens are locked to the bounty creator.
+							Your tokens will be locked to your own key until the bounty deadline. After vote
+							consensus, you will be asked to release them to the winning solver.
 							{#if deadline}
-								If the bounty expires without a payout, you can reclaim your tokens after the
-								deadline.
-							{:else}
-								Ensure you trust this bounty creator before pledging.
+								If the bounty expires without a payout, you can reclaim your tokens at any time.
 							{/if}
 						</p>
 						<label class="flex items-start gap-2 cursor-pointer">

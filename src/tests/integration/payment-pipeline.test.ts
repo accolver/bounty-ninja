@@ -1,14 +1,13 @@
 /**
- * Integration test: Full pledge → payout payment pipeline.
+ * Integration test: Pledger-controlled escrow payment pipeline.
  *
  * Tests the end-to-end flow with mocked wallet/mint:
  * 1. Decode pasted token → validate structure
- * 2. createPledgeToken → P2PK lock to creator (with refund path)
+ * 2. createPledgeToken → P2PK lock to pledger's OWN pubkey (self-custody)
  * 3. Publish pledge event with encoded token
  * 4. collectPledgeTokens → extract from pledge events
- * 5. swapPledgeTokens → creator unlocks with privkey
- * 6. createPayoutToken → P2PK lock to solver
- * 7. encodePayoutToken → publish payout event
+ * 5. releasePledgeToSolver → pledger swaps self-locked to solver-locked
+ * 6. encodePayoutToken → publish payout event
  *
  * Uses real EventStore with no relay connections.
  */
@@ -17,6 +16,12 @@ import { EventStore } from 'applesauce-core';
 import { firstValueFrom, skip, take } from 'rxjs';
 import type { NostrEvent } from 'nostr-tools';
 import type { Proof, Wallet, Token } from '@cashu/cashu-ts';
+
+// Mock env before importing helpers (which transitively imports voting → env)
+vi.mock('$lib/utils/env', () => ({
+	getVoteQuorumFraction: () => 0.66
+}));
+
 import { BOUNTY_KIND, PLEDGE_KIND, PAYOUT_KIND } from '$lib/bounty/kinds';
 import { pledgeBlueprint, payoutBlueprint } from '$lib/bounty/blueprints';
 import { parsePledge, parsePayout } from '$lib/bounty/helpers';
@@ -30,24 +35,22 @@ vi.mock('$lib/cashu/mint', () => ({
 vi.mock('$lib/cashu/token', () => ({
 	decodeToken: vi.fn(),
 	encodeToken: vi.fn(),
-	getProofsAmount: vi.fn((proofs: Proof[]) => proofs.reduce((s: number, p: Proof) => s + p.amount, 0)),
+	getProofsAmount: vi.fn((proofs: Proof[]) =>
+		proofs.reduce((s: number, p: Proof) => s + p.amount, 0)
+	),
 	getTokenAmount: vi.fn(),
 	isValidToken: vi.fn()
 }));
 
 vi.mock('$lib/cashu/p2pk', () => ({
-	createP2PKLock: vi.fn(() => ({ pubkey: 'a'.repeat(64) }))
+	createP2PKLock: vi.fn(() => ({ pubkey: 'b'.repeat(64) }))
 }));
 
 import {
 	createPledgeToken,
 	collectPledgeTokens,
-	swapPledgeTokens,
-	createPayoutToken,
-	encodePayoutToken,
-	groupPledgesByMint,
-	processMultiMintPayout,
-	encodeMultiMintPayoutTokens
+	releasePledgeToSolver,
+	encodePayoutToken
 } from '$lib/cashu/escrow';
 import { decodeToken, encodeToken, getProofsAmount } from '$lib/cashu/token';
 import { getWallet } from '$lib/cashu/mint';
@@ -62,8 +65,9 @@ const mockedCreateP2PKLock = vi.mocked(createP2PKLock);
 
 const CREATOR_PK = 'a'.repeat(64);
 const PLEDGER_PK = 'b'.repeat(64);
+const PLEDGER_2_PK = 'f'.repeat(64);
+const PLEDGER_PRIVKEY = 'e'.repeat(64);
 const SOLVER_PK = 'c'.repeat(64);
-const CREATOR_PRIVKEY = 'f'.repeat(64);
 const SIG = 'd'.repeat(128);
 const MINT_URL = 'https://testnut.cashu.space';
 const D_TAG = 'payment-pipeline-test';
@@ -113,16 +117,14 @@ function mockWallet(overrides: Record<string, unknown> = {}): Wallet {
 			send: [mockProof(amount, `locked-${amount}`)]
 		})),
 		signP2PKProofs: vi.fn((proofs: Proof[]) => proofs),
-		checkProofsStates: vi.fn(async (proofs: Proof[]) =>
-			proofs.map(() => ({ state: 'UNSPENT' }))
-		),
+		checkProofsStates: vi.fn(async (proofs: Proof[]) => proofs.map(() => ({ state: 'UNSPENT' }))),
 		...overrides
 	} as unknown as Wallet;
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────
 
-describe('Full payment pipeline: pledge → payout', () => {
+describe('Pledger-controlled escrow pipeline: pledge → release → payout', () => {
 	let store: EventStore;
 	let wallet: Wallet;
 
@@ -132,10 +134,10 @@ describe('Full payment pipeline: pledge → payout', () => {
 		store.verifyEvent = () => true;
 		wallet = mockWallet();
 		mockedGetWallet.mockResolvedValue(wallet);
-		mockedCreateP2PKLock.mockReturnValue({ pubkey: CREATOR_PK });
+		mockedCreateP2PKLock.mockReturnValue({ pubkey: PLEDGER_PK });
 	});
 
-	it('completes a full pledge → swap → payout cycle', async () => {
+	it('completes a full pledge → release → payout cycle', async () => {
 		// ── Step 1: Pledger "pastes" a token and we decode it ──────────
 		const pastedToken = 'cashuBpledgerinput123';
 		const pastedProofs = [mockProof(100), mockProof(50)]; // 150 sats total
@@ -154,20 +156,19 @@ describe('Full payment pipeline: pledge → payout', () => {
 		expect(decoded!.amount).toBe(150);
 		expect(decoded!.mint).toBe(MINT_URL);
 
-		// ── Step 2: Create P2PK-locked pledge token ───────────────────
+		// ── Step 2: Create P2PK-locked pledge token (self-custody) ────
 		const pledgeResult = await createPledgeToken(
 			decoded!.proofs,
-			CREATOR_PK,
+			PLEDGER_PK, // Lock to pledger's OWN pubkey
 			MINT_URL,
-			DEADLINE,
-			PLEDGER_PK
+			DEADLINE
 		);
 
 		expect(pledgeResult.success).toBe(true);
 		expect(pledgeResult.proofs.length).toBeGreaterThan(0);
 
-		// Verify P2PK lock was created with locktime and refund key
-		expect(mockedCreateP2PKLock).toHaveBeenCalledWith(CREATOR_PK, DEADLINE, [PLEDGER_PK]);
+		// Verify P2PK lock was created for the pledger (NOT the creator)
+		expect(mockedCreateP2PKLock).toHaveBeenCalledWith(PLEDGER_PK, DEADLINE);
 
 		// ── Step 3: Encode locked token and publish pledge event ───────
 		mockedEncodeToken.mockResolvedValue('cashuBlockedpledge456');
@@ -201,7 +202,7 @@ describe('Full payment pipeline: pledge → payout', () => {
 		expect(parsedPledge!.cashuToken).toBe('cashuBlockedpledge456');
 		expect(parsedPledge!.amount).toBe(pledgeAmount);
 
-		// ── Step 4: Creator collects pledge tokens from events ─────────
+		// ── Step 4: Collect pledge tokens from events ─────────────────
 		mockedDecodeToken.mockResolvedValue({
 			mint: MINT_URL,
 			amount: pledgeAmount,
@@ -215,33 +216,26 @@ describe('Full payment pipeline: pledge → payout', () => {
 		expect(decodedPledges[0].amount).toBe(pledgeAmount);
 		expect(decodedPledges[0].pledgerPubkey).toBe(PLEDGER_PK);
 
-		// ── Step 5: Creator swaps locked tokens with privkey ──────────
-		const swapResult = await swapPledgeTokens(decodedPledges, wallet, CREATOR_PRIVKEY);
-
-		expect(swapResult.success).toBe(true);
-		expect(swapResult.sendProofs.length).toBeGreaterThan(0);
-		expect(wallet.signP2PKProofs).toHaveBeenCalledWith(
-			decodedPledges[0].proofs,
-			CREATOR_PRIVKEY
-		);
-
-		// ── Step 6: Creator creates solver-locked payout token ────────
+		// ── Step 5: Pledger releases to solver after consensus ────────
 		mockedCreateP2PKLock.mockReturnValue({ pubkey: SOLVER_PK });
 
-		const payoutResult = await createPayoutToken(
-			swapResult.sendProofs,
-			SOLVER_PK,
-			wallet
+		const releaseResult = await releasePledgeToSolver(
+			decodedPledges[0],
+			PLEDGER_PRIVKEY,
+			SOLVER_PK
 		);
 
-		expect(payoutResult.success).toBe(true);
-		expect(payoutResult.proofs.length).toBeGreaterThan(0);
+		expect(releaseResult.success).toBe(true);
+		expect(releaseResult.proofs.length).toBeGreaterThan(0);
+		// Verify pledger signed with their own private key
+		expect(wallet.signP2PKProofs).toHaveBeenCalledWith(decodedPledges[0].proofs, PLEDGER_PRIVKEY);
+		// Verify solver lock was created
 		expect(mockedCreateP2PKLock).toHaveBeenCalledWith(SOLVER_PK);
 
-		// ── Step 7: Encode payout token and publish payout event ──────
+		// ── Step 6: Encode payout token and publish payout event ──────
 		mockedEncodeToken.mockResolvedValue('cashuBpayouttosolver789');
-		const payoutTokenStr = await encodePayoutToken(payoutResult.proofs, MINT_URL);
-		const payoutAmount = getProofsAmount(payoutResult.proofs);
+		const payoutTokenStr = await encodePayoutToken(releaseResult.proofs, MINT_URL);
+		const payoutAmount = getProofsAmount(releaseResult.proofs);
 
 		const payoutTemplate = payoutBlueprint({
 			bountyAddress: BOUNTY_ADDRESS,
@@ -251,20 +245,21 @@ describe('Full payment pipeline: pledge → payout', () => {
 			cashuToken: payoutTokenStr
 		});
 
-		const payoutEvent = signEvent(payoutTemplate, CREATOR_PK);
+		// Payout event published by the PLEDGER (not the creator)
+		const payoutEvent = signEvent(payoutTemplate, PLEDGER_PK);
 
 		// Insert into EventStore
 		const payoutPromise = firstValueFrom(
 			store.timeline({ kinds: [PAYOUT_KIND], '#a': [BOUNTY_ADDRESS] }).pipe(skip(1), take(1))
 		);
 		store.add(payoutEvent);
-		const payoutEvents = await payoutPromise;
+		const payoutEvts = await payoutPromise;
 
-		expect(payoutEvents).toHaveLength(1);
-		expect(payoutEvents[0].kind).toBe(PAYOUT_KIND);
+		expect(payoutEvts).toHaveLength(1);
+		expect(payoutEvts[0].kind).toBe(PAYOUT_KIND);
 
-		// Parse and validate
-		const parsedPayout = parsePayout(payoutEvent, CREATOR_PK);
+		// Parse and validate — pledger pubkey must be in pledgerPubkeys
+		const parsedPayout = parsePayout(payoutEvent, [PLEDGER_PK]);
 		expect(parsedPayout).not.toBeNull();
 		expect(parsedPayout!.cashuToken).toBe('cashuBpayouttosolver789');
 		expect(parsedPayout!.solverPubkey).toBe(SOLVER_PK);
@@ -285,13 +280,13 @@ describe('Full payment pipeline: pledge → payout', () => {
 		// Pledger has 100 sats
 		const proofs = [mockProof(100)];
 
-		// Pledge: 100 - 2 fee = 98 sats locked
-		const pledgeResult = await createPledgeToken(proofs, CREATOR_PK, MINT_URL);
+		// Pledge: 100 - 2 fee = 98 sats locked to self
+		const pledgeResult = await createPledgeToken(proofs, PLEDGER_PK, MINT_URL);
 		expect(pledgeResult.success).toBe(true);
 		const pledgeAmount = getProofsAmount(pledgeResult.proofs);
 		expect(pledgeAmount).toBe(98);
 
-		// Swap: 98 - 2 fee = 96 sats unlocked
+		// Release: pledger swaps (98 - 2 = 96 unlocked) then re-locks (96 - 2 = 94 to solver)
 		const pledge = {
 			token: { mint: MINT_URL, proofs: pledgeResult.proofs, unit: 'sat' } as Token,
 			mint: MINT_URL,
@@ -301,21 +296,17 @@ describe('Full payment pipeline: pledge → payout', () => {
 			pledgerPubkey: PLEDGER_PK
 		};
 
-		const swapResult = await swapPledgeTokens([pledge], feeWallet, CREATOR_PRIVKEY);
-		expect(swapResult.success).toBe(true);
-		const swapAmount = getProofsAmount(swapResult.sendProofs);
-		expect(swapAmount).toBe(96);
+		mockedCreateP2PKLock.mockReturnValue({ pubkey: SOLVER_PK });
 
-		// Payout: 96 - 2 fee = 94 sats to solver
-		const payoutResult = await createPayoutToken(swapResult.sendProofs, SOLVER_PK, feeWallet);
-		expect(payoutResult.success).toBe(true);
-		const payoutAmount = getProofsAmount(payoutResult.proofs);
-		expect(payoutAmount).toBe(94);
+		const releaseResult = await releasePledgeToSolver(pledge, PLEDGER_PRIVKEY, SOLVER_PK);
+		expect(releaseResult.success).toBe(true);
+		const releaseAmount = getProofsAmount(releaseResult.proofs);
+		expect(releaseAmount).toBe(94);
 
-		// Total fees: 2 + 2 + 2 = 6 sats across 3 swaps
+		// Total fees: 2 (pledge) + 2 (swap) + 2 (re-lock) = 6 sats
 	});
 
-	it('rejects unauthorized payout events', () => {
+	it('rejects unauthorized payout events from non-pledgers', () => {
 		const payoutTemplate = payoutBlueprint({
 			bountyAddress: BOUNTY_ADDRESS,
 			solutionId: 'e'.repeat(64),
@@ -324,14 +315,14 @@ describe('Full payment pipeline: pledge → payout', () => {
 			cashuToken: 'cashuBfake'
 		});
 
-		// Sign with a different key (not the creator)
-		const badPayoutEvent = signEvent(payoutTemplate, PLEDGER_PK);
-		const parsed = parsePayout(badPayoutEvent, CREATOR_PK);
+		// Sign with a key that is NOT a pledger
+		const badPayoutEvent = signEvent(payoutTemplate, CREATOR_PK);
+		const parsed = parsePayout(badPayoutEvent, [PLEDGER_PK]);
 
 		expect(parsed).toBeNull(); // Unauthorized payout rejected
 	});
 
-	it('handles multiple pledgers in a single payout', async () => {
+	it('handles multiple pledgers each releasing independently', async () => {
 		const tokenInfo1 = {
 			mint: MINT_URL,
 			amount: 100,
@@ -367,7 +358,7 @@ describe('Full payment pipeline: pledge → payout', () => {
 				cashuToken: 'cashuBpledge2',
 				mintUrl: MINT_URL
 			}),
-			SOLVER_PK // Second pledger (using SOLVER_PK just for a different key)
+			PLEDGER_2_PK
 		);
 
 		// Collect and decode both
@@ -376,137 +367,55 @@ describe('Full payment pipeline: pledge → payout', () => {
 
 		expect(decoded).toHaveLength(2);
 		expect(decoded[0].amount).toBe(100);
+		expect(decoded[0].pledgerPubkey).toBe(PLEDGER_PK);
 		expect(decoded[1].amount).toBe(75);
+		expect(decoded[1].pledgerPubkey).toBe(PLEDGER_2_PK);
 
-		// Swap all together
-		const swapResult = await swapPledgeTokens(decoded, wallet, CREATOR_PRIVKEY);
-		expect(swapResult.success).toBe(true);
-
-		// signP2PKProofs should receive combined proofs
-		const signCall = (wallet.signP2PKProofs as ReturnType<typeof vi.fn>).mock.calls[0];
-		expect(signCall[0]).toHaveLength(2); // Both pledgers' proofs combined
-	});
-
-	it('completes a multi-mint pledge → payout cycle', async () => {
-		const MINT_URL_2 = 'https://mint2.cashu.space';
-
-		// ── Step 1: Simulate pledge events from two different mints ───
-		const tokenInfo1 = {
-			mint: MINT_URL,
-			amount: 100,
-			proofs: [mockProof(100, 'mint1-proof')],
-			memo: undefined,
-			unit: 'sat'
-		};
-		const tokenInfo2 = {
-			mint: MINT_URL_2,
-			amount: 75,
-			proofs: [mockProof(75, 'mint2-proof')],
-			memo: undefined,
-			unit: 'sat'
-		};
-
-		const pledgeEvent1 = signEvent(
-			pledgeBlueprint({
-				bountyAddress: BOUNTY_ADDRESS,
-				creatorPubkey: CREATOR_PK,
-				amount: 100,
-				cashuToken: 'cashuBmint1pledge',
-				mintUrl: MINT_URL
-			}),
-			PLEDGER_PK
-		);
-
-		const pledgeEvent2 = signEvent(
-			pledgeBlueprint({
-				bountyAddress: BOUNTY_ADDRESS,
-				creatorPubkey: CREATOR_PK,
-				amount: 75,
-				cashuToken: 'cashuBmint2pledge',
-				mintUrl: MINT_URL_2
-			}),
-			SOLVER_PK // Different pledger
-		);
-
-		// ── Step 2: Collect and decode both pledge events ─────────────
-		mockedDecodeToken.mockResolvedValueOnce(tokenInfo1).mockResolvedValueOnce(tokenInfo2);
-		const decodedPledges = await collectPledgeTokens([pledgeEvent1, pledgeEvent2]);
-
-		expect(decodedPledges).toHaveLength(2);
-		expect(decodedPledges[0].mint).toBe(MINT_URL);
-		expect(decodedPledges[1].mint).toBe(MINT_URL_2);
-
-		// ── Step 3: Verify grouping by mint ──────────────────────────
-		const groups = groupPledgesByMint(decodedPledges);
-		expect(groups.size).toBe(2);
-		expect(groups.get(MINT_URL)).toHaveLength(1);
-		expect(groups.get(MINT_URL_2)).toHaveLength(1);
-
-		// ── Step 4: Process multi-mint payout ────────────────────────
-		// Each mint gets its own wallet
-		const wallet2 = mockWallet();
-		mockedGetWallet
-			.mockResolvedValueOnce(wallet)  // For MINT_URL
-			.mockResolvedValueOnce(wallet2); // For MINT_URL_2
-
+		// Each pledger releases independently
 		mockedCreateP2PKLock.mockReturnValue({ pubkey: SOLVER_PK });
 
-		const statusMessages: string[] = [];
-		const payoutResult = await processMultiMintPayout(
-			decodedPledges,
-			CREATOR_PRIVKEY,
-			SOLVER_PK,
-			(msg) => statusMessages.push(msg)
+		const release1 = await releasePledgeToSolver(decoded[0], PLEDGER_PRIVKEY, SOLVER_PK);
+		expect(release1.success).toBe(true);
+		expect(wallet.signP2PKProofs).toHaveBeenCalledWith(decoded[0].proofs, PLEDGER_PRIVKEY);
+
+		const release2 = await releasePledgeToSolver(decoded[1], 'g'.repeat(64), SOLVER_PK);
+		expect(release2.success).toBe(true);
+
+		// Each pledger publishes their own payout event
+		mockedEncodeToken.mockResolvedValueOnce('cashuBpayout1').mockResolvedValueOnce('cashuBpayout2');
+
+		const payoutToken1 = await encodePayoutToken(release1.proofs, MINT_URL);
+		const payoutToken2 = await encodePayoutToken(release2.proofs, MINT_URL);
+
+		const payoutEvent1 = signEvent(
+			payoutBlueprint({
+				bountyAddress: BOUNTY_ADDRESS,
+				solutionId: 'e'.repeat(64),
+				solverPubkey: SOLVER_PK,
+				amount: getProofsAmount(release1.proofs),
+				cashuToken: payoutToken1
+			}),
+			PLEDGER_PK // Published by pledger 1
 		);
 
-		expect(payoutResult.success).toBe(true);
-		expect(payoutResult.entries).toHaveLength(2);
-		expect(payoutResult.totalAmount).toBeGreaterThan(0);
-
-		// Both mints should have been contacted independently
-		const entryMints = payoutResult.entries.map((e) => e.mintUrl);
-		expect(entryMints).toContain(MINT_URL);
-		expect(entryMints).toContain(MINT_URL_2);
-
-		// Status messages should reference both mints
-		expect(statusMessages.length).toBeGreaterThan(0);
-
-		// ── Step 5: Encode multi-mint payout tokens ──────────────────
-		mockedEncodeToken
-			.mockResolvedValueOnce('cashuBpayout_mint1')
-			.mockResolvedValueOnce('cashuBpayout_mint2');
-
-		const payoutTokenStr = await encodeMultiMintPayoutTokens(payoutResult.entries);
-		expect(payoutTokenStr).toContain('cashuBpayout_mint1');
-		expect(payoutTokenStr).toContain('cashuBpayout_mint2');
-		// Multi-mint tokens are newline-separated
-		expect(payoutTokenStr.split('\n')).toHaveLength(2);
-
-		// ── Step 6: Publish payout event ─────────────────────────────
-		const payoutTemplate = payoutBlueprint({
-			bountyAddress: BOUNTY_ADDRESS,
-			solutionId: 'e'.repeat(64),
-			solverPubkey: SOLVER_PK,
-			amount: payoutResult.totalAmount,
-			cashuToken: payoutTokenStr
-		});
-
-		const payoutEvent = signEvent(payoutTemplate, CREATOR_PK);
-
-		// Insert into EventStore and verify
-		const payoutPromise = firstValueFrom(
-			store.timeline({ kinds: [PAYOUT_KIND], '#a': [BOUNTY_ADDRESS] }).pipe(skip(1), take(1))
+		const payoutEvent2 = signEvent(
+			payoutBlueprint({
+				bountyAddress: BOUNTY_ADDRESS,
+				solutionId: 'e'.repeat(64),
+				solverPubkey: SOLVER_PK,
+				amount: getProofsAmount(release2.proofs),
+				cashuToken: payoutToken2
+			}),
+			PLEDGER_2_PK // Published by pledger 2
 		);
-		store.add(payoutEvent);
-		const payoutEvents = await payoutPromise;
 
-		expect(payoutEvents).toHaveLength(1);
-		expect(payoutEvents[0].kind).toBe(PAYOUT_KIND);
+		// Both payouts should parse successfully
+		const parsed1 = parsePayout(payoutEvent1, [PLEDGER_PK, PLEDGER_2_PK]);
+		const parsed2 = parsePayout(payoutEvent2, [PLEDGER_PK, PLEDGER_2_PK]);
 
-		const parsedPayout = parsePayout(payoutEvent, CREATOR_PK);
-		expect(parsedPayout).not.toBeNull();
-		expect(parsedPayout!.amount).toBe(payoutResult.totalAmount);
-		// The cashu token should contain both mint tokens
-		expect(parsedPayout!.cashuToken).toContain('cashuBpayout_mint1');
+		expect(parsed1).not.toBeNull();
+		expect(parsed2).not.toBeNull();
+		expect(parsed1!.cashuToken).toBe('cashuBpayout1');
+		expect(parsed2!.cashuToken).toBe('cashuBpayout2');
 	});
 });

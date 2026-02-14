@@ -16,11 +16,15 @@ function getExpiration(event: NostrEvent): number | null {
  * Derive the current status of a bounty from its event and related events.
  *
  * Priority order (highest to lowest):
- * 1. cancelled — if any delete events reference this bounty
- * 2. completed — if any payout events exist
- * 3. expired   — if the expiration tag is in the past
- * 4. in_review — if any solution events exist
- * 5. open      — published bounty (default for any bounty on relays)
+ * 1. cancelled          — if any delete events reference this bounty
+ * 2. completed          — if payout events exist AND (NOT hasConsensus OR deadline passed)
+ * 3. expired            — if the expiration tag is in the past AND no payouts
+ * 4. releasing          — if payout events exist AND hasConsensus is true
+ * 5. consensus_reached  — if hasConsensus is true AND no payouts AND not expired
+ * 6. in_review          — if any solution events exist
+ * 7. open               — published bounty (default for any bounty on relays)
+ *
+ * @param hasConsensus - Whether vote quorum (66%) has been reached for any solution.
  */
 export function deriveBountyStatus(
 	bountyEvent: NostrEvent,
@@ -28,7 +32,8 @@ export function deriveBountyStatus(
 	solutions: NostrEvent[],
 	payouts: NostrEvent[],
 	deleteEvents: NostrEvent[],
-	now?: number
+	now?: number,
+	hasConsensus: boolean = false
 ): BountyStatus {
 	const currentTime = now ?? Math.floor(Date.now() / 1000);
 
@@ -37,22 +42,32 @@ export function deriveBountyStatus(
 		return 'cancelled';
 	}
 
-	// 2. Completed — payout events exist
-	if (payouts.length > 0) {
+	// 2. Completed — payouts exist AND consensus not active (final state)
+	if (payouts.length > 0 && !hasConsensus) {
 		return 'completed';
 	}
 
-	// 3. Expired — expiration tag is in the past
+	// 3. Expired — expiration tag is in the past AND no payouts
 	const expiration = getExpiration(bountyEvent);
-	if (expiration !== null && expiration <= currentTime) {
+	if (expiration !== null && expiration <= currentTime && payouts.length === 0) {
 		return 'expired';
 	}
 
-	// 4. In review — solution events exist
+	// 4. Releasing — payouts exist AND consensus is active (not all pledgers released yet)
+	if (payouts.length > 0 && hasConsensus) {
+		return 'releasing';
+	}
+
+	// 5. Consensus reached — vote quorum met, no payouts yet
+	if (hasConsensus && payouts.length === 0) {
+		return 'consensus_reached';
+	}
+
+	// 6. In review — solution events exist
 	if (solutions.length > 0) {
 		return 'in_review';
 	}
 
-	// 5. Open — published bounty (with or without pledges)
+	// 7. Open — published bounty (with or without pledges)
 	return 'open';
 }

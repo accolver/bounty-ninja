@@ -6,7 +6,12 @@
 	import TimeAgo from '$lib/components/shared/TimeAgo.svelte';
 	import { tokenValidator, type TokenVerificationStatus } from '$lib/cashu/token-validator.svelte';
 
-	const { pledge }: { pledge: Pledge } = $props();
+	import type { Payout } from '$lib/bounty/types';
+
+	const { pledge, payouts = [] }: { pledge: Pledge; payouts?: Payout[] } = $props();
+
+	/** Check if this pledger has released (has a corresponding Kind 73004 event) */
+	const hasReleased = $derived(payouts.some((p) => p.pubkey === pledge.pubkey));
 
 	const npub = $derived(nip19.npubEncode(pledge.pubkey));
 
@@ -70,6 +75,15 @@
 			{formatNpub(npub)}
 		</a>
 		<div class="flex items-center gap-2">
+			{#if hasReleased}
+				<span
+					class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium leading-tight bg-success/15 text-success border-success/30"
+					aria-label="Funds released to solver"
+					role="status"
+				>
+					Released
+				</span>
+			{/if}
 			<span
 				class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium leading-tight {badgeConfig.classes}"
 				aria-label={badgeConfig.ariaLabel}

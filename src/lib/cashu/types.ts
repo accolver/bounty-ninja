@@ -50,12 +50,12 @@ export interface P2PKLockParams {
 /**
  * Lifecycle state of escrowed Cashu tokens within a bounty.
  *
- * - `locked`   — Tokens are P2PK-locked to the bounty creator; not yet claimed.
- * - `claimed`  — Creator has swapped the locked tokens (proved ownership).
- * - `refunded` — Tokens were returned to the original funder (locktime expired).
- * - `expired`  — The lock's refund window has passed without action.
+ * - `locked`    — Tokens are P2PK-locked to the pledger's own pubkey (self-custody).
+ * - `released`  — Pledger has swapped tokens to solver-locked proofs after consensus.
+ * - `reclaimed` — Pledger took back their tokens (e.g. after deadline or early reclaim).
+ * - `expired`   — The locktime passed without the pledger taking action.
  */
-export type EscrowState = 'locked' | 'claimed' | 'refunded' | 'expired';
+export type EscrowState = 'locked' | 'released' | 'reclaimed' | 'expired';
 
 // ── Mint Operation Result ───────────────────────────────────────────────────
 
@@ -111,42 +111,6 @@ export interface DecodedPledge {
 	eventId: string;
 	/** Pubkey of the pledger. */
 	pledgerPubkey: string;
-}
-
-// ── Double-Spend Error ──────────────────────────────────────────────────────
-
-// ── Multi-Mint Payout Result ─────────────────────────────────────────────────
-
-/**
- * Result of processing a payout across multiple mints.
- * Each entry maps a mint URL to the payout proofs generated at that mint.
- */
-export interface MintPayoutEntry {
-	/** The mint URL these proofs were generated at. */
-	mintUrl: string;
-	/** The payout proofs locked to the solver. */
-	proofs: Proof[];
-	/** Total amount in sats for this mint's proofs. */
-	amount: number;
-}
-
-/**
- * Aggregated result of a multi-mint payout operation.
- */
-export interface MultiMintPayoutResult {
-	/** Whether the overall operation succeeded. */
-	success: boolean;
-	/** Per-mint payout entries on success. */
-	entries: MintPayoutEntry[];
-	/** Total payout amount across all mints. */
-	totalAmount: number;
-	/** Error message on failure. */
-	error?: string;
-	/**
-	 * Partial results if some mints succeeded and others failed.
-	 * Only populated when success is false and at least one mint succeeded.
-	 */
-	partialEntries?: MintPayoutEntry[];
 }
 
 // ── Double-Spend Error ──────────────────────────────────────────────────────

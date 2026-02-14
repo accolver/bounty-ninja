@@ -1,14 +1,7 @@
 import type { NostrEvent } from 'nostr-tools';
-import type {
-	BountySummary,
-	Pledge,
-	Solution,
-	Vote,
-	Payout,
-	BountyDetail,
-	BountyStatus
-} from './types';
+import type { BountySummary, Pledge, Solution, Vote, Payout, BountyDetail } from './types';
 import { deriveBountyStatus } from './state-machine';
+import { tallyVotes } from './voting';
 import { validateEventTags } from '$lib/nostr/tag-validator';
 
 /**
@@ -170,16 +163,20 @@ export function parseVote(event: NostrEvent): Vote | null {
 /**
  * Parse a payout event (kind 73004) into a Payout.
  * Returns null if the event fails tag validation.
- * Also checks that the payout event pubkey matches the bounty creator.
+ * Validates that the payout event pubkey belongs to a pledger for this bounty.
+ *
+ * @param event - The Kind 73004 payout event.
+ * @param pledgerPubkeys - Optional set of pubkeys from Kind 73002 events. If provided,
+ *   the event pubkey must be in this set. If omitted, authorization is skipped (backward compat).
  */
-export function parsePayout(event: NostrEvent, taskCreatorPubkey?: string): Payout | null {
+export function parsePayout(event: NostrEvent, pledgerPubkeys?: string[]): Payout | null {
 	const tagResult = validateEventTags(event);
 	if (!tagResult.valid) return null;
 
-	// Step 1.6: Verify payout authorization — pubkey must match bounty creator
-	if (taskCreatorPubkey && event.pubkey !== taskCreatorPubkey) {
+	// Verify payout authorization — pubkey must be a pledger for this bounty
+	if (pledgerPubkeys && !pledgerPubkeys.includes(event.pubkey)) {
 		console.warn(
-			`[helpers] Unauthorized payout event ${event.id}: pubkey ${event.pubkey} does not match bounty creator ${taskCreatorPubkey}`
+			`[helpers] Unauthorized payout event ${event.id}: pubkey ${event.pubkey} is not a pledger for this bounty`
 		);
 		return null;
 	}
@@ -223,9 +220,13 @@ export function parseBountyDetail(
 	const pledges = pledgeEvents.map(parsePledge).filter((p): p is Pledge => p !== null);
 	const solutions = solutionEvents.map(parseSolution).filter((s): s is Solution => s !== null);
 	const votes = voteEvents.map(parseVote).filter((v): v is Vote => v !== null);
-	// Step 1.6: Pass bounty creator pubkey for payout authorization
+
+	// Extract pledger pubkeys for payout authorization
+	const pledgerPubkeys = pledges.map((p) => p.pubkey);
+
+	// Validate payouts — pubkey must be a pledger for this bounty
 	const payouts = payoutEvents
-		.map((e) => parsePayout(e, event.pubkey))
+		.map((e) => parsePayout(e, pledgerPubkeys))
 		.filter((p): p is Payout => p !== null);
 
 	const totalPledged = pledges.reduce((sum, p) => sum + p.amount, 0);
@@ -238,12 +239,30 @@ export function parseBountyDetail(
 		votesBySolution.set(vote.solutionId, existing);
 	}
 
-	const status: BountyStatus = deriveBountyStatus(
+	// Compute vote consensus: check if any solution has reached 66% approval
+	const pledgesByPubkey = new Map<string, number>();
+	for (const pledge of pledges) {
+		const existing = pledgesByPubkey.get(pledge.pubkey) ?? 0;
+		pledgesByPubkey.set(pledge.pubkey, existing + pledge.amount);
+	}
+
+	let hasConsensus = false;
+	for (const [, solutionVotes] of votesBySolution) {
+		const tally = tallyVotes(solutionVotes, pledgesByPubkey, totalPledged);
+		if (tally.isApproved) {
+			hasConsensus = true;
+			break;
+		}
+	}
+
+	const status = deriveBountyStatus(
 		event,
 		pledgeEvents,
 		solutionEvents,
 		payoutEvents,
-		deleteEvents
+		deleteEvents,
+		undefined,
+		hasConsensus
 	);
 
 	// Extract additional bounty fields
@@ -272,7 +291,7 @@ export function parseBountyDetail(
 		pledges,
 		solutions,
 		votesBySolution,
-		payout: payouts.length > 0 ? payouts[0] : null,
+		payouts,
 		creatorProfile: null
 	};
 }

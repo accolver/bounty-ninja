@@ -7,6 +7,14 @@
 	const statusConfig: Record<BountyStatus, { label: string; classes: string }> = {
 		open: { label: 'Open', classes: 'bg-success/15 text-success border-success/30' },
 		in_review: { label: 'In Review', classes: 'bg-warning/15 text-warning border-warning/30' },
+		consensus_reached: {
+			label: 'Consensus Reached',
+			classes: 'bg-info/15 text-info border-info/30'
+		},
+		releasing: {
+			label: 'Releasing Funds',
+			classes: 'bg-warning/15 text-warning border-warning/30'
+		},
 		completed: { label: 'Completed', classes: 'bg-primary/15 text-primary border-primary/30' },
 		expired: {
 			label: 'Expired',

@@ -10,10 +10,16 @@
  *
  * Uses real EventStore with no relay connections.
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { firstValueFrom, skip, take } from 'rxjs';
 import { EventStore } from 'applesauce-core';
 import type { NostrEvent } from 'nostr-tools';
+
+// Mock env before importing helpers (which transitively imports voting → env)
+vi.mock('$lib/utils/env', () => ({
+	getVoteQuorumFraction: () => 0.66
+}));
+
 import { BOUNTY_KIND, PLEDGE_KIND } from '$lib/bounty/kinds';
 import { pledgeBlueprint } from '$lib/bounty/blueprints';
 import { parsePledge, parseBountyDetail } from '$lib/bounty/helpers';

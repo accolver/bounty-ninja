@@ -1,25 +1,21 @@
 /**
  * Escrow operations for the Bounty.ninja bounty lifecycle.
  *
- * Handles the full flow of Cashu token escrow:
- * 1. Pledger creates P2PK-locked tokens for the bounty creator
- * 2. Creator collects pledge tokens from Kind 73002 events
- * 3. Creator swaps locked tokens (proves ownership via private key)
- * 4. Creator creates new P2PK-locked tokens for the winning solver
+ * Pledger-controlled escrow model:
+ * 1. Pledger creates P2PK-locked tokens to their OWN pubkey (self-custody)
+ * 2. After vote consensus (66%), each pledger releases their portion
+ *    by swapping self-locked proofs for solver-locked proofs
+ * 3. Each pledger publishes a Kind 73004 payout event with solver-locked tokens
+ * 4. Pledger can reclaim at any time (they hold the primary P2PK key)
  *
+ * The bounty creator NEVER controls pledge funds.
  * All operations interact with the Cashu mint via @cashu/cashu-ts Wallet.
  */
 
 import { config } from '$lib/config';
-import type { Proof, Wallet, Token } from '@cashu/cashu-ts';
+import type { Proof, Token } from '@cashu/cashu-ts';
 import type { NostrEvent } from 'nostr-tools';
-import type {
-	DecodedPledge,
-	MintResult,
-	SwapResult,
-	MintPayoutEntry,
-	MultiMintPayoutResult
-} from './types';
+import type { DecodedPledge, MintResult, SwapResult } from './types';
 import { DoubleSpendError } from './types';
 import { decodeToken, encodeToken, getProofsAmount } from './token';
 import { createP2PKLock } from './p2pk';
@@ -28,27 +24,21 @@ import { getWallet } from './mint';
 /**
  * Create a P2PK-locked pledge token for a bounty.
  *
- * This is called by a pledger who already has Cashu proofs (from their wallet).
- * The proofs are swapped at the mint for new proofs locked to the bounty
- * creator's public key, ensuring only the creator can claim them.
- *
- * When locktime and refundPubkey are provided, the pledge includes a refund
- * path: if the creator doesn't pay out before the bounty deadline, the pledger
- * can reclaim the tokens using their own key.
+ * The pledger locks tokens to their OWN pubkey (self-custody). Only the
+ * pledger can spend these tokens at the mint. The bounty creator has no
+ * control over the funds.
  *
  * @param proofs - The pledger's spendable proofs to lock.
- * @param creatorPubkey - Hex-encoded public key of the bounty creator.
+ * @param pledgerPubkey - Hex-encoded public key of the pledger (lock target).
  * @param mintUrl - Optional mint URL override. Uses default mint if omitted.
- * @param locktime - Optional Unix timestamp (bounty deadline) after which refund keys can spend.
- * @param refundPubkey - Optional pledger's hex pubkey for refund after locktime.
+ * @param locktime - Optional Unix timestamp (bounty deadline) as a social signal.
  * @returns MintResult with the P2PK-locked proofs on success.
  */
 export async function createPledgeToken(
 	proofs: Proof[],
-	creatorPubkey: string,
+	pledgerPubkey: string,
 	mintUrl?: string,
-	locktime?: number,
-	refundPubkey?: string
+	locktime?: number
 ): Promise<MintResult> {
 	if (proofs.length === 0) {
 		return { success: false, proofs: [], error: 'No proofs provided' };
@@ -61,11 +51,7 @@ export async function createPledgeToken(
 
 	try {
 		const wallet = await getWallet(mintUrl);
-		const p2pkOptions = createP2PKLock(
-			creatorPubkey,
-			locktime,
-			refundPubkey ? [refundPubkey] : undefined
-		);
+		const p2pkOptions = createP2PKLock(pledgerPubkey, locktime);
 		const fees = wallet.getFeesForProofs(proofs);
 		const sendAmount = amount - fees;
 
@@ -141,77 +127,72 @@ export async function collectPledgeTokens(pledgeEvents: NostrEvent[]): Promise<D
 }
 
 /**
- * Swap P2PK-locked pledge tokens at the mint.
+ * Release a pledger's self-locked tokens to the winning solver.
  *
- * Called by the bounty creator to claim pledged tokens. The creator
- * must hold the private key corresponding to the P2PK lock. The
- * wallet's NIP-07 signer or provided private key is used to prove
- * ownership during the swap.
+ * Called by a pledger after vote consensus is reached. The pledger signs
+ * their P2PK-locked proofs with their private key, swaps them at the mint
+ * for fresh proofs, then re-locks the fresh proofs to the solver's pubkey.
  *
- * @param pledges - Decoded pledges to swap.
- * @param wallet - Initialized Wallet instance (creator's wallet).
- * @param privkey - Creator's private key (hex) for signing P2PK proofs.
- * @returns SwapResult with the newly received (unlocked) proofs.
+ * @param pledge - The decoded pledge to release.
+ * @param pledgerPrivkey - The pledger's private key (hex) for signing P2PK proofs.
+ * @param solverPubkey - Hex-encoded public key of the winning solver.
+ * @returns MintResult with solver-locked proofs on success.
  */
-export async function swapPledgeTokens(
-	pledges: DecodedPledge[],
-	wallet: Wallet,
-	privkey: string
-): Promise<SwapResult> {
-	if (pledges.length === 0) {
-		return {
-			success: false,
-			sendProofs: [],
-			keepProofs: [],
-			fees: 0,
-			error: 'No pledges to swap'
-		};
+export async function releasePledgeToSolver(
+	pledge: DecodedPledge,
+	pledgerPrivkey: string,
+	solverPubkey: string
+): Promise<MintResult> {
+	if (pledge.proofs.length === 0) {
+		return { success: false, proofs: [], error: 'No proofs to release' };
 	}
 
-	// Collect all proofs from all pledges
-	const allProofs: Proof[] = [];
-	for (const pledge of pledges) {
-		allProofs.push(...pledge.proofs);
-	}
-
-	const totalAmount = getProofsAmount(allProofs);
+	const totalAmount = getProofsAmount(pledge.proofs);
 	if (totalAmount <= 0) {
-		return {
-			success: false,
-			sendProofs: [],
-			keepProofs: [],
-			fees: 0,
-			error: 'Pledge proofs have zero total amount'
-		};
+		return { success: false, proofs: [], error: 'Pledge proofs have zero total amount' };
 	}
 
 	try {
-		const fees = wallet.getFeesForProofs(allProofs);
-		const receiveAmount = totalAmount - fees;
+		const wallet = await getWallet(pledge.mint);
 
-		if (receiveAmount <= 0) {
+		// Step 1: Sign P2PK-locked proofs with pledger's private key and swap for unlocked proofs
+		const signedProofs = wallet.signP2PKProofs(pledge.proofs, pledgerPrivkey);
+		const swapFees = wallet.getFeesForProofs(signedProofs);
+		const swapAmount = totalAmount - swapFees;
+
+		if (swapAmount <= 0) {
 			return {
 				success: false,
-				sendProofs: [],
-				keepProofs: [],
-				fees,
-				error: `Insufficient amount after fees: ${totalAmount} sats - ${fees} fee`
+				proofs: [],
+				error: `Insufficient amount after swap fees: ${totalAmount} sats - ${swapFees} fee`
 			};
 		}
 
-		// Sign the P2PK-locked proofs with the creator's private key,
-		// then swap them for new unlocked proofs.
-		const signedProofs = wallet.signP2PKProofs(allProofs, privkey);
-		const { keep, send } = await wallet.send(receiveAmount, signedProofs, {
-			privkey
+		const { send: unlockedProofs } = await wallet.send(swapAmount, signedProofs, {
+			privkey: pledgerPrivkey
 		});
 
-		return {
-			success: true,
-			sendProofs: send,
-			keepProofs: keep,
-			fees
-		};
+		// Step 2: Re-lock fresh proofs to solver pubkey via P2PK
+		const p2pkOptions = createP2PKLock(solverPubkey);
+		const lockFees = wallet.getFeesForProofs(unlockedProofs);
+		const lockAmount = getProofsAmount(unlockedProofs) - lockFees;
+
+		if (lockAmount <= 0) {
+			return {
+				success: false,
+				proofs: [],
+				error: `Insufficient amount after lock fees: ${getProofsAmount(unlockedProofs)} sats - ${lockFees} fee`
+			};
+		}
+
+		const { send: solverProofs } = await wallet.send(lockAmount, unlockedProofs, undefined, {
+			send: {
+				type: 'p2pk',
+				options: p2pkOptions
+			}
+		});
+
+		return { success: true, proofs: solverProofs };
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
 
@@ -223,137 +204,26 @@ export async function swapPledgeTokens(
 			throw new DoubleSpendError(`Pledge tokens already spent: ${message}`);
 		}
 
-		console.error(`[cashu/escrow] swapPledgeTokens failed: ${message}`);
-		return {
-			success: false,
-			sendProofs: [],
-			keepProofs: [],
-			fees: 0,
-			error: message
-		};
-	}
-}
-
-/**
- * Create new P2PK-locked tokens for the winning solver.
- *
- * Called by the bounty creator after consensus voting determines a winner.
- * The creator's unlocked proofs are swapped for new proofs locked to
- * the solver's public key.
- *
- * @param proofs - Creator's spendable proofs (from swapPledgeTokens).
- * @param solverPubkey - Hex-encoded public key of the winning solver.
- * @param wallet - Initialized Wallet instance.
- * @returns MintResult with the P2PK-locked payout proofs.
- */
-export async function createPayoutToken(
-	proofs: Proof[],
-	solverPubkey: string,
-	wallet: Wallet
-): Promise<MintResult> {
-	if (proofs.length === 0) {
-		return { success: false, proofs: [], error: 'No proofs for payout' };
-	}
-
-	const amount = getProofsAmount(proofs);
-	if (amount <= 0) {
-		return { success: false, proofs: [], error: 'Proofs have zero total amount' };
-	}
-
-	try {
-		const p2pkOptions = createP2PKLock(solverPubkey);
-		const fees = wallet.getFeesForProofs(proofs);
-		const sendAmount = amount - fees;
-
-		if (sendAmount <= 0) {
-			return {
-				success: false,
-				proofs: [],
-				error: `Insufficient amount after fees: ${amount} sats - ${fees} fee = ${sendAmount} sats`
-			};
-		}
-
-		const { send } = await wallet.send(sendAmount, proofs, undefined, {
-			send: {
-				type: 'p2pk',
-				options: p2pkOptions
-			}
-		});
-
-		return { success: true, proofs: send };
-	} catch (err) {
-		const message = err instanceof Error ? err.message : String(err);
-
-		if (
-			message.toLowerCase().includes('already spent') ||
-			message.toLowerCase().includes('token already spent')
-		) {
-			throw new DoubleSpendError(`Payout proofs already spent: ${message}`);
-		}
-
-		console.error(`[cashu/escrow] createPayoutToken failed: ${message}`);
+		console.error(`[cashu/escrow] releasePledgeToSolver failed: ${message}`);
 		return { success: false, proofs: [], error: message };
 	}
 }
 
 /**
- * Encode payout proofs as a Cashu token string for inclusion in a
- * Kind 73004 payout Nostr event.
+ * Reclaim a pledger's self-locked tokens.
  *
- * @param proofs - The P2PK-locked payout proofs.
- * @param mintUrl - The mint URL these proofs belong to.
- * @returns Encoded Cashu token string.
- */
-export async function encodePayoutToken(proofs: Proof[], mintUrl: string): Promise<string> {
-	return encodeToken(proofs, mintUrl, `${config.app.nameCaps} bounty payout`);
-}
-
-/**
- * Check if pledge proofs are still spendable at the mint.
+ * Since the pledger holds the primary P2PK key, reclaim is a simple swap:
+ * sign proofs with the pledger's private key and swap at the mint for
+ * unlocked proofs. No refund path is needed.
  *
- * Useful for verifying that pledged tokens haven't been double-spent
- * before attempting a swap.
- *
- * @param pledges - Decoded pledges to check.
- * @param wallet - Initialized Wallet instance.
- * @returns Map of event ID to boolean (true = all proofs still spendable).
- */
-export async function checkPledgeProofsSpendable(
-	pledges: DecodedPledge[],
-	wallet: Wallet
-): Promise<Map<string, boolean>> {
-	const results = new Map<string, boolean>();
-
-	for (const pledge of pledges) {
-		try {
-			const states = await wallet.checkProofsStates(pledge.proofs);
-			const allSpendable = states.every((s) => s.state === 'UNSPENT');
-			results.set(pledge.eventId, allSpendable);
-		} catch (err) {
-			const message = err instanceof Error ? err.message : String(err);
-			console.warn(
-				`[cashu/escrow] Failed to check proofs for pledge ${pledge.eventId}: ${message}`
-			);
-			// Assume not spendable on error to be safe
-			results.set(pledge.eventId, false);
-		}
-	}
-
-	return results;
-}
-
-/**
- * Reclaim an expired P2PK-locked pledge token.
- *
- * After the locktime passes, the pledger's refund key becomes valid.
- * This function signs the proofs with the pledger's private key and
- * swaps them at the mint for new unlocked proofs the pledger can keep.
+ * This can be called at any time — the locktime is a social signal only,
+ * not a spending restriction for the primary key holder.
  *
  * @param pledge - The decoded pledge to reclaim.
- * @param pledgerPrivkey - The pledger's private key (hex) for signing the refund.
+ * @param pledgerPrivkey - The pledger's private key (hex) for signing.
  * @returns SwapResult with the reclaimed (unlocked) proofs.
  */
-export async function reclaimExpiredPledge(
+export async function reclaimPledge(
 	pledge: DecodedPledge,
 	pledgerPrivkey: string
 ): Promise<SwapResult> {
@@ -393,7 +263,7 @@ export async function reclaimExpiredPledge(
 			};
 		}
 
-		// Sign with the refund key (pledger's private key) — valid after locktime
+		// Sign with pledger's primary key — always valid (no locktime restriction)
 		const signedProofs = wallet.signP2PKProofs(pledge.proofs, pledgerPrivkey);
 		const { keep, send } = await wallet.send(receiveAmount, signedProofs, {
 			privkey: pledgerPrivkey
@@ -415,7 +285,7 @@ export async function reclaimExpiredPledge(
 			throw new DoubleSpendError(`Pledge tokens already spent — cannot reclaim: ${message}`);
 		}
 
-		console.error(`[cashu/escrow] reclaimExpiredPledge failed: ${message}`);
+		console.error(`[cashu/escrow] reclaimPledge failed: ${message}`);
 		return {
 			success: false,
 			sendProofs: [],
@@ -427,152 +297,13 @@ export async function reclaimExpiredPledge(
 }
 
 /**
- * Group decoded pledges by their mint URL.
+ * Encode payout proofs as a Cashu token string for inclusion in a
+ * Kind 73004 payout Nostr event.
  *
- * Returns a Map keyed by mint URL, where each value is the array of
- * pledges that belong to that mint. This is essential for multi-mint
- * payout processing, since proofs from different mints must be swapped
- * independently at their respective mints.
- *
- * @param pledges - Array of decoded pledges to group.
- * @returns Map of mint URL to array of pledges from that mint.
+ * @param proofs - The P2PK-locked payout proofs.
+ * @param mintUrl - The mint URL these proofs belong to.
+ * @returns Encoded Cashu token string.
  */
-export function groupPledgesByMint(pledges: DecodedPledge[]): Map<string, DecodedPledge[]> {
-	const groups = new Map<string, DecodedPledge[]>();
-
-	for (const pledge of pledges) {
-		const normalized = pledge.mint.replace(/\/+$/, '');
-		const existing = groups.get(normalized);
-		if (existing) {
-			existing.push(pledge);
-		} else {
-			groups.set(normalized, [pledge]);
-		}
-	}
-
-	return groups;
-}
-
-/**
- * Process a multi-mint payout: swap and create solver-locked tokens
- * independently at each mint.
- *
- * For each mint group:
- * 1. Get a wallet connection for that mint
- * 2. Swap P2PK-locked pledge proofs (unlock with creator's privkey)
- * 3. Create new P2PK-locked payout proofs for the solver
- *
- * If all pledges are from the same mint, this behaves identically to
- * the single-mint flow. If pledges span multiple mints, each mint is
- * processed independently and the results are aggregated.
- *
- * @param pledges - All decoded pledges for this bounty.
- * @param privkey - Creator's private key (hex) for signing P2PK proofs.
- * @param solverPubkey - Hex-encoded public key of the winning solver.
- * @param onStatus - Optional callback for progress updates.
- * @returns MultiMintPayoutResult with per-mint payout entries.
- */
-export async function processMultiMintPayout(
-	pledges: DecodedPledge[],
-	privkey: string,
-	solverPubkey: string,
-	onStatus?: (message: string) => void
-): Promise<MultiMintPayoutResult> {
-	if (pledges.length === 0) {
-		return { success: false, entries: [], totalAmount: 0, error: 'No pledges to process' };
-	}
-
-	const mintGroups = groupPledgesByMint(pledges);
-	const entries: MintPayoutEntry[] = [];
-	const errors: string[] = [];
-
-	const mintUrls = Array.from(mintGroups.keys());
-
-	for (const mintUrl of mintUrls) {
-		const group = mintGroups.get(mintUrl)!;
-		const mintLabel = mintUrls.length > 1 ? ` (${mintUrl.replace(/^https?:\/\//, '')})` : '';
-
-		try {
-			// Step 1: Connect to this mint
-			onStatus?.(`Connecting to mint${mintLabel}...`);
-			const wallet = await getWallet(mintUrl);
-
-			// Step 2: Swap P2PK-locked proofs at this mint
-			onStatus?.(`Unlocking pledge tokens${mintLabel}...`);
-			const swapResult = await swapPledgeTokens(group, wallet, privkey);
-
-			if (!swapResult.success) {
-				errors.push(`Mint ${mintUrl}: ${swapResult.error ?? 'Swap failed'}`);
-				continue;
-			}
-
-			// Step 3: Create solver-locked payout token at this mint
-			onStatus?.(`Creating payout token${mintLabel}...`);
-			const payoutResult = await createPayoutToken(swapResult.sendProofs, solverPubkey, wallet);
-
-			if (!payoutResult.success) {
-				errors.push(`Mint ${mintUrl}: ${payoutResult.error ?? 'Payout creation failed'}`);
-				continue;
-			}
-
-			const amount = getProofsAmount(payoutResult.proofs);
-			entries.push({ mintUrl, proofs: payoutResult.proofs, amount });
-		} catch (err) {
-			// Re-throw DoubleSpendError immediately — this is not recoverable
-			if (err instanceof DoubleSpendError) {
-				throw err;
-			}
-
-			const message = err instanceof Error ? err.message : String(err);
-			errors.push(`Mint ${mintUrl}: ${message}`);
-		}
-	}
-
-	if (entries.length === 0) {
-		return {
-			success: false,
-			entries: [],
-			totalAmount: 0,
-			error: errors.join('; ')
-		};
-	}
-
-	const totalAmount = entries.reduce((sum, e) => sum + e.amount, 0);
-
-	if (errors.length > 0) {
-		// Partial success — some mints failed
-		return {
-			success: false,
-			entries: [],
-			totalAmount: 0,
-			error: `Some mints failed: ${errors.join('; ')}`,
-			partialEntries: entries
-		};
-	}
-
-	return { success: true, entries, totalAmount };
-}
-
-/**
- * Encode multi-mint payout entries into a single Cashu token string.
- *
- * When all entries are from the same mint, this produces a standard single-mint
- * token. When entries span multiple mints, each mint's proofs are encoded as
- * a separate token and joined with a newline delimiter for inclusion in the
- * payout event's cashu tag.
- *
- * @param entries - Per-mint payout entries with proofs.
- * @returns Encoded token string(s) suitable for the cashu tag.
- */
-export async function encodeMultiMintPayoutTokens(entries: MintPayoutEntry[]): Promise<string> {
-	if (entries.length === 0) return '';
-	if (entries.length === 1) {
-		return encodePayoutToken(entries[0].proofs, entries[0].mintUrl);
-	}
-
-	// Multiple mints: encode each separately, join with newline
-	const encoded = await Promise.all(
-		entries.map((entry) => encodePayoutToken(entry.proofs, entry.mintUrl))
-	);
-	return encoded.join('\n');
+export async function encodePayoutToken(proofs: Proof[], mintUrl: string): Promise<string> {
+	return encodeToken(proofs, mintUrl, `${config.app.nameCaps} bounty payout`);
 }

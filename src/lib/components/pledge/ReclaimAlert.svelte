@@ -2,7 +2,7 @@
 	import type { BountyDetail, Pledge } from '$lib/bounty/types';
 	import { accountState } from '$lib/nostr/account.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import { collectPledgeTokens, reclaimExpiredPledge } from '$lib/cashu/escrow';
+	import { collectPledgeTokens, reclaimPledge } from '$lib/cashu/escrow';
 	import { encodeToken, getProofsAmount } from '$lib/cashu/token';
 	import { DoubleSpendError } from '$lib/cashu/types';
 	import { nip19 } from 'nostr-tools';
@@ -31,7 +31,7 @@
 	const isExpired = $derived(detail.status === 'expired');
 
 	/** Has no payout been made? */
-	const noPayout = $derived(!detail.payout);
+	const noPayout = $derived(detail.payouts.length === 0);
 
 	/** Should the alert be visible? */
 	const shouldShow = $derived(
@@ -103,7 +103,7 @@
 				const pledge = decoded[i];
 				reclaimStep = `Reclaiming token ${i + 1}/${decoded.length}...`;
 
-				const result = await reclaimExpiredPledge(pledge, hexKey);
+				const result = await reclaimPledge(pledge, hexKey);
 				if (result.success && result.sendProofs.length > 0) {
 					const amount = getProofsAmount(result.sendProofs);
 					totalReclaimed += amount;
@@ -134,7 +134,9 @@
 			toastStore.success(`Reclaimed ${totalReclaimed} sats!`);
 		} catch (err) {
 			if (err instanceof DoubleSpendError) {
-				toastStore.error('Tokens already spent — the creator may have claimed them.');
+				toastStore.error(
+					'Tokens already spent — they may have been released to a solver or reclaimed previously.'
+				);
 			} else {
 				toastStore.error(err instanceof Error ? err.message : 'Reclaim failed');
 			}
@@ -160,7 +162,7 @@
 				</p>
 				<p class="text-sm text-foreground">
 					You pledged <SatAmount amount={myTotalPledged} /> to this bounty. Since it expired without a
-					payout, you can reclaim your tokens using your private key.
+					payout, you can reclaim your tokens. Your tokens are locked to your own key, so reclaim is straightforward.
 				</p>
 
 				{#if !showKeyInput}
@@ -195,7 +197,7 @@
 								class="w-full rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none disabled:opacity-50"
 							/>
 							<p class="text-xs text-muted-foreground">
-								Your key is used locally to sign the refund and is never stored or transmitted.
+								Your key is used locally to sign the reclaim and is never stored or transmitted.
 							</p>
 						</div>
 						<div class="flex gap-2">

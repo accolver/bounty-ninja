@@ -1,8 +1,8 @@
 /**
- * Unit tests for $lib/cashu/escrow.ts — the full escrow lifecycle.
+ * Unit tests for $lib/cashu/escrow.ts — pledger-controlled escrow lifecycle.
  *
- * Tests: createPledgeToken, collectPledgeTokens, swapPledgeTokens,
- * createPayoutToken, encodePayoutToken, checkPledgeProofsSpendable.
+ * Tests: createPledgeToken (self-custody), collectPledgeTokens,
+ * releasePledgeToSolver, reclaimPledge, encodePayoutToken.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Proof, Wallet, Token } from '@cashu/cashu-ts';
@@ -29,13 +29,9 @@ vi.mock('$lib/cashu/p2pk', () => ({
 import {
 	createPledgeToken,
 	collectPledgeTokens,
-	swapPledgeTokens,
-	createPayoutToken,
-	encodePayoutToken,
-	checkPledgeProofsSpendable,
-	groupPledgesByMint,
-	processMultiMintPayout,
-	encodeMultiMintPayoutTokens
+	releasePledgeToSolver,
+	reclaimPledge,
+	encodePayoutToken
 } from '$lib/cashu/escrow';
 import { getWallet } from '$lib/cashu/mint';
 import { decodeToken, encodeToken, getProofsAmount } from '$lib/cashu/token';
@@ -49,12 +45,10 @@ const mockedCreateP2PKLock = vi.mocked(createP2PKLock);
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
-const CREATOR_PK = 'a'.repeat(64);
 const PLEDGER_PK = 'b'.repeat(64);
+const PLEDGER_PRIVKEY = 'e'.repeat(64);
 const SOLVER_PK = 'c'.repeat(64);
 const MINT_URL = 'https://mint.example.com';
-const MINT_URL_2 = 'https://mint2.example.com';
-const MINT_URL_3 = 'https://mint3.example.com';
 const SIG = 'd'.repeat(128);
 
 function mockProof(amount: number, id = 'proof'): Proof {
@@ -69,9 +63,7 @@ function mockWallet(overrides: Record<string, unknown> = {}): Wallet {
 			send: [mockProof(amount)]
 		})),
 		signP2PKProofs: vi.fn((proofs: Proof[]) => proofs),
-		checkProofsStates: vi.fn(async (proofs: Proof[]) =>
-			proofs.map(() => ({ state: 'UNSPENT' }))
-		),
+		checkProofsStates: vi.fn(async (proofs: Proof[]) => proofs.map(() => ({ state: 'UNSPENT' }))),
 		...overrides
 	} as unknown as Wallet;
 }
@@ -83,7 +75,7 @@ function makePledgeEvent(tokenStr: string, eventId?: string): NostrEvent {
 		created_at: Math.floor(Date.now() / 1000),
 		kind: 73002,
 		tags: [
-			['a', `37300:${CREATOR_PK}:test-bounty`],
+			['a', `37300:${'a'.repeat(64)}:test-bounty`],
 			['cashu', tokenStr],
 			['amount', '100'],
 			['mint', MINT_URL]
@@ -108,67 +100,59 @@ function makeDecodedPledge(amount = 100, eventId = 'evt-1', mintUrl = MINT_URL):
 
 beforeEach(() => {
 	vi.clearAllMocks();
-	mockedCreateP2PKLock.mockReturnValue({ pubkey: CREATOR_PK });
+	mockedCreateP2PKLock.mockReturnValue({ pubkey: PLEDGER_PK });
 	mockedGetProofsAmount.mockImplementation((proofs: Proof[]) =>
 		proofs.reduce((s, p) => s + p.amount, 0)
 	);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// createPledgeToken
+// createPledgeToken — pledger locks to own pubkey (self-custody)
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('createPledgeToken', () => {
 	it('returns failure for empty proofs', async () => {
-		const result = await createPledgeToken([], CREATOR_PK);
+		const result = await createPledgeToken([], PLEDGER_PK);
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('No proofs');
 	});
 
 	it('returns failure for zero-amount proofs', async () => {
 		mockedGetProofsAmount.mockReturnValue(0);
-		const result = await createPledgeToken([mockProof(0)], CREATOR_PK);
+		const result = await createPledgeToken([mockProof(0)], PLEDGER_PK);
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('zero total amount');
 	});
 
-	it('creates P2PK-locked proofs on success', async () => {
+	it('creates P2PK-locked proofs to pledger own pubkey', async () => {
 		const wallet = mockWallet();
 		mockedGetWallet.mockResolvedValue(wallet);
 
-		const result = await createPledgeToken([mockProof(100)], CREATOR_PK, MINT_URL);
+		const result = await createPledgeToken([mockProof(100)], PLEDGER_PK, MINT_URL);
 
 		expect(result.success).toBe(true);
 		expect(result.proofs.length).toBeGreaterThan(0);
-		expect(mockedCreateP2PKLock).toHaveBeenCalledWith(CREATOR_PK, undefined, undefined);
+		// Lock target is the pledger's own pubkey (self-custody)
+		expect(mockedCreateP2PKLock).toHaveBeenCalledWith(PLEDGER_PK, undefined);
 		expect(wallet.send).toHaveBeenCalledOnce();
 	});
 
-	it('passes locktime and refundPubkey when provided', async () => {
+	it('passes locktime as social signal when provided', async () => {
 		const wallet = mockWallet();
 		mockedGetWallet.mockResolvedValue(wallet);
 		const locktime = 1800000000;
 
-		await createPledgeToken([mockProof(100)], CREATOR_PK, MINT_URL, locktime, PLEDGER_PK);
+		await createPledgeToken([mockProof(100)], PLEDGER_PK, MINT_URL, locktime);
 
-		expect(mockedCreateP2PKLock).toHaveBeenCalledWith(CREATOR_PK, locktime, [PLEDGER_PK]);
-	});
-
-	it('passes locktime without refundPubkey', async () => {
-		const wallet = mockWallet();
-		mockedGetWallet.mockResolvedValue(wallet);
-		const locktime = 1800000000;
-
-		await createPledgeToken([mockProof(100)], CREATOR_PK, MINT_URL, locktime);
-
-		expect(mockedCreateP2PKLock).toHaveBeenCalledWith(CREATOR_PK, locktime, undefined);
+		// No refund pubkey — pledger holds the primary key
+		expect(mockedCreateP2PKLock).toHaveBeenCalledWith(PLEDGER_PK, locktime);
 	});
 
 	it('returns failure when fees exceed amount', async () => {
 		const wallet = mockWallet({ getFeesForProofs: vi.fn(() => 200) });
 		mockedGetWallet.mockResolvedValue(wallet);
 
-		const result = await createPledgeToken([mockProof(50)], CREATOR_PK, MINT_URL);
+		const result = await createPledgeToken([mockProof(50)], PLEDGER_PK, MINT_URL);
 
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('Insufficient amount after fees');
@@ -182,7 +166,7 @@ describe('createPledgeToken', () => {
 		});
 		mockedGetWallet.mockResolvedValue(wallet);
 
-		const result = await createPledgeToken([mockProof(100)], CREATOR_PK, MINT_URL);
+		const result = await createPledgeToken([mockProof(100)], PLEDGER_PK, MINT_URL);
 
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('Network error');
@@ -191,7 +175,7 @@ describe('createPledgeToken', () => {
 	it('handles mint connection error', async () => {
 		mockedGetWallet.mockRejectedValue(new Error('Mint offline'));
 
-		const result = await createPledgeToken([mockProof(100)], CREATOR_PK, MINT_URL);
+		const result = await createPledgeToken([mockProof(100)], PLEDGER_PK, MINT_URL);
 
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('Mint offline');
@@ -201,7 +185,7 @@ describe('createPledgeToken', () => {
 		const wallet = mockWallet();
 		mockedGetWallet.mockResolvedValue(wallet);
 
-		await createPledgeToken([mockProof(100)], CREATOR_PK);
+		await createPledgeToken([mockProof(100)], PLEDGER_PK);
 
 		expect(mockedGetWallet).toHaveBeenCalledWith(undefined);
 	});
@@ -269,7 +253,10 @@ describe('collectPledgeTokens', () => {
 			unit: 'sat'
 		};
 
-		mockedDecodeToken.mockResolvedValueOnce(goodInfo).mockResolvedValueOnce(null).mockResolvedValueOnce(goodInfo);
+		mockedDecodeToken
+			.mockResolvedValueOnce(goodInfo)
+			.mockResolvedValueOnce(null)
+			.mockResolvedValueOnce(goodInfo);
 
 		const events = [
 			makePledgeEvent('cashuBgood1', 'evt-1'),
@@ -303,155 +290,186 @@ describe('collectPledgeTokens', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// swapPledgeTokens
+// releasePledgeToSolver — pledger releases self-locked tokens to solver
 // ═══════════════════════════════════════════════════════════════════════════
 
-describe('swapPledgeTokens', () => {
-	it('returns failure for empty pledges', async () => {
-		const wallet = mockWallet();
-		const result = await swapPledgeTokens([], wallet, CREATOR_PK);
+describe('releasePledgeToSolver', () => {
+	it('returns failure for empty proofs', async () => {
+		const pledge = { ...makeDecodedPledge(100), proofs: [] };
+		const result = await releasePledgeToSolver(pledge, PLEDGER_PRIVKEY, SOLVER_PK);
 
 		expect(result.success).toBe(false);
-		expect(result.error).toContain('No pledges');
+		expect(result.error).toContain('No proofs');
 	});
 
-	it('returns failure for zero-amount pledges', async () => {
+	it('returns failure for zero-amount proofs', async () => {
 		mockedGetProofsAmount.mockReturnValue(0);
 		const pledge = makeDecodedPledge(0);
-		const wallet = mockWallet();
 
-		const result = await swapPledgeTokens([pledge], wallet, CREATOR_PK);
+		const result = await releasePledgeToSolver(pledge, PLEDGER_PRIVKEY, SOLVER_PK);
 
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('zero total amount');
 	});
 
-	it('swaps pledges successfully with privkey signing', async () => {
-		const pledge = makeDecodedPledge(100);
+	it('signs with pledger privkey, swaps, and re-locks to solver', async () => {
 		const wallet = mockWallet();
+		mockedGetWallet.mockResolvedValue(wallet);
+		const pledge = makeDecodedPledge(100);
 
-		const result = await swapPledgeTokens([pledge], wallet, CREATOR_PK);
+		const result = await releasePledgeToSolver(pledge, PLEDGER_PRIVKEY, SOLVER_PK);
+
+		expect(result.success).toBe(true);
+		expect(result.proofs.length).toBeGreaterThan(0);
+		// Step 1: Sign P2PK proofs with pledger's private key
+		expect(wallet.signP2PKProofs).toHaveBeenCalledWith(pledge.proofs, PLEDGER_PRIVKEY);
+		// Step 1: Swap signed proofs at mint (with privkey)
+		expect(wallet.send).toHaveBeenCalled();
+		// Step 2: Lock fresh proofs to solver pubkey
+		expect(mockedCreateP2PKLock).toHaveBeenCalledWith(SOLVER_PK);
+	});
+
+	it('connects to the pledge mint URL', async () => {
+		const wallet = mockWallet();
+		mockedGetWallet.mockResolvedValue(wallet);
+		const pledge = makeDecodedPledge(100, 'evt-1', 'https://custom-mint.com');
+
+		await releasePledgeToSolver(pledge, PLEDGER_PRIVKEY, SOLVER_PK);
+
+		expect(mockedGetWallet).toHaveBeenCalledWith('https://custom-mint.com');
+	});
+
+	it('returns failure when swap fees exceed amount', async () => {
+		const wallet = mockWallet({ getFeesForProofs: vi.fn(() => 200) });
+		mockedGetWallet.mockResolvedValue(wallet);
+		const pledge = makeDecodedPledge(50);
+
+		const result = await releasePledgeToSolver(pledge, PLEDGER_PRIVKEY, SOLVER_PK);
+
+		expect(result.success).toBe(false);
+		expect(result.error).toContain('Insufficient amount after swap fees');
+	});
+
+	it('throws DoubleSpendError when mint reports already spent', async () => {
+		const wallet = mockWallet({
+			send: vi.fn(async () => {
+				throw new Error('Token already spent');
+			})
+		});
+		mockedGetWallet.mockResolvedValue(wallet);
+		const pledge = makeDecodedPledge(100);
+
+		await expect(releasePledgeToSolver(pledge, PLEDGER_PRIVKEY, SOLVER_PK)).rejects.toThrow(
+			DoubleSpendError
+		);
+	});
+
+	it('returns failure for generic errors', async () => {
+		const wallet = mockWallet({
+			send: vi.fn(async () => {
+				throw new Error('Unknown mint error');
+			})
+		});
+		mockedGetWallet.mockResolvedValue(wallet);
+		const pledge = makeDecodedPledge(100);
+
+		const result = await releasePledgeToSolver(pledge, PLEDGER_PRIVKEY, SOLVER_PK);
+
+		expect(result.success).toBe(false);
+		expect(result.error).toContain('Unknown mint error');
+	});
+
+	it('handles mint connection error', async () => {
+		mockedGetWallet.mockRejectedValue(new Error('Mint offline'));
+		const pledge = makeDecodedPledge(100);
+
+		const result = await releasePledgeToSolver(pledge, PLEDGER_PRIVKEY, SOLVER_PK);
+
+		expect(result.success).toBe(false);
+		expect(result.error).toContain('Mint offline');
+	});
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// reclaimPledge — pledger takes back self-locked tokens
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('reclaimPledge', () => {
+	it('returns failure for empty proofs', async () => {
+		const pledge = { ...makeDecodedPledge(100), proofs: [] };
+		const result = await reclaimPledge(pledge, PLEDGER_PRIVKEY);
+
+		expect(result.success).toBe(false);
+		expect(result.error).toContain('No proofs');
+	});
+
+	it('returns failure for zero-amount proofs', async () => {
+		mockedGetProofsAmount.mockReturnValue(0);
+		const pledge = makeDecodedPledge(0);
+
+		const result = await reclaimPledge(pledge, PLEDGER_PRIVKEY);
+
+		expect(result.success).toBe(false);
+		expect(result.error).toContain('zero total amount');
+	});
+
+	it('signs and swaps to reclaim unlocked proofs', async () => {
+		const wallet = mockWallet();
+		mockedGetWallet.mockResolvedValue(wallet);
+		const pledge = makeDecodedPledge(100);
+
+		const result = await reclaimPledge(pledge, PLEDGER_PRIVKEY);
 
 		expect(result.success).toBe(true);
 		expect(result.sendProofs.length).toBeGreaterThan(0);
-		expect(wallet.signP2PKProofs).toHaveBeenCalledWith(pledge.proofs, CREATOR_PK);
+		expect(wallet.signP2PKProofs).toHaveBeenCalledWith(pledge.proofs, PLEDGER_PRIVKEY);
 		expect(wallet.send).toHaveBeenCalledOnce();
 	});
 
-	it('combines proofs from multiple pledges', async () => {
-		const pledge1 = makeDecodedPledge(100, 'evt-1');
-		const pledge2 = makeDecodedPledge(50, 'evt-2');
-		// Total = 150
-		mockedGetProofsAmount.mockReturnValue(150);
-		const wallet = mockWallet();
+	it('returns fees in result', async () => {
+		const wallet = mockWallet({ getFeesForProofs: vi.fn(() => 3) });
+		mockedGetWallet.mockResolvedValue(wallet);
+		const pledge = makeDecodedPledge(100);
 
-		const result = await swapPledgeTokens([pledge1, pledge2], wallet, CREATOR_PK);
+		const result = await reclaimPledge(pledge, PLEDGER_PRIVKEY);
 
 		expect(result.success).toBe(true);
-		// signP2PKProofs should be called with all combined proofs
-		const signCall = (wallet.signP2PKProofs as ReturnType<typeof vi.fn>).mock.calls[0];
-		expect(signCall[0]).toHaveLength(2); // 2 proofs total
+		expect(result.fees).toBe(3);
 	});
 
-	it('returns failure when fees exceed total', async () => {
-		const pledge = makeDecodedPledge(5);
-		const wallet = mockWallet({ getFeesForProofs: vi.fn(() => 10) });
+	it('returns failure when fees exceed amount', async () => {
+		const wallet = mockWallet({ getFeesForProofs: vi.fn(() => 200) });
+		mockedGetWallet.mockResolvedValue(wallet);
+		const pledge = makeDecodedPledge(50);
 
-		const result = await swapPledgeTokens([pledge], wallet, CREATOR_PK);
+		const result = await reclaimPledge(pledge, PLEDGER_PRIVKEY);
 
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('Insufficient amount after fees');
 	});
 
 	it('throws DoubleSpendError when mint reports already spent', async () => {
-		const pledge = makeDecodedPledge(100);
 		const wallet = mockWallet({
 			send: vi.fn(async () => {
 				throw new Error('Token already spent');
 			})
 		});
+		mockedGetWallet.mockResolvedValue(wallet);
+		const pledge = makeDecodedPledge(100);
 
-		await expect(swapPledgeTokens([pledge], wallet, CREATOR_PK)).rejects.toThrow(DoubleSpendError);
+		await expect(reclaimPledge(pledge, PLEDGER_PRIVKEY)).rejects.toThrow(DoubleSpendError);
 	});
 
 	it('returns failure for generic errors', async () => {
-		const pledge = makeDecodedPledge(100);
-		const wallet = mockWallet({
-			send: vi.fn(async () => {
-				throw new Error('Unknown mint error');
-			})
-		});
-
-		const result = await swapPledgeTokens([pledge], wallet, CREATOR_PK);
-
-		expect(result.success).toBe(false);
-		expect(result.error).toContain('Unknown mint error');
-	});
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
-// createPayoutToken
-// ═══════════════════════════════════════════════════════════════════════════
-
-describe('createPayoutToken', () => {
-	it('returns failure for empty proofs', async () => {
-		const wallet = mockWallet();
-		const result = await createPayoutToken([], SOLVER_PK, wallet);
-
-		expect(result.success).toBe(false);
-		expect(result.error).toContain('No proofs for payout');
-	});
-
-	it('returns failure for zero-amount proofs', async () => {
-		mockedGetProofsAmount.mockReturnValue(0);
-		const wallet = mockWallet();
-
-		const result = await createPayoutToken([mockProof(0)], SOLVER_PK, wallet);
-
-		expect(result.success).toBe(false);
-		expect(result.error).toContain('zero total amount');
-	});
-
-	it('creates P2PK-locked payout for solver', async () => {
-		const wallet = mockWallet();
-
-		const result = await createPayoutToken([mockProof(100)], SOLVER_PK, wallet);
-
-		expect(result.success).toBe(true);
-		expect(result.proofs.length).toBeGreaterThan(0);
-		expect(mockedCreateP2PKLock).toHaveBeenCalledWith(SOLVER_PK);
-		expect(wallet.send).toHaveBeenCalledOnce();
-	});
-
-	it('returns failure when fees exceed payout amount', async () => {
-		const wallet = mockWallet({ getFeesForProofs: vi.fn(() => 200) });
-
-		const result = await createPayoutToken([mockProof(50)], SOLVER_PK, wallet);
-
-		expect(result.success).toBe(false);
-		expect(result.error).toContain('Insufficient amount after fees');
-	});
-
-	it('throws DoubleSpendError on already-spent proofs', async () => {
-		const wallet = mockWallet({
-			send: vi.fn(async () => {
-				throw new Error('Token already spent');
-			})
-		});
-
-		await expect(createPayoutToken([mockProof(100)], SOLVER_PK, wallet)).rejects.toThrow(
-			DoubleSpendError
-		);
-	});
-
-	it('returns failure for generic send errors', async () => {
 		const wallet = mockWallet({
 			send: vi.fn(async () => {
 				throw new Error('Mint timeout');
 			})
 		});
+		mockedGetWallet.mockResolvedValue(wallet);
+		const pledge = makeDecodedPledge(100);
 
-		const result = await createPayoutToken([mockProof(100)], SOLVER_PK, wallet);
+		const result = await reclaimPledge(pledge, PLEDGER_PRIVKEY);
 
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('Mint timeout');
@@ -471,310 +489,5 @@ describe('encodePayoutToken', () => {
 
 		expect(result).toBe('cashuBpayout123');
 		expect(mockedEncodeToken).toHaveBeenCalledWith(proofs, MINT_URL, 'Bounty.ninja bounty payout');
-	});
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
-// checkPledgeProofsSpendable
-// ═══════════════════════════════════════════════════════════════════════════
-
-describe('checkPledgeProofsSpendable', () => {
-	it('returns empty map for empty pledges', async () => {
-		const wallet = mockWallet();
-		const result = await checkPledgeProofsSpendable([], wallet);
-		expect(result.size).toBe(0);
-	});
-
-	it('returns true for spendable pledges', async () => {
-		const pledge = makeDecodedPledge(100, 'evt-spendable');
-		const wallet = mockWallet();
-
-		const result = await checkPledgeProofsSpendable([pledge], wallet);
-
-		expect(result.get('evt-spendable')).toBe(true);
-	});
-
-	it('returns false for spent pledges', async () => {
-		const pledge = makeDecodedPledge(100, 'evt-spent');
-		const wallet = mockWallet({
-			checkProofsStates: vi.fn(async () => [{ state: 'SPENT' }])
-		});
-
-		const result = await checkPledgeProofsSpendable([pledge], wallet);
-
-		expect(result.get('evt-spent')).toBe(false);
-	});
-
-	it('returns false on network error (safe default)', async () => {
-		const pledge = makeDecodedPledge(100, 'evt-err');
-		const wallet = mockWallet({
-			checkProofsStates: vi.fn(async () => {
-				throw new Error('Network error');
-			})
-		});
-
-		const result = await checkPledgeProofsSpendable([pledge], wallet);
-
-		expect(result.get('evt-err')).toBe(false);
-	});
-
-	it('checks each pledge independently', async () => {
-		const pledge1 = makeDecodedPledge(100, 'evt-1');
-		const pledge2 = makeDecodedPledge(50, 'evt-2');
-		const wallet = mockWallet({
-			checkProofsStates: vi
-				.fn()
-				.mockResolvedValueOnce([{ state: 'UNSPENT' }])
-				.mockResolvedValueOnce([{ state: 'SPENT' }])
-		});
-
-		const result = await checkPledgeProofsSpendable([pledge1, pledge2], wallet);
-
-		expect(result.get('evt-1')).toBe(true);
-		expect(result.get('evt-2')).toBe(false);
-	});
-
-	it('handles mixed proof states within a single pledge', async () => {
-		const pledge: DecodedPledge = {
-			...makeDecodedPledge(150, 'evt-mixed'),
-			proofs: [mockProof(100), mockProof(50)]
-		};
-		const wallet = mockWallet({
-			checkProofsStates: vi.fn(async () => [{ state: 'UNSPENT' }, { state: 'SPENT' }])
-		});
-
-		const result = await checkPledgeProofsSpendable([pledge], wallet);
-
-		// If any proof is spent, the whole pledge is not fully spendable
-		expect(result.get('evt-mixed')).toBe(false);
-	});
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
-// groupPledgesByMint
-// ═══════════════════════════════════════════════════════════════════════════
-
-describe('groupPledgesByMint', () => {
-	it('returns empty map for empty array', () => {
-		const result = groupPledgesByMint([]);
-		expect(result.size).toBe(0);
-	});
-
-	it('groups all pledges under a single mint', () => {
-		const pledge1 = makeDecodedPledge(100, 'evt-1', MINT_URL);
-		const pledge2 = makeDecodedPledge(50, 'evt-2', MINT_URL);
-
-		const result = groupPledgesByMint([pledge1, pledge2]);
-
-		expect(result.size).toBe(1);
-		expect(result.has(MINT_URL)).toBe(true);
-		expect(result.get(MINT_URL)).toHaveLength(2);
-	});
-
-	it('groups pledges by different mints', () => {
-		const pledge1 = makeDecodedPledge(100, 'evt-1', MINT_URL);
-		const pledge2 = makeDecodedPledge(50, 'evt-2', MINT_URL_2);
-		const pledge3 = makeDecodedPledge(75, 'evt-3', MINT_URL);
-		const pledge4 = makeDecodedPledge(25, 'evt-4', MINT_URL_3);
-
-		const result = groupPledgesByMint([pledge1, pledge2, pledge3, pledge4]);
-
-		expect(result.size).toBe(3);
-		expect(result.get(MINT_URL)).toHaveLength(2);
-		expect(result.get(MINT_URL_2)).toHaveLength(1);
-		expect(result.get(MINT_URL_3)).toHaveLength(1);
-	});
-
-	it('normalizes trailing slashes in mint URLs', () => {
-		const pledge1 = makeDecodedPledge(100, 'evt-1', 'https://mint.example.com/');
-		const pledge2 = makeDecodedPledge(50, 'evt-2', 'https://mint.example.com');
-		const pledge3 = makeDecodedPledge(75, 'evt-3', 'https://mint.example.com///');
-
-		const result = groupPledgesByMint([pledge1, pledge2, pledge3]);
-
-		expect(result.size).toBe(1);
-		const key = Array.from(result.keys())[0];
-		expect(key).toBe('https://mint.example.com');
-		expect(result.get(key)).toHaveLength(3);
-	});
-
-	it('preserves pledge data in groups', () => {
-		const pledge1 = makeDecodedPledge(100, 'evt-1', MINT_URL);
-		const pledge2 = makeDecodedPledge(200, 'evt-2', MINT_URL_2);
-
-		const result = groupPledgesByMint([pledge1, pledge2]);
-
-		const mint1Group = result.get(MINT_URL)!;
-		expect(mint1Group[0].eventId).toBe('evt-1');
-		expect(mint1Group[0].amount).toBe(100);
-
-		const mint2Group = result.get(MINT_URL_2)!;
-		expect(mint2Group[0].eventId).toBe('evt-2');
-		expect(mint2Group[0].amount).toBe(200);
-	});
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
-// processMultiMintPayout
-// ═══════════════════════════════════════════════════════════════════════════
-
-describe('processMultiMintPayout', () => {
-	it('returns failure for empty pledges', async () => {
-		const result = await processMultiMintPayout([], CREATOR_PK, SOLVER_PK);
-
-		expect(result.success).toBe(false);
-		expect(result.error).toContain('No pledges');
-	});
-
-	it('processes single-mint pledges successfully', async () => {
-		const wallet = mockWallet();
-		mockedGetWallet.mockResolvedValue(wallet);
-
-		const pledge1 = makeDecodedPledge(100, 'evt-1', MINT_URL);
-		const pledge2 = makeDecodedPledge(50, 'evt-2', MINT_URL);
-
-		const result = await processMultiMintPayout(
-			[pledge1, pledge2],
-			CREATOR_PK,
-			SOLVER_PK
-		);
-
-		expect(result.success).toBe(true);
-		expect(result.entries).toHaveLength(1);
-		expect(result.entries[0].mintUrl).toBe(MINT_URL);
-		expect(result.totalAmount).toBeGreaterThan(0);
-	});
-
-	it('processes multi-mint pledges independently', async () => {
-		const wallet1 = mockWallet();
-		const wallet2 = mockWallet();
-		mockedGetWallet
-			.mockResolvedValueOnce(wallet1) // swap wallet for mint 1
-			.mockResolvedValueOnce(wallet2); // swap wallet for mint 2
-
-		const pledge1 = makeDecodedPledge(100, 'evt-1', MINT_URL);
-		const pledge2 = makeDecodedPledge(75, 'evt-2', MINT_URL_2);
-
-		const result = await processMultiMintPayout(
-			[pledge1, pledge2],
-			CREATOR_PK,
-			SOLVER_PK
-		);
-
-		expect(result.success).toBe(true);
-		expect(result.entries).toHaveLength(2);
-
-		const mintUrls = result.entries.map((e) => e.mintUrl);
-		expect(mintUrls).toContain(MINT_URL);
-		expect(mintUrls).toContain(MINT_URL_2);
-	});
-
-	it('calls onStatus callback with progress messages', async () => {
-		const wallet = mockWallet();
-		mockedGetWallet.mockResolvedValue(wallet);
-		const statusMessages: string[] = [];
-
-		const pledge = makeDecodedPledge(100, 'evt-1', MINT_URL);
-		await processMultiMintPayout(
-			[pledge],
-			CREATOR_PK,
-			SOLVER_PK,
-			(msg) => statusMessages.push(msg)
-		);
-
-		expect(statusMessages.length).toBeGreaterThan(0);
-		expect(statusMessages.some((m) => m.includes('Connecting'))).toBe(true);
-		expect(statusMessages.some((m) => m.includes('Unlocking'))).toBe(true);
-		expect(statusMessages.some((m) => m.includes('Creating payout'))).toBe(true);
-	});
-
-	it('re-throws DoubleSpendError immediately', async () => {
-		const wallet = mockWallet({
-			send: vi.fn(async () => {
-				throw new Error('Token already spent');
-			})
-		});
-		mockedGetWallet.mockResolvedValue(wallet);
-
-		const pledge = makeDecodedPledge(100, 'evt-1', MINT_URL);
-
-		await expect(
-			processMultiMintPayout([pledge], CREATOR_PK, SOLVER_PK)
-		).rejects.toThrow(DoubleSpendError);
-	});
-
-	it('returns failure when all mints fail', async () => {
-		mockedGetWallet.mockRejectedValue(new Error('Mint offline'));
-
-		const pledge1 = makeDecodedPledge(100, 'evt-1', MINT_URL);
-		const pledge2 = makeDecodedPledge(50, 'evt-2', MINT_URL_2);
-
-		const result = await processMultiMintPayout(
-			[pledge1, pledge2],
-			CREATOR_PK,
-			SOLVER_PK
-		);
-
-		expect(result.success).toBe(false);
-		expect(result.entries).toHaveLength(0);
-		expect(result.error).toBeDefined();
-	});
-
-	it('returns partial failure when some mints fail', async () => {
-		const goodWallet = mockWallet();
-		mockedGetWallet
-			.mockResolvedValueOnce(goodWallet) // mint 1 succeeds
-			.mockRejectedValueOnce(new Error('Mint 2 offline')); // mint 2 fails
-
-		const pledge1 = makeDecodedPledge(100, 'evt-1', MINT_URL);
-		const pledge2 = makeDecodedPledge(50, 'evt-2', MINT_URL_2);
-
-		const result = await processMultiMintPayout(
-			[pledge1, pledge2],
-			CREATOR_PK,
-			SOLVER_PK
-		);
-
-		expect(result.success).toBe(false);
-		expect(result.error).toContain('Some mints failed');
-		expect(result.partialEntries).toBeDefined();
-		expect(result.partialEntries).toHaveLength(1);
-		expect(result.partialEntries![0].mintUrl).toBe(MINT_URL);
-	});
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
-// encodeMultiMintPayoutTokens
-// ═══════════════════════════════════════════════════════════════════════════
-
-describe('encodeMultiMintPayoutTokens', () => {
-	it('returns empty string for empty entries', async () => {
-		const result = await encodeMultiMintPayoutTokens([]);
-		expect(result).toBe('');
-	});
-
-	it('encodes single entry as a standard token', async () => {
-		mockedEncodeToken.mockResolvedValue('cashuBsingle');
-
-		const result = await encodeMultiMintPayoutTokens([
-			{ mintUrl: MINT_URL, proofs: [mockProof(100)], amount: 100 }
-		]);
-
-		expect(result).toBe('cashuBsingle');
-		expect(mockedEncodeToken).toHaveBeenCalledOnce();
-	});
-
-	it('encodes multiple entries separated by newline', async () => {
-		mockedEncodeToken
-			.mockResolvedValueOnce('cashuBmint1')
-			.mockResolvedValueOnce('cashuBmint2');
-
-		const result = await encodeMultiMintPayoutTokens([
-			{ mintUrl: MINT_URL, proofs: [mockProof(100)], amount: 100 },
-			{ mintUrl: MINT_URL_2, proofs: [mockProof(50)], amount: 50 }
-		]);
-
-		expect(result).toBe('cashuBmint1\ncashuBmint2');
-		expect(mockedEncodeToken).toHaveBeenCalledTimes(2);
 	});
 });

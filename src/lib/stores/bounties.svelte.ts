@@ -125,7 +125,8 @@ class BountyListStore {
 	): BountyStatus {
 		const now = Math.floor(Date.now() / 1000);
 
-		// Completed — payout events exist
+		// Completed — payout events exist (list view doesn't compute consensus,
+		// so we treat any payout as completed for simplicity)
 		if (this.#completedBounties.has(address)) return 'completed';
 
 		// Expired — deadline in the past
