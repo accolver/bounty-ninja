@@ -1,7 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import type { NostrEvent } from 'nostr-tools';
-import { calculateVoteWeight, tallyVotes } from '$lib/bounty/voting';
 import type { Vote } from '$lib/bounty/types';
+
+// Mock env to return 66% quorum (0.66 fraction)
+vi.mock('$lib/utils/env', () => ({
+	getVoteQuorumFraction: () => 0.66
+}));
+
+const { calculateVoteWeight, tallyVotes } = await import('$lib/bounty/voting');
 
 function mockEvent(overrides: Partial<NostrEvent> = {}): NostrEvent {
 	return {
@@ -70,7 +76,7 @@ describe('tallyVotes', () => {
 
 		expect(tally.approveWeight).toBe(50000);
 		expect(tally.rejectWeight).toBe(0);
-		expect(tally.quorum).toBe(25000);
+		expect(tally.quorum).toBe(33000); // 50000 * 0.66
 		expect(tally.isApproved).toBe(true);
 		expect(tally.isRejected).toBe(false);
 		expect(tally.isTied).toBe(false);
@@ -114,7 +120,7 @@ describe('tallyVotes', () => {
 
 		expect(tally.approveWeight).toBe(10000);
 		expect(tally.rejectWeight).toBe(0);
-		expect(tally.quorum).toBe(50000);
+		expect(tally.quorum).toBe(66000); // 100000 * 0.66
 		expect(tally.isApproved).toBe(false);
 		expect(tally.isRejected).toBe(false);
 		expect(tally.quorumPercent).toBe(10);
@@ -234,7 +240,7 @@ describe('tallyVotes', () => {
 		const tally = tallyVotes(votes, pledgesByPubkey, totalPledged);
 
 		expect(tally.approveWeight).toBe(100000);
-		expect(tally.quorum).toBe(50000);
+		expect(tally.quorum).toBe(66000); // 100000 * 0.66
 		expect(tally.isApproved).toBe(true);
 		expect(tally.quorumPercent).toBe(100);
 	});
@@ -270,7 +276,7 @@ describe('tallyVotes', () => {
 
 		expect(tally.approveWeight).toBe(0);
 		expect(tally.rejectWeight).toBe(0);
-		expect(tally.quorum).toBe(25000);
+		expect(tally.quorum).toBe(33000); // 50000 * 0.66
 		expect(tally.isApproved).toBe(false);
 		expect(tally.isRejected).toBe(false);
 		expect(tally.quorumPercent).toBe(0);
@@ -362,8 +368,8 @@ describe('tallyVotes', () => {
 		expect(tally.approveWeight).toBe(50001);
 		expect(tally.rejectWeight).toBe(50000);
 		expect(tally.isTied).toBe(false);
-		// Approve wins by 1 sat and meets quorum (100001 weight >= 50000.5 quorum)
-		expect(tally.isApproved).toBe(true);
+		// Approve wins by 1 sat but doesn't meet 66% quorum (50001 < 66000.66)
+		expect(tally.isApproved).toBe(false);
 		expect(tally.isRejected).toBe(false);
 	});
 

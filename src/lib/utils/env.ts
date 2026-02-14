@@ -25,9 +25,7 @@ export function getDefaultRelays(): string[] {
 	}
 
 	// Fall back to env defaults
-	const raw =
-		env.PUBLIC_DEFAULT_RELAYS ??
-		config.nostr.defaultRelays.join(',');
+	const raw = env.PUBLIC_DEFAULT_RELAYS ?? config.nostr.defaultRelays.join(',');
 	const relays = raw
 		.split(',')
 		.map((url) => url.trim())
@@ -35,7 +33,12 @@ export function getDefaultRelays(): string[] {
 
 	// Include local dev relay if configured (e.g., ws://localhost:10547)
 	const local = env.PUBLIC_LOCAL_RELAY;
-	if (local && !relays.includes(local) && !local.includes('localhost') && !local.includes('127.0.0.1')) {
+	if (
+		local &&
+		!relays.includes(local) &&
+		!local.includes('localhost') &&
+		!local.includes('127.0.0.1')
+	) {
 		relays.push(local);
 	} else if (local && (local.includes('localhost') || local.includes('127.0.0.1'))) {
 		if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
@@ -69,6 +72,16 @@ export function getMinSubmissionFee(): number {
 /** Returns the maximum submission fee in sats */
 export function getMaxSubmissionFee(): number {
 	return parseInt(env.PUBLIC_MAX_SUBMISSION_FEE ?? String(config.payments.maxSubmissionFee), 10);
+}
+
+/** Returns the vote quorum threshold as a fraction (0–1) */
+export function getVoteQuorumFraction(): number {
+	const percent = parseInt(
+		env.PUBLIC_VOTE_QUORUM_PERCENT ?? String(config.payments.voteQuorumPercent),
+		10
+	);
+	const clamped = Math.max(1, Math.min(100, Number.isNaN(percent) ? 66 : percent));
+	return clamped / 100;
 }
 
 /** Returns the NIP-50 search relay URL */

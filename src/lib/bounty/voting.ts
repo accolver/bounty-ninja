@@ -1,7 +1,5 @@
 import type { Vote, VoteTally } from './types';
-
-/** Quorum threshold as a fraction of total pledged sats */
-const QUORUM_FRACTION = 0.5;
+import { getVoteQuorumFraction } from '$lib/utils/env';
 
 /**
  * Calculate the voting weight for a given pledge amount.
@@ -19,7 +17,7 @@ export function calculateVoteWeight(pledgeAmountSats: number): number {
  * - Deduplicate: if a pubkey voted multiple times, only the latest vote counts
  * - Non-pledger votes are ignored (pubkey must exist in pledgesByPubkey)
  * - Linear weighting: vote weight = pledge amount
- * - Quorum = totalPledgedSats * 0.5
+ * - Quorum = totalPledgedSats * PUBLIC_VOTE_QUORUM_PERCENT/100 (default 66%)
  * - isApproved: approveWeight > rejectWeight AND approveWeight >= quorum
  * - isRejected: rejectWeight > approveWeight AND rejectWeight >= quorum
  */
@@ -41,7 +39,7 @@ export function tallyVotes(
 		};
 	}
 
-	const quorum = totalPledgedSats * QUORUM_FRACTION;
+	const quorum = totalPledgedSats * getVoteQuorumFraction();
 
 	// Deduplicate: keep only the latest vote per pubkey (highest created_at)
 	const latestVoteByPubkey = new Map<string, Vote>();

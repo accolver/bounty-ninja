@@ -37,7 +37,8 @@ export const config = {
 		minSubmissionFee: 10,
 		maxSubmissionFee: 10000,
 		currency: 'sats',
-		currencyLong: 'satoshis'
+		currencyLong: 'satoshis',
+		voteQuorumPercent: 66
 	},
 
 	// localStorage key prefix (used for settings, cache, theme, etc.)
