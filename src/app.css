@@ -59,26 +59,26 @@
 	/* Mandalorian — Dark theme (default)
 	 * Inspired by Boba Fett's weathered beskar armor:
 	 * sage greens, tarnished gold, gunmetal, and rust. */
-	--color-primary: #6B9E7E;
-	--color-primary-foreground: #141A1D;
-	--color-secondary: #C49A3C;
-	--color-secondary-foreground: #141A1D;
-	--color-destructive: #C25450;
-	--color-success: #6B9E5A;
-	--color-warning: #D4A843;
-	--color-background: #141A1D;
-	--color-foreground: #C8CED2;
-	--color-card: #1B2328;
-	--color-card-foreground: #C8CED2;
-	--color-muted: #2A3439;
-	--color-muted-foreground: #7B8890;
-	--color-border: #2A3439;
-	--color-input: #2A3439;
-	--color-ring: #6B9E7E;
-	--color-accent: #4D8B7A;
-	--color-accent-foreground: #141A1D;
-	--color-popover: #1B2328;
-	--color-popover-foreground: #C8CED2;
+	--color-primary: #6b9e7e;
+	--color-primary-foreground: #141a1d;
+	--color-secondary: #c49a3c;
+	--color-secondary-foreground: #141a1d;
+	--color-destructive: #c25450;
+	--color-success: #6b9e5a;
+	--color-warning: #d4a843;
+	--color-background: #141a1d;
+	--color-foreground: #c8ced2;
+	--color-card: #1b2328;
+	--color-card-foreground: #c8ced2;
+	--color-muted: #2a3439;
+	--color-muted-foreground: #7b8890;
+	--color-border: #2a3439;
+	--color-input: #2a3439;
+	--color-ring: #6b9e7e;
+	--color-accent: #4d8b7a;
+	--color-accent-foreground: #141a1d;
+	--color-popover: #1b2328;
+	--color-popover-foreground: #c8ced2;
 
 	/* Spacing and sizing */
 	--radius-sm: 0.25rem;
@@ -89,26 +89,26 @@
 /* Light theme — Mandalorian Day
  * Warm grey-greens with olive undertones. */
 .light {
-	--color-primary: #3A6B4E;
+	--color-primary: #3a6b4e;
 	--color-primary-foreground: #ffffff;
-	--color-secondary: #8B7530;
+	--color-secondary: #8b7530;
 	--color-secondary-foreground: #ffffff;
-	--color-destructive: #B03A3A;
-	--color-success: #4A7A3A;
-	--color-warning: #9A7520;
-	--color-background: #EDEEE8;
-	--color-foreground: #1C2520;
-	--color-card: #E0E2DB;
-	--color-card-foreground: #1C2520;
-	--color-muted: #D0D2CC;
-	--color-muted-foreground: #5B6660;
-	--color-border: #B0B5AC;
+	--color-destructive: #b03a3a;
+	--color-success: #4a7a3a;
+	--color-warning: #9a7520;
+	--color-background: #edeee8;
+	--color-foreground: #1c2520;
+	--color-card: #e0e2db;
+	--color-card-foreground: #1c2520;
+	--color-muted: #d0d2cc;
+	--color-muted-foreground: #5b6660;
+	--color-border: #b0b5ac;
 	--color-input: #ffffff;
-	--color-ring: #3A6B4E;
-	--color-accent: #1D6B55;
+	--color-ring: #3a6b4e;
+	--color-accent: #1d6b55;
 	--color-accent-foreground: #ffffff;
 	--color-popover: #ffffff;
-	--color-popover-foreground: #1C2520;
+	--color-popover-foreground: #1c2520;
 }
 
 /* Reduced motion support */
@@ -127,6 +127,11 @@
 *:focus-visible {
 	outline: 2px solid var(--color-ring);
 	outline-offset: 2px;
+}
+
+/* Scale everything ~10% larger via root font size (rem units inherit this) */
+html {
+	font-size: 110%;
 }
 
 /* Base body styles */
