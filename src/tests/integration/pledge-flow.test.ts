@@ -5,7 +5,7 @@
  * 1. Blueprint produces correct Kind 73002 event structure
  * 2. Event inserted into EventStore is retrievable
  * 3. Parsed pledge has correct fields
- * 4. Status transitions work (draft → open on first pledge)
+ * 4. Bounty stays open with or without pledges
  * 5. totalPledged reflects new pledges
  *
  * Uses real EventStore with no relay connections.
@@ -161,8 +161,8 @@ describe('Bounty status transitions on pledge', () => {
 		const bountyEvent = makeBountyEvent(dTag);
 
 		// No pledges = open (published bounty)
-		const draftDetail = parseBountyDetail(bountyEvent, [], [], [], [], [])!;
-		expect(draftDetail.status).toBe('open');
+		const unfundedDetail = parseBountyDetail(bountyEvent, [], [], [], [], [])!;
+		expect(unfundedDetail.status).toBe('open');
 
 		// Add first pledge
 		const pledgeTemplate = pledgeBlueprint({

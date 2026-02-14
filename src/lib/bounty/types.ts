@@ -1,6 +1,6 @@
 import type { NostrEvent } from 'nostr-tools';
 
-export type BountyStatus = 'draft' | 'open' | 'in_review' | 'completed' | 'expired' | 'cancelled';
+export type BountyStatus = 'open' | 'in_review' | 'completed' | 'expired' | 'cancelled';
 
 export interface Bounty {
 	event: NostrEvent;

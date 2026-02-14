@@ -310,13 +310,13 @@ describe('parseBountyDetail composition', () => {
 		const bountyAddress = `${BOUNTY_KIND}:${PUBKEY_A}:status-test`;
 
 		// Open: no pledges, no solutions (published bounty)
-		const draftDetail = parseBountyDetail(bountyEvent, [], [], [], [], [])!;
-		expect(draftDetail.status).toBe('open');
+		const unfundedDetail = parseBountyDetail(bountyEvent, [], [], [], [], [])!;
+		expect(unfundedDetail.status).toBe('open');
 
 		// Open: has pledges
 		const pledge = makePledgeEvent(bountyAddress, 5000);
-		const openDetail = parseBountyDetail(bountyEvent, [pledge], [], [], [], [])!;
-		expect(openDetail.status).toBe('open');
+		const fundedDetail = parseBountyDetail(bountyEvent, [pledge], [], [], [], [])!;
+		expect(fundedDetail.status).toBe('open');
 
 		// In review: has pledges + solutions
 		const solution = makeSolutionEvent(bountyAddress);

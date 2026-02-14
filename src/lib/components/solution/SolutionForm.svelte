@@ -212,7 +212,7 @@
 </script>
 
 {#if !isVisible}
-	<!-- Hidden entirely for draft/completed/expired/cancelled -->
+	<!-- Hidden entirely for completed/expired/cancelled -->
 {:else if !accountState.isLoggedIn}
 	<!-- Unauthenticated prompt -->
 	<section class="rounded-lg border border-border bg-card p-6" aria-label="Submit a solution">
@@ -361,9 +361,11 @@
 					></textarea>
 					<p id="solution-fee-help" class="text-xs text-muted-foreground">
 						{#if hasFixedFee}
-							This bounty requires a {requiredFee} sat submission fee to deter spam. Paste a Cashu token from your wallet.
+							This bounty requires a {requiredFee} sat submission fee to deter spam. Paste a Cashu token
+							from your wallet.
 						{:else}
-							Paste a Cashu token from your wallet (e.g. Minibits, eNuts, Nutstash). The token amount must be at least {feeAmount} sats.
+							Paste a Cashu token from your wallet (e.g. Minibits, eNuts, Nutstash). The token
+							amount must be at least {feeAmount} sats.
 						{/if}
 					</p>
 					{#if feeDecodeError}

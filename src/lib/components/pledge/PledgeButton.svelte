@@ -13,9 +13,7 @@
 		onPledge: () => void;
 	} = $props();
 
-	const canPledge = $derived(
-		taskStatus === 'draft' || taskStatus === 'open' || taskStatus === 'in_review'
-	);
+	const canPledge = $derived(taskStatus === 'open' || taskStatus === 'in_review');
 
 	const disabledReason = $derived(
 		!canPledge
