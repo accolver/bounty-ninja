@@ -12,15 +12,15 @@
 
 <ErrorBoundary>
 	{#if accountState.isLoggedIn}
-		<div class="mx-auto max-w-2xl">
-			<h1 class="mb-6 text-2xl font-bold text-foreground">Create a Bounty</h1>
+		<section class="mx-auto max-w-5xl space-y-6">
+			<h1 class="text-2xl font-bold text-foreground">Create a Bounty</h1>
 			<BountyForm />
-		</div>
+		</section>
 	{:else}
-		<div class="mx-auto max-w-md py-12 text-center">
-			<h1 class="mb-4 text-xl font-bold text-foreground">Create a Bounty</h1>
-			<p class="mb-6 text-muted-foreground">Sign in with a Nostr extension to create a bounty.</p>
+		<section class="mx-auto max-w-lg space-y-4 py-12 text-center">
+			<h1 class="text-2xl font-bold text-foreground">Create a Bounty</h1>
+			<p class="text-muted-foreground">Sign in with a Nostr extension to create a bounty.</p>
 			<LoginButton />
-		</div>
+		</section>
 	{/if}
 </ErrorBoundary>

@@ -220,11 +220,11 @@
 		e.preventDefault();
 		handleSubmit();
 	}}
-	class="rounded-lg border border-border bg-card p-6 shadow-sm"
+	class="space-y-6"
 	aria-label="Create bounty form"
 >
-	<div class="flex flex-col gap-5">
-		<!-- Title -->
+	<!-- Title — full width card -->
+	<div class="space-y-4 rounded-lg border border-border bg-card p-5">
 		<div class="flex flex-col gap-1.5">
 			<label for="bounty-title" class="text-sm font-medium text-foreground">
 				Title <span class="text-destructive" aria-hidden="true">*</span>
@@ -260,8 +260,10 @@
 				</p>
 			</div>
 		</div>
+	</div>
 
-		<!-- Description -->
+	<!-- Description — full width card -->
+	<div class="space-y-4 rounded-lg border border-border bg-card p-5">
 		<div class="flex flex-col gap-1.5">
 			<label for="bounty-description" class="text-sm font-medium text-foreground">
 				Description <span class="text-destructive" aria-hidden="true">*</span>
@@ -288,9 +290,12 @@
 				{/if}
 			</div>
 		</div>
+	</div>
 
-		<!-- Reward Amount -->
-		<div class="flex flex-col gap-1.5">
+	<!-- Reward + Deadline row — side by side on lg -->
+	<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+		<!-- Reward Amount — takes 1 col -->
+		<div class="space-y-3 rounded-lg border border-border bg-card p-5">
 			<label for="bounty-reward" class="text-sm font-medium text-foreground">
 				<Tooltip
 					text="Satoshis (sats) are small units of Bitcoin. ~100K sats ≈ $50–100 USD at recent rates."
@@ -311,7 +316,7 @@
 				min="1"
 				step="1"
 				placeholder="1000"
-				class="rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
+				class="w-full rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
 				aria-required="true"
 				aria-invalid={rewardAmount !== 0 && !rewardValid}
 			/>
@@ -320,8 +325,29 @@
 			{/if}
 		</div>
 
-		<!-- Tags -->
-		<div class="flex flex-col gap-1.5">
+		<!-- Deadline — takes 1 col -->
+		<div class="space-y-3 rounded-lg border border-border bg-card p-5">
+			<label for="bounty-deadline" class="text-sm font-medium text-foreground"> Deadline </label>
+			<input
+				id="bounty-deadline"
+				type="datetime-local"
+				bind:value={deadline}
+				class="w-full rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
+			/>
+			{#if deadline && !deadlineInFuture}
+				<p class="text-xs text-destructive" role="alert">Deadline must be in the future.</p>
+			{:else if deadline && !deadlineWithinMax}
+				<p class="text-xs text-destructive" role="alert">
+					Deadline cannot exceed {maxDeadlineDays} days from now.
+				</p>
+			{/if}
+			<p class="text-xs text-muted-foreground">
+				Optional. Max {maxDeadlineDays} days.
+			</p>
+		</div>
+
+		<!-- Tags — takes 1 col -->
+		<div class="space-y-3 rounded-lg border border-border bg-card p-5">
 			<label for="bounty-tags" class="text-sm font-medium text-foreground"> Tags </label>
 			{#if tags.length > 0}
 				<ul class="flex flex-wrap gap-1.5" aria-label="Selected tags">
@@ -406,45 +432,25 @@
 					</ul>
 				{/if}
 			</div>
-			<p class="text-xs text-muted-foreground">Comma-separated or press Enter to add</p>
+			<p class="text-xs text-muted-foreground">Comma-separated or press Enter</p>
 		</div>
+	</div>
 
-		<!-- Deadline -->
-		<div class="flex flex-col gap-1.5">
-			<label for="bounty-deadline" class="text-sm font-medium text-foreground"> Deadline </label>
-			<input
-				id="bounty-deadline"
-				type="datetime-local"
-				bind:value={deadline}
-				class="rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
-			/>
-			{#if deadline && !deadlineInFuture}
-				<p class="text-xs text-destructive" role="alert">Deadline must be in the future.</p>
-			{:else if deadline && !deadlineWithinMax}
-				<p class="text-xs text-destructive" role="alert">
-					Deadline cannot exceed {maxDeadlineDays} days from now.
-				</p>
-			{/if}
-			<p class="text-xs text-muted-foreground">
-				Optional. Maximum {maxDeadlineDays} days. Leave blank for no deadline.
-			</p>
-		</div>
+	<!-- Advanced Settings Toggle -->
+	<button
+		type="button"
+		onclick={() => (showAdvanced = !showAdvanced)}
+		class="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+	>
+		<span class="transition-transform {showAdvanced ? 'rotate-90' : ''}" aria-hidden="true">▸</span>
+		Advanced Settings
+	</button>
 
-		<!-- Advanced Settings Toggle -->
-		<button
-			type="button"
-			onclick={() => (showAdvanced = !showAdvanced)}
-			class="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-		>
-			<span class="transition-transform {showAdvanced ? 'rotate-90' : ''}" aria-hidden="true"
-				>▸</span
-			>
-			Advanced Settings
-		</button>
-
-		{#if showAdvanced}
+	{#if showAdvanced}
+		<!-- Advanced settings row — side by side on md+ -->
+		<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 			<!-- Submission Fee -->
-			<div class="flex flex-col gap-1.5 rounded-md border border-border/50 bg-muted/30 p-4">
+			<div class="space-y-3 rounded-lg border border-border bg-card p-5">
 				<label for="bounty-fee" class="text-sm font-medium text-foreground">
 					<Tooltip
 						text="A small fee that builders pay to submit a solution. This prevents spam submissions on popular bounties."
@@ -464,7 +470,7 @@
 					max={maxFee}
 					step="1"
 					placeholder="100"
-					class="rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
+					class="w-full rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
 				/>
 				{#if submissionFee !== 0 && !feeValid}
 					<p class="text-xs text-destructive" role="alert">
@@ -477,13 +483,12 @@
 					</p>
 				{/if}
 				<p class="text-xs text-muted-foreground">
-					Anti-spam fee ({minFee}–{maxFee} sats). Builders pay this when submitting — set to 0 for no
-					fee.
+					Anti-spam fee ({minFee}–{maxFee} sats). Set to 0 for no fee.
 				</p>
 			</div>
 
 			<!-- Mint URL -->
-			<div class="flex flex-col gap-1.5 rounded-md border border-border/50 bg-muted/30 p-4">
+			<div class="space-y-3 rounded-lg border border-border bg-card p-5">
 				<label for="bounty-mint" class="text-sm font-medium text-foreground">
 					<Tooltip
 						text="A Cashu mint holds Bitcoin in escrow for your bounty. Think of it as the payment processor. The default works great for most users."
@@ -500,71 +505,69 @@
 					type="url"
 					bind:value={mintUrl}
 					placeholder="https://mint.minibits.cash/Bitcoin"
-					class="rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
+					class="w-full rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
 				/>
-				<p class="text-xs text-muted-foreground">
-					Leave blank to use the default mint. Most users don't need to change this.
-				</p>
+				<p class="text-xs text-muted-foreground">Leave blank to use the default mint.</p>
 			</div>
-		{/if}
-
-		<!-- Submit -->
-		<div class="flex items-center gap-3 pt-2">
-			<button
-				type="submit"
-				disabled={!isValid}
-				class="inline-flex cursor-pointer items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
-				aria-busy={submitting}
-			>
-				{#if submitting}
-					<svg
-						class="h-4 w-4 animate-spin"
-						xmlns="http://www.w3.org/2000/svg"
-						fill="none"
-						viewBox="0 0 24 24"
-						aria-hidden="true"
-					>
-						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
-						></circle>
-						<path
-							class="opacity-75"
-							fill="currentColor"
-							d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-						></path>
-					</svg>
-					Publishing...
-				{:else if isRateLimited}
-					Wait {rateLimitRemaining}s
-				{:else}
-					Create Bounty
-				{/if}
-			</button>
-
-			{#if !connectivity.online}
-				<p class="text-xs text-warning" role="alert">Offline — cannot publish</p>
-			{:else if !isValid && (title || description || rewardAmount)}
-				<p class="text-xs text-muted-foreground">
-					{#if !titleValid}
-						Title is required.
-					{:else if !titleLengthValid}
-						Title exceeds {TITLE_MAX} characters.
-					{:else if !descriptionValid}
-						Description must be at least {DESCRIPTION_MIN} characters.
-					{:else if !descriptionLengthValid}
-						Description exceeds {DESCRIPTION_MAX.toLocaleString()} characters.
-					{:else if !rewardValid}
-						Reward must be greater than 0.
-					{:else if !deadlineInFuture}
-						Deadline must be in the future.
-					{:else if !deadlineWithinMax}
-						Deadline cannot exceed {maxDeadlineDays} days.
-					{:else if !feeValid}
-						Fee must be {minFee}–{maxFee} sats.
-					{:else if isRateLimited}
-						Please wait {rateLimitRemaining}s before creating another bounty.
-					{/if}
-				</p>
-			{/if}
 		</div>
+	{/if}
+
+	<!-- Submit -->
+	<div class="flex items-center gap-3 pt-2">
+		<button
+			type="submit"
+			disabled={!isValid}
+			class="inline-flex cursor-pointer items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
+			aria-busy={submitting}
+		>
+			{#if submitting}
+				<svg
+					class="h-4 w-4 animate-spin"
+					xmlns="http://www.w3.org/2000/svg"
+					fill="none"
+					viewBox="0 0 24 24"
+					aria-hidden="true"
+				>
+					<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
+					></circle>
+					<path
+						class="opacity-75"
+						fill="currentColor"
+						d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+					></path>
+				</svg>
+				Publishing...
+			{:else if isRateLimited}
+				Wait {rateLimitRemaining}s
+			{:else}
+				Create Bounty
+			{/if}
+		</button>
+
+		{#if !connectivity.online}
+			<p class="text-xs text-warning" role="alert">Offline — cannot publish</p>
+		{:else if !isValid && (title || description || rewardAmount)}
+			<p class="text-xs text-muted-foreground">
+				{#if !titleValid}
+					Title is required.
+				{:else if !titleLengthValid}
+					Title exceeds {TITLE_MAX} characters.
+				{:else if !descriptionValid}
+					Description must be at least {DESCRIPTION_MIN} characters.
+				{:else if !descriptionLengthValid}
+					Description exceeds {DESCRIPTION_MAX.toLocaleString()} characters.
+				{:else if !rewardValid}
+					Reward must be greater than 0.
+				{:else if !deadlineInFuture}
+					Deadline must be in the future.
+				{:else if !deadlineWithinMax}
+					Deadline cannot exceed {maxDeadlineDays} days.
+				{:else if !feeValid}
+					Fee must be {minFee}–{maxFee} sats.
+				{:else if isRateLimited}
+					Please wait {rateLimitRemaining}s before creating another bounty.
+				{/if}
+			</p>
+		{/if}
 	</div>
 </form>

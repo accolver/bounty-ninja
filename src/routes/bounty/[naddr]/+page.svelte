@@ -26,20 +26,25 @@
 
 <ErrorBoundary>
 	{#if store.loading && !store.bounty}
-		<div class="flex items-center justify-center py-12">
+		<div class="mx-auto flex max-w-5xl items-center justify-center py-12">
 			<LoadingSpinner size="lg" />
 		</div>
 	{:else if store.error}
-		<div class="rounded-lg border border-destructive/50 bg-destructive/10 p-8 text-center">
+		<div
+			class="mx-auto max-w-5xl rounded-lg border border-destructive/50 bg-destructive/10 p-8 text-center"
+		>
 			<p class="text-sm text-destructive">{store.error}</p>
 		</div>
 	{:else if store.bounty}
 		<BountyDetailView detail={store.bounty} />
 	{:else}
-		<div class="rounded-lg border border-border bg-card p-8 text-center space-y-3">
+		<div
+			class="mx-auto max-w-5xl rounded-lg border border-border bg-card p-8 text-center space-y-3"
+		>
 			<p class="text-base font-medium text-foreground">Bounty not found</p>
 			<p class="text-sm text-muted-foreground">
-				This could happen if the bounty was deleted, the relay that stored it is offline, or the link is incorrect.
+				This could happen if the bounty was deleted, the relay that stored it is offline, or the
+				link is incorrect.
 			</p>
 			<div class="flex items-center justify-center gap-3 pt-2">
 				<a
