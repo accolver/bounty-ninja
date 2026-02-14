@@ -19,6 +19,7 @@
 
 	// ── Constants ────────────────────────────────────────────────
 	const TITLE_MAX = 200;
+	const DESCRIPTION_MIN = 10;
 	const DESCRIPTION_MAX = 50_000;
 
 	// ── Form state ──────────────────────────────────────────────
@@ -29,7 +30,7 @@
 	let tags = $state<string[]>([]);
 	let deadline = $state('');
 	let mintUrl = $state('');
-	let submissionFee = $state(0);
+	let submissionFee = $state(100);
 	let submitting = $state(false);
 
 	// ── Rate limit state ────────────────────────────────────────
@@ -49,11 +50,12 @@
 	// ── Env-derived fee bounds ──────────────────────────────────
 	const minFee = getMinSubmissionFee();
 	const maxFee = getMaxSubmissionFee();
+	const SPAM_WARNING_THRESHOLD = 20;
 
 	// ── Validation ──────────────────────────────────────────────
 	const titleValid = $derived(title.trim().length > 0);
 	const titleLengthValid = $derived(title.length <= TITLE_MAX);
-	const descriptionValid = $derived(description.trim().length > 0);
+	const descriptionValid = $derived(description.trim().length >= DESCRIPTION_MIN);
 	const descriptionLengthValid = $derived(description.length <= DESCRIPTION_MAX);
 	const rewardValid = $derived(rewardAmount > 0);
 	const deadlineValid = $derived(deadline === '' || new Date(deadline).getTime() > Date.now());
@@ -274,6 +276,10 @@
 					<p class="text-xs text-destructive" role="alert">
 						Description must be {DESCRIPTION_MAX.toLocaleString()} characters or fewer.
 					</p>
+				{:else if description.length > 0 && !descriptionValid}
+					<p class="text-xs text-destructive" role="alert">
+						Description must be at least {DESCRIPTION_MIN} characters.
+					</p>
 				{:else}
 					<p class="text-xs text-muted-foreground">Markdown supported</p>
 				{/if}
@@ -292,9 +298,13 @@
 		<!-- Reward Amount -->
 		<div class="flex flex-col gap-1.5">
 			<label for="bounty-reward" class="text-sm font-medium text-foreground">
-				<Tooltip text="Satoshis (sats) are small units of Bitcoin. ~100K sats ≈ $50–100 USD at recent rates.">
+				<Tooltip
+					text="Satoshis (sats) are small units of Bitcoin. ~100K sats ≈ $50–100 USD at recent rates."
+				>
 					{#snippet children()}
-						<span class="cursor-help border-b border-dotted border-muted-foreground/50">Reward Amount (sats)</span>
+						<span class="cursor-help border-b border-dotted border-muted-foreground/50"
+							>Reward Amount (sats)</span
+						>
 					{/snippet}
 				</Tooltip>
 				<span class="text-destructive" aria-hidden="true">*</span>
@@ -426,36 +436,23 @@
 			onclick={() => (showAdvanced = !showAdvanced)}
 			class="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
 		>
-			<span class="transition-transform {showAdvanced ? 'rotate-90' : ''}" aria-hidden="true">▸</span>
+			<span class="transition-transform {showAdvanced ? 'rotate-90' : ''}" aria-hidden="true"
+				>▸</span
+			>
 			Advanced Settings
 		</button>
 
 		{#if showAdvanced}
-			<!-- Mint URL -->
-			<div class="flex flex-col gap-1.5 rounded-md border border-border/50 bg-muted/30 p-4">
-				<label for="bounty-mint" class="text-sm font-medium text-foreground">
-					<Tooltip text="A Cashu mint holds Bitcoin in escrow for your bounty. Think of it as the payment processor. The default works great for most users.">
-						{#snippet children()}
-							<span class="cursor-help border-b border-dotted border-muted-foreground/50">Cashu Mint URL</span>
-						{/snippet}
-					</Tooltip>
-				</label>
-				<input
-					id="bounty-mint"
-					type="url"
-					bind:value={mintUrl}
-					placeholder="https://mint.minibits.cash/Bitcoin"
-					class="rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
-				/>
-				<p class="text-xs text-muted-foreground">Leave blank to use the default mint. Most users don't need to change this.</p>
-			</div>
-
 			<!-- Submission Fee -->
 			<div class="flex flex-col gap-1.5 rounded-md border border-border/50 bg-muted/30 p-4">
 				<label for="bounty-fee" class="text-sm font-medium text-foreground">
-					<Tooltip text="A small fee that builders pay to submit a solution. This prevents spam submissions on popular bounties.">
+					<Tooltip
+						text="A small fee that builders pay to submit a solution. This prevents spam submissions on popular bounties."
+					>
 						{#snippet children()}
-							<span class="cursor-help border-b border-dotted border-muted-foreground/50">Submission Fee (sats)</span>
+							<span class="cursor-help border-b border-dotted border-muted-foreground/50"
+								>Submission Fee (sats)</span
+							>
 						{/snippet}
 					</Tooltip>
 				</label>
@@ -466,7 +463,7 @@
 					min="0"
 					max={maxFee}
 					step="1"
-					placeholder="0"
+					placeholder="100"
 					class="rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
 				/>
 				{#if submissionFee !== 0 && !feeValid}
@@ -474,8 +471,39 @@
 						Fee must be between {minFee} and {maxFee} sats.
 					</p>
 				{/if}
+				{#if submissionFee >= 0 && submissionFee < SPAM_WARNING_THRESHOLD && feeValid}
+					<p class="text-xs text-warning" role="status">
+						Low fee — your bounty may attract spam submissions.
+					</p>
+				{/if}
 				<p class="text-xs text-muted-foreground">
-					Optional anti-spam fee ({minFee}–{maxFee} sats). Builders pay this when submitting — set to 0 for no fee.
+					Anti-spam fee ({minFee}–{maxFee} sats). Builders pay this when submitting — set to 0 for no
+					fee.
+				</p>
+			</div>
+
+			<!-- Mint URL -->
+			<div class="flex flex-col gap-1.5 rounded-md border border-border/50 bg-muted/30 p-4">
+				<label for="bounty-mint" class="text-sm font-medium text-foreground">
+					<Tooltip
+						text="A Cashu mint holds Bitcoin in escrow for your bounty. Think of it as the payment processor. The default works great for most users."
+					>
+						{#snippet children()}
+							<span class="cursor-help border-b border-dotted border-muted-foreground/50"
+								>Cashu Mint URL</span
+							>
+						{/snippet}
+					</Tooltip>
+				</label>
+				<input
+					id="bounty-mint"
+					type="url"
+					bind:value={mintUrl}
+					placeholder="https://mint.minibits.cash/Bitcoin"
+					class="rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
+				/>
+				<p class="text-xs text-muted-foreground">
+					Leave blank to use the default mint. Most users don't need to change this.
 				</p>
 			</div>
 		{/if}
@@ -521,7 +549,7 @@
 					{:else if !titleLengthValid}
 						Title exceeds {TITLE_MAX} characters.
 					{:else if !descriptionValid}
-						Description is required.
+						Description must be at least {DESCRIPTION_MIN} characters.
 					{:else if !descriptionLengthValid}
 						Description exceeds {DESCRIPTION_MAX.toLocaleString()} characters.
 					{:else if !rewardValid}
