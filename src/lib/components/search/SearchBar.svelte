@@ -12,8 +12,8 @@
 		initialQuery?: string;
 	} = $props();
 
-	let query = $state(initialQuery);
-	// Re-sync when initialQuery prop changes (e.g. navigation)
+	let query = $state('');
+	// Sync with initialQuery prop (including on navigation changes)
 	$effect(() => {
 		query = initialQuery;
 	});
