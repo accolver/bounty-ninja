@@ -9,6 +9,7 @@
  */
 
 import { decodeToken } from './token';
+import { getWallet } from './mint';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -275,8 +276,6 @@ class TokenValidator {
 
 		for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
 			try {
-				// Dynamic imports to preserve code-splitting
-				const { getWallet } = await import('./mint');
 				const tokenInfo = await decodeToken(token);
 				if (!tokenInfo) return false;
 
