@@ -84,6 +84,15 @@ export function getVoteQuorumFraction(): number {
 	return clamped / 100;
 }
 
+/** Returns the maximum deadline duration in days */
+export function getMaxDeadlineDays(): number {
+	const days = parseInt(
+		env.PUBLIC_MAX_DEADLINE_DAYS ?? String(config.payments.maxDeadlineDays),
+		10
+	);
+	return Math.max(1, Number.isNaN(days) ? 365 : days);
+}
+
 /** Returns the NIP-50 search relay URL */
 export function getSearchRelay(): string {
 	return env.PUBLIC_SEARCH_RELAY ?? config.nostr.searchRelay;

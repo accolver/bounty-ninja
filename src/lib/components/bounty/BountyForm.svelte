@@ -6,13 +6,14 @@
 	import { publishEvent } from '$lib/nostr/signer.svelte';
 	import { accountState } from '$lib/nostr/account.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import { getMinSubmissionFee, getMaxSubmissionFee } from '$lib/utils/env';
+	import { getMinSubmissionFee, getMaxSubmissionFee, getMaxDeadlineDays } from '$lib/utils/env';
 	import { rateLimiter } from '$lib/nostr/rate-limiter';
 	import { connectivity } from '$lib/stores/connectivity.svelte';
 	import { suggestTags, getPopularTags } from '$lib/bounty/auto-tagger';
 	import { bountyList } from '$lib/stores/bounties.svelte';
 	import TagAutoSuggest from './TagAutoSuggest.svelte';
 	import Tooltip from '$lib/components/shared/Tooltip.svelte';
+	import MarkdownEditor from '$lib/components/shared/MarkdownEditor.svelte';
 
 	// Advanced settings toggle
 	let showAdvanced = $state(false);
@@ -50,6 +51,7 @@
 	// ── Env-derived fee bounds ──────────────────────────────────
 	const minFee = getMinSubmissionFee();
 	const maxFee = getMaxSubmissionFee();
+	const maxDeadlineDays = getMaxDeadlineDays();
 	const SPAM_WARNING_THRESHOLD = 20;
 
 	// ── Validation ──────────────────────────────────────────────
@@ -58,7 +60,12 @@
 	const descriptionValid = $derived(description.trim().length >= DESCRIPTION_MIN);
 	const descriptionLengthValid = $derived(description.length <= DESCRIPTION_MAX);
 	const rewardValid = $derived(rewardAmount > 0);
-	const deadlineValid = $derived(deadline === '' || new Date(deadline).getTime() > Date.now());
+	const maxDeadlineMs = maxDeadlineDays * 24 * 60 * 60 * 1000;
+	const deadlineInFuture = $derived(deadline === '' || new Date(deadline).getTime() > Date.now());
+	const deadlineWithinMax = $derived(
+		deadline === '' || new Date(deadline).getTime() <= Date.now() + maxDeadlineMs
+	);
+	const deadlineValid = $derived(deadlineInFuture && deadlineWithinMax);
 	const feeValid = $derived(
 		submissionFee === 0 || (submissionFee >= minFee && submissionFee <= maxFee)
 	);
@@ -258,19 +265,15 @@
 		<div class="flex flex-col gap-1.5">
 			<label for="bounty-description" class="text-sm font-medium text-foreground">
 				Description <span class="text-destructive" aria-hidden="true">*</span>
+				<span class="ml-1 text-xs font-normal text-muted-foreground">Markdown</span>
 			</label>
-			<textarea
+			<MarkdownEditor
 				id="bounty-description"
-				bind:value={description}
-				required
-				rows={6}
+				value={description}
+				placeholder="What do you need built? Include clear requirements, technical details, and examples of success."
 				maxlength={DESCRIPTION_MAX}
-				placeholder="What do you need built? Include:&#10;• Clear requirements and acceptance criteria&#10;• Technical details or constraints&#10;• Examples of what success looks like&#10;&#10;Markdown is supported."
-				class="rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none resize-y"
-				aria-required="true"
-				aria-invalid={description.length > 0 && (!descriptionValid || !descriptionLengthValid)}
-				aria-describedby="bounty-desc-count"
-			></textarea>
+				onchange={(md) => (description = md)}
+			/>
 			<div class="flex items-center justify-between">
 				{#if !descriptionLengthValid}
 					<p class="text-xs text-destructive" role="alert">
@@ -281,17 +284,8 @@
 						Description must be at least {DESCRIPTION_MIN} characters.
 					</p>
 				{:else}
-					<p class="text-xs text-muted-foreground">Markdown supported</p>
+					<span></span>
 				{/if}
-				<p
-					id="bounty-desc-count"
-					class="text-xs {!descriptionLengthValid
-						? 'text-destructive font-medium'
-						: 'text-muted-foreground'}"
-					aria-live="polite"
-				>
-					{description.length.toLocaleString()}/{DESCRIPTION_MAX.toLocaleString()}
-				</p>
 			</div>
 		</div>
 
@@ -424,10 +418,16 @@
 				bind:value={deadline}
 				class="rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
 			/>
-			{#if deadline && !deadlineValid}
+			{#if deadline && !deadlineInFuture}
 				<p class="text-xs text-destructive" role="alert">Deadline must be in the future.</p>
+			{:else if deadline && !deadlineWithinMax}
+				<p class="text-xs text-destructive" role="alert">
+					Deadline cannot exceed {maxDeadlineDays} days from now.
+				</p>
 			{/if}
-			<p class="text-xs text-muted-foreground">Optional. Leave blank for no deadline.</p>
+			<p class="text-xs text-muted-foreground">
+				Optional. Maximum {maxDeadlineDays} days. Leave blank for no deadline.
+			</p>
 		</div>
 
 		<!-- Advanced Settings Toggle -->
@@ -554,8 +554,10 @@
 						Description exceeds {DESCRIPTION_MAX.toLocaleString()} characters.
 					{:else if !rewardValid}
 						Reward must be greater than 0.
-					{:else if !deadlineValid}
+					{:else if !deadlineInFuture}
 						Deadline must be in the future.
+					{:else if !deadlineWithinMax}
+						Deadline cannot exceed {maxDeadlineDays} days.
 					{:else if !feeValid}
 						Fee must be {minFee}–{maxFee} sats.
 					{:else if isRateLimited}

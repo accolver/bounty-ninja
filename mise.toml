@@ -20,6 +20,8 @@ PUBLIC_MIN_SUBMISSION_FEE = "10"
 PUBLIC_MAX_SUBMISSION_FEE = "10000"
 # Vote quorum threshold — percentage of total pledged sats required for consensus
 PUBLIC_VOTE_QUORUM_PERCENT = "66"
+# Maximum deadline duration in days (1 year)
+PUBLIC_MAX_DEADLINE_DAYS = "365"
 # NIP-50 search relay (must support search filter)
 PUBLIC_SEARCH_RELAY = "wss://search.nos.today"
 # Local relay URL for development (used by seed script)
