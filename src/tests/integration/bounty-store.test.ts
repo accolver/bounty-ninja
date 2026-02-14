@@ -309,9 +309,9 @@ describe('parseBountyDetail composition', () => {
 		const bountyEvent = makeBountyEvent('status-test', 'Status Test', 10000);
 		const bountyAddress = `${BOUNTY_KIND}:${PUBKEY_A}:status-test`;
 
-		// Draft: no pledges, no solutions
+		// Open: no pledges, no solutions (published bounty)
 		const draftDetail = parseBountyDetail(bountyEvent, [], [], [], [], [])!;
-		expect(draftDetail.status).toBe('draft');
+		expect(draftDetail.status).toBe('open');
 
 		// Open: has pledges
 		const pledge = makePledgeEvent(bountyAddress, 5000);

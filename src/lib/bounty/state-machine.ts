@@ -20,8 +20,7 @@ function getExpiration(event: NostrEvent): number | null {
  * 2. completed — if any payout events exist
  * 3. expired   — if the expiration tag is in the past
  * 4. in_review — if any solution events exist
- * 5. open      — if any pledge events exist
- * 6. draft     — default (no activity)
+ * 5. open      — published bounty (default for any bounty on relays)
  */
 export function deriveBountyStatus(
 	bountyEvent: NostrEvent,
@@ -54,11 +53,6 @@ export function deriveBountyStatus(
 		return 'in_review';
 	}
 
-	// 5. Open — pledge events exist
-	if (pledges.length > 0) {
-		return 'open';
-	}
-
-	// 6. Draft — no activity
-	return 'draft';
+	// 5. Open — published bounty (with or without pledges)
+	return 'open';
 }

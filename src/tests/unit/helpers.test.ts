@@ -60,7 +60,7 @@ describe('parseBountySummary', () => {
 		expect(summary.rewardAmount).toBe(50000);
 		expect(summary.tags).toEqual(['bug', 'frontend']);
 		expect(summary.deadline).toBe(1800000000);
-		expect(summary.status).toBe('draft');
+		expect(summary.status).toBe('open');
 		expect(summary.totalPledged).toBe(0);
 		expect(summary.solutionCount).toBe(0);
 	});
@@ -447,7 +447,7 @@ describe('parseBountyDetail', () => {
 		expect(detail.solutions).toEqual([]);
 		expect(detail.votesBySolution.size).toBe(0);
 		expect(detail.payout).toBeNull();
-		expect(detail.status).toBe('draft');
+		expect(detail.status).toBe('open');
 	});
 
 	it('sets status to completed when payouts exist', () => {

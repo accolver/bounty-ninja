@@ -53,7 +53,9 @@ class BountyListStore {
 		// Subscribe to EventStore timeline for bounty events
 		this.#bountySub = eventStore.timeline({ kinds: [BOUNTY_KIND] }).subscribe({
 			next: (events: NostrEvent[]) => {
-				this.#bounties = events.map(parseBountySummary).filter((s): s is BountySummary => s !== null);
+				this.#bounties = events
+					.map(parseBountySummary)
+					.filter((s): s is BountySummary => s !== null);
 				this.#loading = false;
 			},
 			error: (err: unknown) => {
@@ -69,7 +71,10 @@ class BountyListStore {
 				for (const event of events) {
 					const pledge = parsePledge(event);
 					if (pledge && pledge.bountyAddress) {
-						totals.set(pledge.bountyAddress, (totals.get(pledge.bountyAddress) ?? 0) + pledge.amount);
+						totals.set(
+							pledge.bountyAddress,
+							(totals.get(pledge.bountyAddress) ?? 0) + pledge.amount
+						);
 					}
 				}
 				this.#pledgeTotals = totals;
@@ -112,7 +117,12 @@ class BountyListStore {
 	}
 
 	/** Derive status from available lifecycle data */
-	#deriveStatus(bounty: BountySummary, address: string, totalPledged: number, solutionCount: number): BountyStatus {
+	#deriveStatus(
+		bounty: BountySummary,
+		address: string,
+		totalPledged: number,
+		solutionCount: number
+	): BountyStatus {
 		const now = Math.floor(Date.now() / 1000);
 
 		// Completed — payout events exist
@@ -124,11 +134,8 @@ class BountyListStore {
 		// In review — solutions exist
 		if (solutionCount > 0) return 'in_review';
 
-		// Open — pledges exist
-		if (totalPledged > 0) return 'open';
-
-		// Draft — no activity
-		return 'draft';
+		// Open — published (with or without pledges)
+		return 'open';
 	}
 
 	/** Enrich bounty summaries with aggregated pledge totals, solution counts, and derived status */

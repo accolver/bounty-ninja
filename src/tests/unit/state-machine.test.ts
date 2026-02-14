@@ -18,9 +18,9 @@ function mockEvent(overrides: Partial<NostrEvent> = {}): NostrEvent {
 const NOW = 1700000000;
 
 describe('deriveBountyStatus', () => {
-	it('returns "draft" when there are no related events', () => {
+	it('returns "open" when there are no related events', () => {
 		const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
-		expect(deriveBountyStatus(taskEvt, [], [], [], [], NOW)).toBe('draft');
+		expect(deriveBountyStatus(taskEvt, [], [], [], [], NOW)).toBe('open');
 	});
 
 	it('returns "open" when there are pledges but no solutions', () => {
@@ -137,16 +137,16 @@ describe('deriveBountyStatus', () => {
 			const solution = mockEvent({ kind: 73001 });
 			const payout = mockEvent({ kind: 73004 });
 			const deleteEvent = mockEvent({ kind: 5 });
-			expect(
-				deriveBountyStatus(taskEvt, [pledge], [solution], [payout], [deleteEvent], NOW)
-			).toBe('cancelled');
+			expect(deriveBountyStatus(taskEvt, [pledge], [solution], [payout], [deleteEvent], NOW)).toBe(
+				'cancelled'
+			);
 		});
 	});
 
 	describe('edge cases', () => {
 		it('handles missing expiration tag gracefully', () => {
 			const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
-			expect(deriveBountyStatus(taskEvt, [], [], [], [], NOW)).toBe('draft');
+			expect(deriveBountyStatus(taskEvt, [], [], [], [], NOW)).toBe('open');
 		});
 
 		it('handles malformed expiration tag', () => {
@@ -158,7 +158,7 @@ describe('deriveBountyStatus', () => {
 				]
 			});
 			// Malformed expiration should be treated as no expiration
-			expect(deriveBountyStatus(taskEvt, [], [], [], [], NOW)).toBe('draft');
+			expect(deriveBountyStatus(taskEvt, [], [], [], [], NOW)).toBe('open');
 		});
 
 		it('handles empty expiration tag value', () => {
@@ -166,7 +166,7 @@ describe('deriveBountyStatus', () => {
 				kind: 37300,
 				tags: [['expiration']]
 			});
-			expect(deriveBountyStatus(taskEvt, [], [], [], [], NOW)).toBe('draft');
+			expect(deriveBountyStatus(taskEvt, [], [], [], [], NOW)).toBe('open');
 		});
 
 		it('uses current time when now is not provided', () => {
@@ -179,7 +179,7 @@ describe('deriveBountyStatus', () => {
 				]
 			});
 			// Should not be expired since expiration is far in the future
-			expect(deriveBountyStatus(taskEvt, [], [], [], [])).toBe('draft');
+			expect(deriveBountyStatus(taskEvt, [], [], [], [])).toBe('open');
 		});
 
 		it('returns "in_review" with solutions but no pledges', () => {

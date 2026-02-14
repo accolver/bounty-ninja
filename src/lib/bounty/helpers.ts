@@ -1,5 +1,13 @@
 import type { NostrEvent } from 'nostr-tools';
-import type { BountySummary, Pledge, Solution, Vote, Payout, BountyDetail, BountyStatus } from './types';
+import type {
+	BountySummary,
+	Pledge,
+	Solution,
+	Vote,
+	Payout,
+	BountyDetail,
+	BountyStatus
+} from './types';
 import { deriveBountyStatus } from './state-machine';
 import { validateEventTags } from '$lib/nostr/tag-validator';
 
@@ -72,7 +80,7 @@ export function parseBountySummary(event: NostrEvent): BountySummary | null {
 		rewardAmount: Number.isNaN(rewardAmount) ? 0 : rewardAmount,
 		totalPledged: 0,
 		solutionCount: 0,
-		status: 'draft',
+		status: 'open',
 		createdAt: event.created_at,
 		deadline: deadline !== null && Number.isNaN(deadline) ? null : deadline
 	};

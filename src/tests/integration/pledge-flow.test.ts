@@ -155,14 +155,14 @@ describe('Pledge event inserted into EventStore', () => {
 // ── Status transitions ──────────────────────────────────────────────────────
 
 describe('Bounty status transitions on pledge', () => {
-	it('transitions from draft to open on first pledge', () => {
+	it('stays open with or without pledges', () => {
 		const dTag = 'status-transition';
 		const bountyAddress = `${BOUNTY_KIND}:${CREATOR_PUBKEY}:${dTag}`;
 		const bountyEvent = makeBountyEvent(dTag);
 
-		// No pledges = draft
+		// No pledges = open (published bounty)
 		const draftDetail = parseBountyDetail(bountyEvent, [], [], [], [], [])!;
-		expect(draftDetail.status).toBe('draft');
+		expect(draftDetail.status).toBe('open');
 
 		// Add first pledge
 		const pledgeTemplate = pledgeBlueprint({
