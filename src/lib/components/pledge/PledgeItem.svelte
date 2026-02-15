@@ -1,9 +1,8 @@
 <script lang="ts">
 	import type { Pledge } from '$lib/bounty/types';
-	import { nip19 } from 'nostr-tools';
-	import { formatNpub } from '$lib/utils/format';
 	import SatAmount from '$lib/components/shared/SatAmount.svelte';
 	import TimeAgo from '$lib/components/shared/TimeAgo.svelte';
+	import ProfileLink from '$lib/components/shared/ProfileLink.svelte';
 	import { tokenValidator, type TokenVerificationStatus } from '$lib/cashu/token-validator.svelte';
 
 	import type { Payout } from '$lib/bounty/types';
@@ -12,8 +11,6 @@
 
 	/** Check if this pledger has released (has a corresponding Kind 73004 event) */
 	const hasReleased = $derived(payouts.some((p) => p.pubkey === pledge.pubkey));
-
-	const npub = $derived(nip19.npubEncode(pledge.pubkey));
 
 	// Trigger token verification reactively
 	$effect(() => {
@@ -67,13 +64,7 @@
 
 <li class="flex flex-col gap-1 rounded-md border border-border bg-card p-3">
 	<div class="flex items-center justify-between gap-2">
-		<a
-			href="/profile/{npub}"
-			class="text-sm font-medium text-primary transition-colors hover:underline focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-			aria-label="Pledger profile: {formatNpub(npub)}"
-		>
-			{formatNpub(npub)}
-		</a>
+		<ProfileLink pubkey={pledge.pubkey} />
 		<div class="flex items-center gap-2">
 			{#if hasReleased}
 				<span

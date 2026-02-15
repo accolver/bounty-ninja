@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Subscription } from 'rxjs';
 	import type { NostrEvent } from 'nostr-tools';
+	import { nip19 } from 'nostr-tools';
 	import { eventStore } from '$lib/nostr/event-store';
 
 	const {
@@ -56,8 +57,18 @@
 		return `hsl(${hue}, 65%, 45%)`;
 	});
 
-	/** First 2 characters of the pubkey as a visual identicon label */
-	const initials = $derived(pubkey.slice(0, 2).toUpperCase());
+	/**
+	 * First 2 characters after "npub1" prefix as a visual identicon label.
+	 * e.g. npub1foobar → "fo"
+	 */
+	const initials = $derived.by(() => {
+		try {
+			const npub = nip19.npubEncode(pubkey);
+			return npub.slice(5, 7).toUpperCase(); // skip "npub1"
+		} catch {
+			return pubkey.slice(0, 2).toUpperCase();
+		}
+	});
 
 	let imgError = $state(false);
 

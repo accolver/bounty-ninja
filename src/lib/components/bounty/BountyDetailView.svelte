@@ -3,12 +3,12 @@
 	import { tallyVotes } from '$lib/bounty/voting';
 	import { BOUNTY_KIND } from '$lib/bounty/kinds';
 	import { accountState } from '$lib/nostr/account.svelte';
-	import { nip19 } from 'nostr-tools';
 	import BountyStatusBadge from './BountyStatusBadge.svelte';
 	import BountyTags from './BountyTags.svelte';
 	import BountyTimer from './BountyTimer.svelte';
 	import SatAmount from '$lib/components/shared/SatAmount.svelte';
 	import TimeAgo from '$lib/components/shared/TimeAgo.svelte';
+	import ProfileLink from '$lib/components/shared/ProfileLink.svelte';
 	import MarkdownViewer from '$lib/components/shared/MarkdownViewer.svelte';
 	import Tooltip from '$lib/components/shared/Tooltip.svelte';
 	import ErrorBoundary from '$lib/components/shared/ErrorBoundary.svelte';
@@ -24,11 +24,8 @@
 	import VoteResults from '$lib/components/voting/VoteResults.svelte';
 	import PayoutTrigger from '$lib/components/voting/PayoutTrigger.svelte';
 	import SolverClaim from '$lib/components/voting/SolverClaim.svelte';
-	import { formatNpub } from '$lib/utils/format';
 
 	const { detail }: { detail: BountyDetail } = $props();
-
-	const creatorNpub = $derived(nip19.npubEncode(detail.pubkey));
 
 	/** NIP-33 bounty address: kind:pubkey:d-tag */
 	const bountyAddress = $derived(`${BOUNTY_KIND}:${detail.pubkey}:${detail.dTag}`);
@@ -81,14 +78,9 @@
 		<h1 class="text-2xl font-bold text-foreground">{detail.title}</h1>
 
 		<div class="flex flex-wrap items-center gap-4 text-sm">
-			<span class="text-muted-foreground">
+			<span class="inline-flex items-center gap-1 text-muted-foreground">
 				Posted by
-				<a
-					href="/profile/{creatorNpub}"
-					class="font-medium text-primary transition-colors hover:underline hover:cursor-pointer focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-				>
-					{formatNpub(creatorNpub)}
-				</a>
+				<ProfileLink pubkey={detail.pubkey} />
 			</span>
 		</div>
 	</header>
@@ -205,12 +197,7 @@
 							<li class="rounded-md border border-border bg-background p-4 space-y-3">
 								<!-- Solution content -->
 								<div class="flex items-center justify-between gap-2">
-									<a
-										href="/profile/{nip19.npubEncode(solution.pubkey)}"
-										class="text-sm font-medium text-primary transition-colors hover:underline hover:cursor-pointer focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-									>
-										{formatNpub(nip19.npubEncode(solution.pubkey))}
-									</a>
+									<ProfileLink pubkey={solution.pubkey} />
 									<TimeAgo timestamp={solution.createdAt} />
 								</div>
 
