@@ -274,7 +274,7 @@ export function parseBountyDetail(
 	// Extract additional bounty fields
 	const rewardCurrency = getTagValue(event, 'currency') ?? 'sat';
 	const mintUrl = getTagValue(event, 'mint') ?? null;
-	const submissionFeeRaw = getTagValue(event, 'submission_fee');
+	const submissionFeeRaw = getTagValue(event, 'fee') ?? getTagValue(event, 'submission_fee');
 	const submissionFee = submissionFeeRaw ? parseInt(submissionFeeRaw, 10) : 0;
 
 	return {

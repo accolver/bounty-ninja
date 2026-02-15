@@ -570,4 +570,33 @@ describe('parseBountyDetail', () => {
 
 		expect(detail.status).toBe('cancelled');
 	});
+
+	it('parses submissionFee from fee tag', () => {
+		const bountyEvent = mockEvent({
+			kind: 37300,
+			tags: [
+				['d', 'bounty-fee'],
+				['title', 'Fee bounty'],
+				['reward', '5000'],
+				['fee', '100']
+			]
+		});
+
+		const detail = parseBountyDetail(bountyEvent, [], [], [], [], [])!;
+		expect(detail.submissionFee).toBe(100);
+	});
+
+	it('defaults submissionFee to 0 when no fee tag', () => {
+		const bountyEvent = mockEvent({
+			kind: 37300,
+			tags: [
+				['d', 'bounty-no-fee'],
+				['title', 'No fee bounty'],
+				['reward', '5000']
+			]
+		});
+
+		const detail = parseBountyDetail(bountyEvent, [], [], [], [], [])!;
+		expect(detail.submissionFee).toBe(0);
+	});
 });
