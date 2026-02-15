@@ -82,7 +82,7 @@
 	/>
 {:else}
 	<div
-		class="inline-flex shrink-0 items-center justify-center rounded-full border border-border font-mono font-bold text-white select-none {sizeClasses[
+		class="inline-flex shrink-0 items-center justify-center rounded-full border border-border font-mono font-bold text-background select-none {sizeClasses[
 			size
 		]}"
 		style:background-color={fallbackColor}

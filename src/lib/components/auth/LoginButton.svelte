@@ -209,7 +209,7 @@
 					<p class="text-xs text-muted-foreground">
 						Your <strong>nsec</strong> is your Nostr private key — like a password that proves your identity. It starts with <code class="rounded bg-muted px-1">nsec1</code>.
 					</p>
-					<p class="text-xs text-amber-600 dark:text-amber-400">
+					<p class="text-xs text-warning">
 						⚠️ Less secure than an extension. Your key is kept in memory only and never stored.
 					</p>
 

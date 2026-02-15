@@ -210,7 +210,7 @@
 						<Tooltip text="Sats (satoshis) are the smallest unit of Bitcoin. 100,000 sats ≈ a few dollars.">
 							{#snippet children()}
 								<div class="flex items-center gap-1.5 text-xs text-muted-foreground cursor-help">
-									<Zap class="h-3.5 w-3.5 shrink-0 text-amber-500" />
+									<Zap class="h-3.5 w-3.5 shrink-0 text-secondary" />
 									<span class="font-medium text-foreground">{formatSats(totalSatsAvailable)}</span>
 									<span>sats available</span>
 								</div>

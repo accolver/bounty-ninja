@@ -220,7 +220,7 @@
 					autocomplete="off"
 					aria-describedby="pledge-token-help"
 					aria-invalid={tokenInput.trim().length > 0 && !isValidToken}
-					class="font-mono text-xs border-border bg-white dark:bg-input/30 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-full rounded-md border px-3 py-2 shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
+					class="font-mono text-xs border-border bg-input dark:bg-input/30 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-full rounded-md border px-3 py-2 shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
 				></textarea>
 				<p id="pledge-token-help" class="text-xs text-muted-foreground">
 					Get a token from your Cashu wallet (e.g. Minibits, cashue.me, eNuts, Nutstash). Mint: <span
@@ -260,7 +260,7 @@
 					maxlength={280}
 					disabled={submitting}
 					placeholder="Leave a note for the bounty creator..."
-					class="border-border bg-white dark:bg-input/30 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-full rounded-md border px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
+					class="border-border bg-input dark:bg-input/30 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-full rounded-md border px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
 				></textarea>
 				<p class="text-right text-xs text-muted-foreground">
 					{message.length}/280

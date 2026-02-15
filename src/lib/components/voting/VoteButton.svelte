@@ -151,7 +151,7 @@
 				focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none
 				disabled:pointer-events-none disabled:opacity-50
 				{existingVote === 'reject'
-				? 'bg-destructive text-white shadow-sm'
+				? 'bg-destructive text-destructive-foreground shadow-sm'
 				: 'border border-destructive/40 text-destructive hover:bg-destructive/10'}"
 			disabled={isDisabled || submitting}
 			title={disabledReason ??

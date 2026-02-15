@@ -194,7 +194,7 @@
 								bind:value={privkeyInput}
 								placeholder="nsec1... or hex private key"
 								disabled={reclaiming}
-								class="w-full rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none disabled:opacity-50"
+								class="w-full rounded-md border border-border bg-input dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none disabled:opacity-50"
 							/>
 							<p class="text-xs text-muted-foreground">
 								Your key is used locally to sign the reclaim and is never stored or transmitted.
@@ -248,7 +248,7 @@
 					readonly
 					value={reclaimedToken}
 					rows={3}
-					class="w-full rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-xs font-mono text-foreground"
+					class="w-full rounded-md border border-border bg-input dark:bg-input/30 px-3 py-2 text-xs font-mono text-foreground"
 				></textarea>
 				<button
 					type="button"

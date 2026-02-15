@@ -64,7 +64,7 @@
 
 <div
 	{id}
-	class="milkdown-editor-wrapper rounded-md border border-border bg-white dark:bg-input/30 text-sm text-foreground focus-within:border-primary focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-1 focus-within:ring-offset-background"
+	class="milkdown-editor-wrapper rounded-md border border-border bg-input dark:bg-input/30 text-sm text-foreground focus-within:border-primary focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-1 focus-within:ring-offset-background"
 	role="textbox"
 	aria-multiline="true"
 	aria-label="Markdown editor"

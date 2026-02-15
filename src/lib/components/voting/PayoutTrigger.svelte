@@ -406,7 +406,7 @@
 								autocomplete="off"
 								spellcheck={false}
 								placeholder="nsec1... or hex private key"
-								class="font-mono text-xs border-border bg-white dark:bg-input/30 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-full rounded-md border px-3 py-2 shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]"
+								class="font-mono text-xs border-border bg-input dark:bg-input/30 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-full rounded-md border px-3 py-2 shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]"
 							/>
 							{#if nsecError}
 								<p class="text-xs text-destructive" role="alert">{nsecError}</p>
@@ -454,7 +454,7 @@
 								readonly
 								rows={4}
 								value={recoveryToken}
-								class="font-mono text-xs border-border bg-white dark:bg-input/30 flex w-full rounded-md border px-3 py-2 shadow-xs outline-none select-all break-all"
+								class="font-mono text-xs border-border bg-input dark:bg-input/30 flex w-full rounded-md border px-3 py-2 shadow-xs outline-none select-all break-all"
 							></textarea>
 						</div>
 
