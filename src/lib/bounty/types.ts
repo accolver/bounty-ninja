@@ -60,7 +60,7 @@ export interface Solution {
 	pubkey: string;
 	bountyAddress: string;
 	description: string;
-	antiSpamToken: string;
+	antiSpamTokens: string[];
 	antiSpamAmount: number;
 	deliverableUrl: string | null;
 	createdAt: number;

@@ -52,8 +52,8 @@ export interface SolutionBlueprintParams {
 	creatorPubkey: string;
 	/** Markdown description of the solution */
 	description: string;
-	/** Serialized Cashu token for anti-spam fee */
-	antiSpamToken?: string;
+	/** Serialized Cashu token(s) for anti-spam fee — multiple tokens can sum to the required amount */
+	antiSpamTokens?: string[];
 	/** URL to the deliverable (repo, demo, etc.) */
 	deliverableUrl?: string;
 }
@@ -156,8 +156,10 @@ export function solutionBlueprint(params: SolutionBlueprintParams): EventTemplat
 		['client', CLIENT_TAG]
 	];
 
-	if (params.antiSpamToken) {
-		tags.push(['cashu', params.antiSpamToken]);
+	if (params.antiSpamTokens?.length) {
+		for (const token of params.antiSpamTokens) {
+			tags.push(['cashu', token]);
+		}
 	}
 	if (params.deliverableUrl) {
 		tags.push(['r', params.deliverableUrl]);

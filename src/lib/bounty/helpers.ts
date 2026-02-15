@@ -115,7 +115,13 @@ export function parseSolution(event: NostrEvent): Solution | null {
 	if (!tagResult.valid) return null;
 
 	const bountyAddress = getTagValue(event, 'a') ?? '';
-	const antiSpamToken = getTagValue(event, 'cashu') ?? getTagValue(event, 'fee') ?? '';
+	// Support multiple cashu tags (tokens can be split across several)
+	let antiSpamTokens = getTagValues(event, 'cashu');
+	if (antiSpamTokens.length === 0) {
+		// Legacy fallback: single 'fee' tag
+		const feeTag = getTagValue(event, 'fee');
+		if (feeTag) antiSpamTokens = [feeTag];
+	}
 	const antiSpamAmountRaw = getTagValue(event, 'amount');
 	const antiSpamAmount = antiSpamAmountRaw ? parseInt(antiSpamAmountRaw, 10) : 0;
 	const deliverableUrl = getTagValue(event, 'r') ?? null;
@@ -126,7 +132,7 @@ export function parseSolution(event: NostrEvent): Solution | null {
 		pubkey: event.pubkey,
 		bountyAddress,
 		description: event.content ?? '',
-		antiSpamToken,
+		antiSpamTokens,
 		antiSpamAmount: Number.isNaN(antiSpamAmount) ? 0 : antiSpamAmount,
 		deliverableUrl,
 		createdAt: event.created_at,

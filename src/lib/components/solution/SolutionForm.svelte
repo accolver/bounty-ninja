@@ -37,13 +37,14 @@
 
 	let description = $state('');
 	let deliverableUrl = $state('');
-	let feeAmount = $state(requiredFee);
+	const feeAmount = $derived(requiredFee);
 	let submitting = $state(false);
 
-	// ── Anti-spam token state ────────────────────────────────────
+	// ── Anti-spam token state (supports multiple tokens) ────────
 	let feeTokenInput = $state('');
-	let decodedFeeToken = $state<TokenInfo | null>(null);
+	let feeTokens = $state<Array<{ raw: string; info: TokenInfo }>>([]);
 	let feeDecodeError = $state('');
+	let decoding = $state(false);
 
 	// ── Rate limit state ────────────────────────────────────────
 	let rateLimitRemaining = $state(0);
@@ -60,55 +61,62 @@
 	const isRateLimited = $derived(rateLimitRemaining > 0);
 
 	// Fee is always set by the bounty creator and immutable for solvers
-	$effect(() => {
-		feeAmount = requiredFee;
-	});
 
-	// ── Fee token decoding ───────────────────────────────────────
-	$effect(() => {
+	// ── Fee token management ─────────────────────────────────────
+
+	/** Total sats across all added tokens */
+	const feeTokenTotal = $derived(feeTokens.reduce((sum, t) => sum + t.info.amount, 0));
+
+	/** How many more sats are needed */
+	const feeRemaining = $derived(Math.max(0, feeAmount - feeTokenTotal));
+
+	/** Whether the fee is fully covered */
+	const isFeeTokenValid = $derived(feeAmount <= 0 || feeTokenTotal >= feeAmount);
+
+	/** Add a token from the input field */
+	async function addFeeToken() {
 		const trimmed = feeTokenInput.trim();
-		if (!trimmed) {
-			decodedFeeToken = null;
-			feeDecodeError = '';
-			return;
-		}
+		if (!trimmed) return;
 
 		if (!trimmed.startsWith('cashuA') && !trimmed.startsWith('cashuB')) {
-			decodedFeeToken = null;
 			feeDecodeError = 'Token must start with cashuA or cashuB';
 			return;
 		}
 
-		// decodeToken is async (lazy-loaded Cashu module). Fire and update state
-		// on resolution. The `currentInput` guard prevents stale responses from
-		// overwriting results when the user types faster than the decode resolves.
-		const currentInput = trimmed;
-		const currentFee = feeAmount;
-		decodedFeeToken = null;
+		// Check for duplicate
+		if (feeTokens.some((t) => t.raw === trimmed)) {
+			feeDecodeError = 'This token has already been added';
+			return;
+		}
+
+		decoding = true;
 		feeDecodeError = '';
 
-		decodeToken(trimmed).then((info) => {
-			// Guard: input changed while we were decoding — discard this result
-			if (feeTokenInput.trim() !== currentInput) return;
-
+		try {
+			const info = await decodeToken(trimmed);
 			if (!info) {
-				decodedFeeToken = null;
 				feeDecodeError = 'Invalid Cashu token — could not decode';
 				return;
 			}
-
-			if (info.amount < currentFee) {
-				decodedFeeToken = null;
-				feeDecodeError = `Token amount (${info.amount} sats) is less than the required fee (${currentFee} sats)`;
+			if (info.amount <= 0) {
+				feeDecodeError = 'Token has no value';
 				return;
 			}
 
-			decodedFeeToken = info;
+			feeTokens = [...feeTokens, { raw: trimmed, info }];
+			feeTokenInput = '';
 			feeDecodeError = '';
-		});
-	});
+		} catch {
+			feeDecodeError = 'Failed to decode token';
+		} finally {
+			decoding = false;
+		}
+	}
 
-	const isFeeTokenValid = $derived(feeAmount <= 0 || decodedFeeToken !== null);
+	/** Remove a token by index */
+	function removeFeeToken(index: number) {
+		feeTokens = feeTokens.filter((_, i) => i !== index);
+	}
 
 	const canSubmit = $derived(
 		(taskStatus === 'open' || taskStatus === 'in_review') && accountState.isLoggedIn
@@ -157,15 +165,15 @@
 		submitting = true;
 
 		try {
-			// Use the real Cashu token pasted by the user as the anti-spam fee.
-			// The token is NOT P2PK-locked — it is immediately claimable by the bounty creator.
-			const antiSpamToken = feeAmount > 0 ? feeTokenInput.trim() : undefined;
+			// Use the real Cashu token(s) pasted by the user as the anti-spam fee.
+			// Tokens are NOT P2PK-locked — they are immediately claimable by the bounty creator.
+			const antiSpamTokens = feeAmount > 0 ? feeTokens.map((t) => t.raw) : undefined;
 
 			const template = solutionBlueprint({
 				bountyAddress,
 				creatorPubkey,
 				description: description.trim(),
-				antiSpamToken,
+				antiSpamTokens,
 				deliverableUrl: deliverableUrl.trim() || undefined
 			});
 
@@ -191,9 +199,8 @@
 	function resetForm() {
 		description = '';
 		deliverableUrl = '';
-		feeAmount = requiredFee;
 		feeTokenInput = '';
-		decodedFeeToken = null;
+		feeTokens = [];
 		feeDecodeError = '';
 	}
 </script>
@@ -284,7 +291,7 @@
 
 			<!-- Anti-spam fee (set by bounty creator, immutable) -->
 			{#if feeAmount > 0}
-				<div class="space-y-2">
+				<div class="space-y-3">
 					<label for="solution-fee-token" class="text-sm font-medium text-foreground">
 						<span class="inline-flex items-center gap-1.5">
 							<CoinsIcon class="size-3.5" />
@@ -293,35 +300,88 @@
 						<span class="text-destructive">*</span>
 					</label>
 
-					<!-- Cashu token paste input -->
-					<textarea
-						id="solution-fee-token"
-						bind:value={feeTokenInput}
-						rows={3}
-						disabled={submitting}
-						placeholder="Paste a cashuA... or cashuB... token"
-						spellcheck={false}
-						autocomplete="off"
-						aria-describedby="solution-fee-help"
-						aria-invalid={feeTokenInput.trim().length > 0 && !isFeeTokenValid}
-						class="font-mono text-xs border-border bg-input dark:bg-input/30 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-full rounded-md border px-3 py-2 shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
-					></textarea>
-					<p id="solution-fee-help" class="text-xs text-muted-foreground">
-						This bounty requires a {feeAmount} sat submission fee to deter spam. Paste a Cashu token
-						from your wallet (e.g. Minibits, eNuts, Nutstash). This fee is non-refundable.
-					</p>
-					{#if feeDecodeError}
-						<p class="text-xs text-destructive" role="alert">{feeDecodeError}</p>
+					<!-- Added tokens list -->
+					{#if feeTokens.length > 0}
+						<ul class="space-y-1.5" aria-label="Added fee tokens">
+							{#each feeTokens as token, i (i)}
+								<li
+									class="flex items-center justify-between rounded-md border border-success/30 bg-success/5 px-3 py-2"
+								>
+									<span class="text-xs text-muted-foreground font-mono truncate max-w-[60%]">
+										{token.raw.slice(0, 20)}...{token.raw.slice(-8)}
+									</span>
+									<div class="flex items-center gap-2">
+										<SatAmount amount={token.info.amount} />
+										<button
+											type="button"
+											onclick={() => removeFeeToken(i)}
+											disabled={submitting}
+											class="cursor-pointer rounded p-0.5 text-muted-foreground transition-colors hover:bg-destructive/20 hover:text-destructive focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
+											aria-label="Remove token"
+										>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												viewBox="0 0 16 16"
+												fill="currentColor"
+												class="h-3 w-3"
+												aria-hidden="true"
+											>
+												<path
+													d="M5.28 4.22a.75.75 0 0 0-1.06 1.06L6.94 8l-2.72 2.72a.75.75 0 1 0 1.06 1.06L8 9.06l2.72 2.72a.75.75 0 1 0 1.06-1.06L9.06 8l2.72-2.72a.75.75 0 0 0-1.06-1.06L8 6.94 5.28 4.22Z"
+												/>
+											</svg>
+										</button>
+									</div>
+								</li>
+							{/each}
+						</ul>
+
+						<!-- Progress summary -->
+						<div
+							class="flex items-center justify-between rounded-md border px-3 py-2 text-sm {isFeeTokenValid
+								? 'border-success/30 bg-success/5'
+								: 'border-border bg-muted/30'}"
+						>
+							<span class="text-foreground/80">
+								{isFeeTokenValid ? 'Fee covered' : `${feeRemaining} sats remaining`}
+							</span>
+							<span class="font-medium {isFeeTokenValid ? 'text-success' : 'text-foreground'}">
+								{new Intl.NumberFormat().format(feeTokenTotal)} / {new Intl.NumberFormat().format(feeAmount)} sats
+							</span>
+						</div>
 					{/if}
 
-					<!-- Decoded token summary -->
-					{#if decodedFeeToken}
-						<div
-							class="flex items-center justify-between rounded-md border border-success/30 bg-success/5 px-3 py-2"
-						>
-							<span class="text-sm text-foreground/80">Token amount</span>
-							<SatAmount amount={decodedFeeToken.amount} />
+					<!-- Cashu token paste input + add button -->
+					{#if !isFeeTokenValid}
+						<div class="flex gap-2">
+							<textarea
+								id="solution-fee-token"
+								bind:value={feeTokenInput}
+								rows={2}
+								disabled={submitting || decoding}
+								placeholder="Paste a cashuA... or cashuB... token"
+								spellcheck={false}
+								autocomplete="off"
+								aria-describedby="solution-fee-help"
+								class="flex-1 font-mono text-xs border-border bg-input dark:bg-input/30 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 rounded-md border px-3 py-2 shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
+							></textarea>
+							<button
+								type="button"
+								onclick={addFeeToken}
+								disabled={!feeTokenInput.trim() || submitting || decoding}
+								class="cursor-pointer self-end rounded-md border border-border bg-muted px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+							>
+								{decoding ? 'Checking...' : 'Add'}
+							</button>
 						</div>
+						<p id="solution-fee-help" class="text-xs text-muted-foreground">
+							This bounty requires a {feeAmount} sat submission fee. Paste one or more Cashu tokens
+							that total at least {feeAmount} sats. This fee is non-refundable.
+						</p>
+					{/if}
+
+					{#if feeDecodeError}
+						<p class="text-xs text-destructive" role="alert">{feeDecodeError}</p>
 					{/if}
 				</div>
 			{/if}

@@ -173,12 +173,23 @@ describe('solutionBlueprint', () => {
 		expect(template.content).toBe('Here is my solution with full implementation.');
 	});
 
-	it('includes anti-spam cashu token when provided', () => {
+	it('includes anti-spam cashu tokens when provided', () => {
 		const template = solutionBlueprint({
 			...baseParams,
-			antiSpamToken: 'cashuA_fee_10_12345'
+			antiSpamTokens: ['cashuA_fee_10_12345']
 		});
 		expect(findTag(template.tags, 'cashu')).toBe('cashuA_fee_10_12345');
+	});
+
+	it('includes multiple anti-spam cashu tokens when provided', () => {
+		const template = solutionBlueprint({
+			...baseParams,
+			antiSpamTokens: ['cashuA_token1', 'cashuA_token2']
+		});
+		const cashuTags = template.tags.filter((t) => t[0] === 'cashu');
+		expect(cashuTags).toHaveLength(2);
+		expect(cashuTags[0][1]).toBe('cashuA_token1');
+		expect(cashuTags[1][1]).toBe('cashuA_token2');
 	});
 
 	it('omits cashu tag when no anti-spam token', () => {

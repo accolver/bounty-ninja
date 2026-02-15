@@ -230,7 +230,7 @@ describe('parseSolution', () => {
 
 		expect(solution.bountyAddress).toBe(VALID_TASK_ADDR);
 		expect(solution.description).toBe('Here is my solution with full implementation');
-		expect(solution.antiSpamToken).toBe('cashuBtoken456');
+		expect(solution.antiSpamTokens).toEqual(['cashuBtoken456']);
 		expect(solution.antiSpamAmount).toBe(100);
 		expect(solution.deliverableUrl).toBe('https://github.com/user/repo/pull/1');
 		expect(solution.voteWeight).toBe(0);
