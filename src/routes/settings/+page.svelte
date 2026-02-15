@@ -8,6 +8,8 @@
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { errorMonitor } from '$lib/stores/error-monitor.svelte';
 	import { cacheMonitor } from '$lib/nostr/cache-monitor.svelte';
+	import { currencyStore, type CurrencyDisplay } from '$lib/stores/currency.svelte';
+	import { btcPrice } from '$lib/services/btc-price.svelte';
 	import { getDefaultRelays, getDefaultMint } from '$lib/utils/env';
 	import { isValidRelayUrl } from '$lib/utils/relay-validation';
 	import { pool } from '$lib/nostr/relay-pool';
@@ -202,18 +204,62 @@
 					</div>
 				</div>
 
-				<!-- Cashu Mint Selection -->
-				<div class="space-y-3 rounded-lg border border-border bg-card p-5">
-					<h2 class="text-lg font-semibold text-foreground">Cashu Mint</h2>
-					<p class="text-xs text-muted-foreground">The mint handles Bitcoin payments for bounties. The default works great for most users.</p>
-					<Input
-						bind:value={settings.mint}
-						placeholder="https://mint.example.com"
-						onblur={updateMint}
-					/>
-					<div class="flex items-center justify-between">
-						<p class="truncate text-xs text-muted-foreground">Default: {getDefaultMint()}</p>
-						<Button variant="outline" size="sm" onclick={resetMint}>Reset</Button>
+				<!-- Right column: Cashu Mint + Currency Display stacked -->
+				<div class="space-y-6">
+					<!-- Cashu Mint Selection -->
+					<div class="space-y-3 rounded-lg border border-border bg-card p-5">
+						<h2 class="text-lg font-semibold text-foreground">Cashu Mint</h2>
+						<p class="text-xs text-muted-foreground">The mint handles Bitcoin payments for bounties. The default works great for most users.</p>
+						<Input
+							bind:value={settings.mint}
+							placeholder="https://mint.example.com"
+							onblur={updateMint}
+						/>
+						<div class="flex items-center justify-between">
+							<p class="truncate text-xs text-muted-foreground">Default: {getDefaultMint()}</p>
+							<Button variant="outline" size="sm" onclick={resetMint}>Reset</Button>
+						</div>
+					</div>
+
+					<!-- Currency Display Preference -->
+					<div class="space-y-3 rounded-lg border border-border bg-card p-5">
+						<h2 class="text-lg font-semibold text-foreground">Currency Display</h2>
+						<p class="text-xs text-muted-foreground">Choose how bounty amounts are shown. You can also click any amount in the app to toggle.</p>
+						<div class="flex gap-2">
+							<button
+								type="button"
+								onclick={() => currencyStore.set('usd')}
+								class="flex-1 cursor-pointer rounded-md border px-3 py-2 text-sm font-medium transition-colors {currencyStore.isUsd
+									? 'border-primary bg-primary/10 text-primary'
+									: 'border-border bg-background text-muted-foreground hover:border-foreground/20 hover:text-foreground'}"
+							>
+								USD ($)
+							</button>
+							<button
+								type="button"
+								onclick={() => currencyStore.set('sats')}
+								class="flex-1 cursor-pointer rounded-md border px-3 py-2 text-sm font-medium transition-colors {currencyStore.isSats
+									? 'border-primary bg-primary/10 text-primary'
+									: 'border-border bg-background text-muted-foreground hover:border-foreground/20 hover:text-foreground'}"
+							>
+								Sats
+							</button>
+						</div>
+						{#if currencyStore.isUsd}
+							<p class="text-xs text-muted-foreground">
+								{#if btcPrice.priceUsd}
+									BTC price: ${btcPrice.priceUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+									<span class="text-muted-foreground/60">
+										via {btcPrice.source}
+										{#if !btcPrice.isFresh}(stale){/if}
+									</span>
+								{:else if btcPrice.loading}
+									Fetching BTC price...
+								{:else if btcPrice.error}
+									{btcPrice.error} — amounts shown in sats
+								{/if}
+							</p>
+						{/if}
 					</div>
 				</div>
 			</div>

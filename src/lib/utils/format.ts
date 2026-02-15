@@ -1,6 +1,8 @@
 /**
  * Format a number of satoshis with locale-aware separators.
  * Example: 50000 → "50,000 sats"
+ *
+ * For currency-aware display (USD/sats), use the <SatAmount> component instead.
  */
 export function formatSats(sats: number): string {
 	return `${sats.toLocaleString()} sats`;
