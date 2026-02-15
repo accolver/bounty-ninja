@@ -30,30 +30,30 @@
 	// Badge styling per status
 	const badgeConfig = $derived.by(() => {
 		switch (verificationStatus) {
-			case 'verified':
-				return {
-					label: 'Verified',
-					classes: 'bg-green-500/15 text-green-400 border-green-500/30',
-					ariaLabel: 'Token verified'
-				};
-			case 'unverified':
-				return {
-					label: 'Unverified',
-					classes: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
-					ariaLabel: 'Token unverified'
-				};
-			case 'invalid':
-				return {
-					label: 'Invalid',
-					classes: 'bg-red-500/15 text-red-400 border-red-500/30',
-					ariaLabel: 'Token invalid'
-				};
-			case 'expired':
-				return {
-					label: 'Expired',
-					classes: 'bg-orange-500/15 text-orange-400 border-orange-500/30',
-					ariaLabel: 'Token expired'
-				};
+		case 'verified':
+			return {
+				label: 'Verified',
+				classes: 'bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30',
+				ariaLabel: 'Token verified'
+			};
+		case 'unverified':
+			return {
+				label: 'Unverified',
+				classes: 'bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-500/30',
+				ariaLabel: 'Token unverified'
+			};
+		case 'invalid':
+			return {
+				label: 'Invalid',
+				classes: 'bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30',
+				ariaLabel: 'Token invalid'
+			};
+		case 'expired':
+			return {
+				label: 'Expired',
+				classes: 'bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-500/30',
+				ariaLabel: 'Token expired'
+			};
 			case 'pending':
 			default:
 				return {
