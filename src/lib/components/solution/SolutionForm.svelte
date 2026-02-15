@@ -4,7 +4,6 @@
 	import { solutionBlueprint } from '$lib/bounty/blueprints';
 	import { SOLUTION_KIND } from '$lib/bounty/kinds';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import { getMinSubmissionFee, getMaxSubmissionFee } from '$lib/utils/env';
 	import { rateLimiter } from '$lib/nostr/rate-limiter';
 	import { decodeToken } from '$lib/cashu/token';
 	import type { TokenInfo } from '$lib/cashu/types';
@@ -38,7 +37,7 @@
 
 	let description = $state('');
 	let deliverableUrl = $state('');
-	let feeAmount = $state(getMinSubmissionFee());
+	let feeAmount = $state(requiredFee);
 	let submitting = $state(false);
 
 	// ── Anti-spam token state ────────────────────────────────────
@@ -60,13 +59,9 @@
 
 	const isRateLimited = $derived(rateLimitRemaining > 0);
 
-	const minFee = getMinSubmissionFee();
-	const maxFee = getMaxSubmissionFee();
-	const hasFixedFee = $derived(requiredFee > 0);
-
-	// Sync feeAmount when the requiredFee prop changes
+	// Fee is always set by the bounty creator and immutable for solvers
 	$effect(() => {
-		feeAmount = requiredFee || minFee;
+		feeAmount = requiredFee;
 	});
 
 	// ── Fee token decoding ───────────────────────────────────────
@@ -134,10 +129,7 @@
 	const descriptionLengthValid = $derived(description.length <= DESCRIPTION_MAX);
 
 	const isFeeValid = $derived(
-		Number.isInteger(feeAmount) &&
-			Number.isFinite(feeAmount) &&
-			feeAmount >= minFee &&
-			feeAmount <= maxFee
+		feeAmount === 0 || (Number.isInteger(feeAmount) && feeAmount > 0)
 	);
 
 	const isValid = $derived(
@@ -199,16 +191,10 @@
 	function resetForm() {
 		description = '';
 		deliverableUrl = '';
-		feeAmount = requiredFee || minFee;
+		feeAmount = requiredFee;
 		feeTokenInput = '';
 		decodedFeeToken = null;
 		feeDecodeError = '';
-	}
-
-	function handleFeeInput(e: Event) {
-		const target = e.target as HTMLInputElement;
-		const parsed = parseInt(target.value, 10);
-		feeAmount = Number.isNaN(parsed) ? 0 : Math.max(0, parsed);
 	}
 </script>
 
@@ -296,43 +282,16 @@
 				{/if}
 			</div>
 
-			<!-- Anti-spam fee -->
+			<!-- Anti-spam fee (set by bounty creator, immutable) -->
 			{#if feeAmount > 0}
 				<div class="space-y-2">
-					<label for="solution-fee" class="text-sm font-medium text-foreground">
+					<label for="solution-fee-token" class="text-sm font-medium text-foreground">
 						<span class="inline-flex items-center gap-1.5">
 							<CoinsIcon class="size-3.5" />
 							Anti-spam fee ({feeAmount} sats)
 						</span>
 						<span class="text-destructive">*</span>
 					</label>
-
-					{#if !hasFixedFee}
-						<!-- Adjustable fee within range -->
-						<div class="space-y-2">
-							<Input
-								id="solution-fee"
-								type="number"
-								value={feeAmount}
-								oninput={handleFeeInput}
-								min={minFee}
-								max={maxFee}
-								step="1"
-								disabled={submitting}
-								aria-describedby="solution-fee-range"
-								aria-invalid={feeAmount > 0 && !isFeeValid}
-								class="max-w-32"
-							/>
-							<p id="solution-fee-range" class="text-xs text-muted-foreground">
-								Anti-spam fee between {minFee} and {maxFee} sats. This fee is non-refundable.
-							</p>
-							{#if feeAmount > 0 && !isFeeValid}
-								<p class="text-xs text-destructive" role="alert">
-									Fee must be a whole number between {minFee} and {maxFee} sats.
-								</p>
-							{/if}
-						</div>
-					{/if}
 
 					<!-- Cashu token paste input -->
 					<textarea
@@ -348,13 +307,8 @@
 						class="font-mono text-xs border-border bg-input dark:bg-input/30 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-full rounded-md border px-3 py-2 shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
 					></textarea>
 					<p id="solution-fee-help" class="text-xs text-muted-foreground">
-						{#if hasFixedFee}
-							This bounty requires a {requiredFee} sat submission fee to deter spam. Paste a Cashu token
-							from your wallet.
-						{:else}
-							Paste a Cashu token from your wallet (e.g. Minibits, eNuts, Nutstash). The token
-							amount must be at least {feeAmount} sats.
-						{/if}
+						This bounty requires a {feeAmount} sat submission fee to deter spam. Paste a Cashu token
+						from your wallet (e.g. Minibits, eNuts, Nutstash). This fee is non-refundable.
 					</p>
 					{#if feeDecodeError}
 						<p class="text-xs text-destructive" role="alert">{feeDecodeError}</p>
