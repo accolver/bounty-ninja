@@ -13,6 +13,7 @@
 	import LoginButton from '$lib/components/auth/LoginButton.svelte';
 	import LoadingSpinner from '$lib/components/shared/LoadingSpinner.svelte';
 	import SatAmount from '$lib/components/shared/SatAmount.svelte';
+	import MarkdownEditor from '$lib/components/shared/MarkdownEditor.svelte';
 	import type { BountyStatus } from '$lib/bounty/types';
 	import SendIcon from '@lucide/svelte/icons/send';
 	import LinkIcon from '@lucide/svelte/icons/link';
@@ -242,40 +243,27 @@
 				<label for="solution-description" class="text-sm font-medium text-foreground">
 					Description
 					<span class="text-destructive">*</span>
+					<span class="ml-1 text-xs font-normal text-muted-foreground">Markdown</span>
 				</label>
-				<textarea
+				<MarkdownEditor
 					id="solution-description"
-					bind:value={description}
-					rows={6}
-					required
+					value={description}
+					placeholder="Describe your solution in detail. What did you build and how does it meet the requirements?"
 					maxlength={DESCRIPTION_MAX}
-					disabled={submitting}
-					placeholder="Describe your solution in detail. Markdown is supported."
-					aria-describedby="solution-desc-help solution-desc-count"
-					aria-invalid={description.length > 0 &&
-						(description.trim().length === 0 || !descriptionLengthValid)}
-					class="border-border bg-white dark:bg-input/30 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-full rounded-md border px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
-				></textarea>
+					onchange={(md) => (description = md)}
+				/>
 				<div class="flex items-center justify-between">
 					{#if !descriptionLengthValid}
 						<p class="text-xs text-destructive" role="alert">
 							Description must be {DESCRIPTION_MAX.toLocaleString()} characters or fewer.
 						</p>
-					{:else}
-						<p id="solution-desc-help" class="text-xs text-muted-foreground">
-							Markdown formatting is supported. Explain what you built and how it meets the bounty
-							requirements.
+					{:else if description.length > 0 && description.trim().length === 0}
+						<p class="text-xs text-destructive" role="alert">
+							Description cannot be empty.
 						</p>
+					{:else}
+						<span></span>
 					{/if}
-					<p
-						id="solution-desc-count"
-						class="shrink-0 text-xs {!descriptionLengthValid
-							? 'text-destructive font-medium'
-							: 'text-muted-foreground'}"
-						aria-live="polite"
-					>
-						{description.length.toLocaleString()}/{DESCRIPTION_MAX.toLocaleString()}
-					</p>
 				</div>
 			</div>
 
@@ -357,7 +345,7 @@
 						autocomplete="off"
 						aria-describedby="solution-fee-help"
 						aria-invalid={feeTokenInput.trim().length > 0 && !isFeeTokenValid}
-						class="font-mono text-xs border-border bg-white dark:bg-input/30 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-full rounded-md border px-3 py-2 shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
+						class="font-mono text-xs border-border bg-input dark:bg-input/30 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-full rounded-md border px-3 py-2 shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
 					></textarea>
 					<p id="solution-fee-help" class="text-xs text-muted-foreground">
 						{#if hasFixedFee}

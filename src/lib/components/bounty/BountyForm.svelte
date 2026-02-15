@@ -11,6 +11,8 @@
 	import { connectivity } from '$lib/stores/connectivity.svelte';
 	import { suggestTags, getPopularTags } from '$lib/bounty/auto-tagger';
 	import { bountyList } from '$lib/stores/bounties.svelte';
+	import { btcPrice } from '$lib/services/btc-price.svelte';
+	import { currencyStore } from '$lib/stores/currency.svelte';
 	import TagAutoSuggest from './TagAutoSuggest.svelte';
 	import Tooltip from '$lib/components/shared/Tooltip.svelte';
 	import MarkdownEditor from '$lib/components/shared/MarkdownEditor.svelte';
@@ -27,6 +29,73 @@
 	let title = $state('');
 	let description = $state('');
 	let rewardAmount = $state(0);
+
+	// ── Reward currency toggle ──────────────────────────────────
+	/** Whether the reward input is currently in USD mode */
+	let rewardInUsd = $state(currencyStore.isUsd && btcPrice.priceUsd !== null);
+	/** The raw USD value the user types (only used when rewardInUsd is true) */
+	let rewardUsdInput = $state('');
+
+	// Ensure price is available for USD mode
+	$effect(() => {
+		if (currencyStore.isUsd) btcPrice.fetch();
+	});
+
+	/** Convert USD to sats */
+	function usdToSats(usd: number): number {
+		const price = btcPrice.priceUsd;
+		if (!price || price <= 0) return 0;
+		return Math.round((usd / price) * 100_000_000);
+	}
+
+	/** Convert sats to USD */
+	function satsToUsd(sats: number): number {
+		const price = btcPrice.priceUsd;
+		if (!price || price <= 0) return 0;
+		return (sats / 100_000_000) * price;
+	}
+
+	/** Toggle reward input between USD and sats */
+	function toggleRewardCurrency() {
+		if (!btcPrice.priceUsd) return;
+		if (rewardInUsd) {
+			// Switching to sats — rewardAmount is already in sats
+			rewardInUsd = false;
+			rewardUsdInput = '';
+		} else {
+			// Switching to USD — show current sats as USD
+			rewardInUsd = true;
+			if (rewardAmount > 0) {
+				rewardUsdInput = satsToUsd(rewardAmount).toFixed(2);
+			}
+		}
+	}
+
+	/** Handle USD input changes — sync to sats */
+	function handleUsdInput(e: Event) {
+		const target = e.target as HTMLInputElement;
+		rewardUsdInput = target.value;
+		const parsed = parseFloat(target.value);
+		if (!isNaN(parsed) && parsed >= 0) {
+			rewardAmount = usdToSats(parsed);
+		} else {
+			rewardAmount = 0;
+		}
+	}
+
+	/** Formatted sats equivalent shown below USD input */
+	const satsEquivalent = $derived(
+		rewardInUsd && rewardAmount > 0
+			? `≈ ${new Intl.NumberFormat().format(rewardAmount)} sats`
+			: ''
+	);
+
+	/** Formatted USD equivalent shown below sats input */
+	const usdEquivalent = $derived.by(() => {
+		if (rewardInUsd || rewardAmount <= 0) return '';
+		const usd = btcPrice.formatSatsAsUsd(rewardAmount);
+		return usd ? `≈ ${usd}` : '';
+	});
 	let tagInput = $state('');
 	let tags = $state<string[]>([]);
 	let deadline = $state('');
@@ -220,7 +289,7 @@
 		e.preventDefault();
 		handleSubmit();
 	}}
-	class="space-y-6"
+	class="bounty-form space-y-6"
 	aria-label="Create bounty form"
 >
 	<!-- Title — full width card -->
@@ -236,7 +305,7 @@
 				required
 				maxlength={TITLE_MAX}
 				placeholder="e.g. Build a Nostr relay in Rust"
-				class="rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
+				class="rounded-md border border-border bg-input dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
 				aria-required="true"
 				aria-invalid={title.length > 0 && (!titleValid || !titleLengthValid)}
 				aria-describedby="bounty-title-count"
@@ -296,30 +365,64 @@
 	<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
 		<!-- Reward Amount — takes 1 col -->
 		<div class="space-y-3 rounded-lg border border-border bg-card p-5">
-			<label for="bounty-reward" class="text-sm font-medium text-foreground">
-				<Tooltip
-					text="Satoshis (sats) are small units of Bitcoin. ~100K sats ≈ $50–100 USD at recent rates."
-				>
-					{#snippet children()}
-						<span class="cursor-help border-b border-dotted border-muted-foreground/50"
-							>Reward Amount (sats)</span
-						>
-					{/snippet}
-				</Tooltip>
-				<span class="text-destructive" aria-hidden="true">*</span>
-			</label>
-			<input
-				id="bounty-reward"
-				type="number"
-				bind:value={rewardAmount}
-				required
-				min="1"
-				step="1"
-				placeholder="1000"
-				class="w-full rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
-				aria-required="true"
-				aria-invalid={rewardAmount !== 0 && !rewardValid}
-			/>
+			<div class="flex items-center justify-between">
+				<label for="bounty-reward" class="text-sm font-medium text-foreground">
+					<Tooltip
+						text="Satoshis (sats) are small units of Bitcoin. ~100K sats ≈ $50–100 USD at recent rates."
+					>
+						{#snippet children()}
+							<span class="cursor-help border-b border-dotted border-muted-foreground/50"
+								>Reward Amount {rewardInUsd ? '(USD)' : '(sats)'}</span
+							>
+						{/snippet}
+					</Tooltip>
+					<span class="text-destructive" aria-hidden="true">*</span>
+				</label>
+				{#if btcPrice.priceUsd}
+					<button
+						type="button"
+						onclick={toggleRewardCurrency}
+						class="cursor-pointer rounded-md border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+						title="Toggle between USD and sats"
+					>
+						{rewardInUsd ? 'sats' : 'USD'}
+					</button>
+				{/if}
+			</div>
+			{#if rewardInUsd}
+				<input
+					id="bounty-reward"
+					type="number"
+					value={rewardUsdInput}
+					oninput={handleUsdInput}
+					required
+					min="0.01"
+					step="0.01"
+					placeholder="10.00"
+					class="w-full rounded-md border border-border bg-input dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
+					aria-required="true"
+					aria-invalid={rewardAmount !== 0 && !rewardValid}
+				/>
+			{:else}
+				<input
+					id="bounty-reward"
+					type="number"
+					bind:value={rewardAmount}
+					required
+					min="1"
+					step="1"
+					placeholder="1000"
+					class="w-full rounded-md border border-border bg-input dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
+					aria-required="true"
+					aria-invalid={rewardAmount !== 0 && !rewardValid}
+				/>
+			{/if}
+			{#if satsEquivalent}
+				<p class="text-xs text-muted-foreground">{satsEquivalent}</p>
+			{/if}
+			{#if usdEquivalent}
+				<p class="text-xs text-muted-foreground">{usdEquivalent}</p>
+			{/if}
 			{#if rewardAmount !== 0 && !rewardValid}
 				<p class="text-xs text-destructive" role="alert">Reward must be greater than 0 sats.</p>
 			{/if}
@@ -332,7 +435,7 @@
 				id="bounty-deadline"
 				type="datetime-local"
 				bind:value={deadline}
-				class="w-full rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
+				class="w-full rounded-md border border-border bg-input dark:bg-input/30 px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
 			/>
 			{#if deadline && !deadlineInFuture}
 				<p class="text-xs text-destructive" role="alert">Deadline must be in the future.</p>
@@ -394,8 +497,8 @@
 						onkeydown={handleTagKeydown}
 						onfocus={() => (showAutocomplete = true)}
 						onblur={() => setTimeout(() => (showAutocomplete = false), 150)}
-						placeholder="rust, nostr, relay"
-						class="flex-1 rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
+						placeholder="e.g. bug fix, design, documentation"
+						class="flex-1 rounded-md border border-border bg-input dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
 						role="combobox"
 						aria-expanded={showAutocomplete && autocompleteResults.length > 0}
 						aria-controls="tag-autocomplete-list"
@@ -432,7 +535,7 @@
 					</ul>
 				{/if}
 			</div>
-			<p class="text-xs text-muted-foreground">Comma-separated or press Enter</p>
+			<p class="text-xs text-muted-foreground">What kind of work is this? Comma-separated or press Enter.</p>
 		</div>
 	</div>
 
@@ -470,7 +573,7 @@
 					max={maxFee}
 					step="1"
 					placeholder="100"
-					class="w-full rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
+					class="w-full rounded-md border border-border bg-input dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
 				/>
 				{#if submissionFee !== 0 && !feeValid}
 					<p class="text-xs text-destructive" role="alert">
@@ -505,7 +608,7 @@
 					type="url"
 					bind:value={mintUrl}
 					placeholder="https://mint.minibits.cash/Bitcoin"
-					class="w-full rounded-md border border-border bg-white dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
+					class="w-full rounded-md border border-border bg-input dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
 				/>
 				<p class="text-xs text-muted-foreground">Leave blank to use the default mint.</p>
 			</div>
@@ -571,3 +674,12 @@
 		{/if}
 	</div>
 </form>
+
+<style>
+	/* Fix calendar/date picker icon color for light mode.
+	 * The browser-native icon is white by default — invisible on light backgrounds.
+	 * In dark mode the icon inherits the default white, which works fine. */
+	:global(.light) .bounty-form :global(input[type='datetime-local'])::-webkit-calendar-picker-indicator {
+		filter: invert(0.3);
+	}
+</style>
