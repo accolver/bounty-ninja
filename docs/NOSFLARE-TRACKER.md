@@ -15,7 +15,7 @@ existing Cloudflare account.
 
 - [ ] Fork `Spl0itable/nosflare` → `<your-org>/bounty-relay`
 - [ ] Configure `src/config.ts` — relay info, allowed event kinds (0, 1, 5, 7,
-      30023, 30078, 10002)
+      1018, 10002, 37300, 73001, 73002, 73004, 73005, 73006)
 - [ ] Configure rate limiting (30 events/min per pubkey)
 - [ ] Configure spam filtering (NIP-05 validation optional, content hash dedup
       on)

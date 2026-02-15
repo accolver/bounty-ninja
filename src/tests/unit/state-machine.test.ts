@@ -224,6 +224,61 @@ describe('deriveBountyStatus', () => {
 		});
 	});
 
+	describe('Kind 73005 retraction', () => {
+		it('returns "cancelled" for Kind 73005 type=bounty retraction', () => {
+			const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
+			const retraction = mockEvent({
+				kind: 73005,
+				tags: [
+					['a', '37300:' + 'b'.repeat(64) + ':test'],
+					['type', 'bounty']
+				]
+			});
+			expect(
+				deriveBountyStatus(taskEvt, [], [], [], [], NOW, false, [retraction])
+			).toBe('cancelled');
+		});
+
+		it('does NOT return "cancelled" for Kind 73005 type=pledge retraction', () => {
+			const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
+			const retraction = mockEvent({
+				kind: 73005,
+				tags: [
+					['a', '37300:' + 'b'.repeat(64) + ':test'],
+					['type', 'pledge'],
+					['e', '1'.repeat(64)]
+				]
+			});
+			expect(
+				deriveBountyStatus(taskEvt, [], [], [], [], NOW, false, [retraction])
+			).toBe('open');
+		});
+
+		it('Kind 73005 bounty retraction overrides other states', () => {
+			const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
+			const solution = mockEvent({ kind: 73001 });
+			const payout = mockEvent({ kind: 73004 });
+			const retraction = mockEvent({
+				kind: 73005,
+				tags: [
+					['a', '37300:' + 'b'.repeat(64) + ':test'],
+					['type', 'bounty']
+				]
+			});
+			expect(
+				deriveBountyStatus(taskEvt, [], [solution], [payout], [], NOW, true, [retraction])
+			).toBe('cancelled');
+		});
+
+		it('legacy Kind 5 still triggers cancelled', () => {
+			const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
+			const deleteEvent = mockEvent({ kind: 5 });
+			expect(deriveBountyStatus(taskEvt, [], [], [], [deleteEvent], NOW, false, [])).toBe(
+				'cancelled'
+			);
+		});
+	});
+
 	describe('edge cases', () => {
 		it('handles missing expiration tag gracefully', () => {
 			const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });

@@ -1,5 +1,5 @@
 import type { NostrEvent } from 'nostr-tools';
-import type { BountySummary, Pledge, Solution, Vote, Payout, BountyDetail } from './types';
+import type { BountySummary, Pledge, Solution, Vote, Payout, BountyDetail, Retraction, ReputationEvent } from './types';
 import { deriveBountyStatus } from './state-machine';
 import { tallyVotes } from './voting';
 import { validateEventTags } from '$lib/nostr/tag-validator';
@@ -203,6 +203,64 @@ export function parsePayout(event: NostrEvent, pledgerPubkeys?: string[]): Payou
 		solverPubkey,
 		amount: Number.isNaN(amount) ? 0 : amount,
 		cashuToken,
+		createdAt: event.created_at
+	};
+}
+
+/**
+ * Parse a retraction event (kind 73005) into a Retraction.
+ * Returns null if the event is missing required tags.
+ */
+export function parseRetraction(event: NostrEvent): Retraction | null {
+	const taskAddress = getTagValue(event, 'a');
+	if (!taskAddress) return null;
+
+	const type = getTagValue(event, 'type');
+	if (type !== 'bounty' && type !== 'pledge') return null;
+
+	const pledgeEventId = getTagValue(event, 'e') ?? null;
+	// Pledge retractions must reference the pledge event
+	if (type === 'pledge' && !pledgeEventId) return null;
+
+	return {
+		event,
+		id: event.id,
+		pubkey: event.pubkey,
+		taskAddress,
+		type,
+		pledgeEventId,
+		reason: event.content ?? '',
+		createdAt: event.created_at,
+		hasSolutions: false // Determined by caller context
+	};
+}
+
+/**
+ * Parse a reputation event (kind 73006) into a ReputationEvent.
+ * Returns null if the event is missing required tags.
+ */
+export function parseReputationEvent(event: NostrEvent): ReputationEvent | null {
+	const offenderPubkey = getTagValue(event, 'p');
+	if (!offenderPubkey) return null;
+
+	const taskAddress = getTagValue(event, 'a');
+	if (!taskAddress) return null;
+
+	const type = getTagValue(event, 'type');
+	if (type !== 'bounty_retraction' && type !== 'pledge_retraction') return null;
+
+	const retractionEventId = getTagValue(event, 'e');
+	if (!retractionEventId) return null;
+
+	return {
+		event,
+		id: event.id,
+		pubkey: event.pubkey,
+		offenderPubkey,
+		taskAddress,
+		type,
+		retractionEventId,
+		description: event.content ?? '',
 		createdAt: event.created_at
 	};
 }

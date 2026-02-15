@@ -1,13 +1,10 @@
 <script lang="ts">
 	import type { Solution, Vote } from '$lib/bounty/types';
-	import { nip19 } from 'nostr-tools';
-	import { formatNpub } from '$lib/utils/format';
 	import MarkdownViewer from '$lib/components/shared/MarkdownViewer.svelte';
 	import TimeAgo from '$lib/components/shared/TimeAgo.svelte';
+	import ProfileLink from '$lib/components/shared/ProfileLink.svelte';
 
 	const { solution, votes = [] }: { solution: Solution; votes?: Vote[] } = $props();
-
-	const solverNpub = $derived(nip19.npubEncode(solution.pubkey));
 
 	const approveCount = $derived(votes.filter((v) => v.choice === 'approve').length);
 	const rejectCount = $derived(votes.filter((v) => v.choice === 'reject').length);
@@ -17,13 +14,7 @@
 	<div class="space-y-3">
 		<!-- Header: solver + time -->
 		<div class="flex items-center justify-between gap-2">
-			<a
-				href="/profile/{solverNpub}"
-				class="text-sm font-medium text-primary transition-colors hover:underline focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-				aria-label="Solver profile: {formatNpub(solverNpub)}"
-			>
-				{formatNpub(solverNpub)}
-			</a>
+			<ProfileLink pubkey={solution.pubkey} />
 			<TimeAgo timestamp={solution.createdAt} />
 		</div>
 

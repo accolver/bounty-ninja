@@ -99,11 +99,16 @@ export const relayInfo = {
 export const allowedEventKinds = [
   0, // Profile metadata
   1, // Short text (comments on bounties)
-  5, // Event deletion
+  5, // Event deletion (legacy — prefer Kind 73005 retraction)
   7, // Reaction
-  30023, // Long-form content (bounty posts)
-  30078, // Application-specific data (applications, status updates)
+  1018, // Consensus vote
   10002, // Relay list metadata (NIP-65)
+  37300, // Bounty definition (parameterized replaceable)
+  73001, // Solution submission
+  73002, // Pledge (funding)
+  73004, // Payout record
+  73005, // Retraction (bounty cancellation / pledge retraction)
+  73006, // Reputation attestation
 ];
 
 // Rate limiting

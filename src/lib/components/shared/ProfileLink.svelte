@@ -5,12 +5,14 @@
 	import { eventStore } from '$lib/nostr/event-store';
 	import { createProfileLoader } from '$lib/nostr/loaders/profile-loader';
 	import ProfileAvatar from '$lib/components/auth/ProfileAvatar.svelte';
+	import CredibilityBadge from '$lib/components/reputation/CredibilityBadge.svelte';
 	import { formatNpub } from '$lib/utils/format';
 
 	const {
 		pubkey,
 		size = 'sm',
-		showAvatar = true
+		showAvatar = true,
+		showReputation = true
 	}: {
 		/** Hex-encoded Nostr public key */
 		pubkey: string;
@@ -18,6 +20,8 @@
 		size?: 'sm' | 'md' | 'lg' | 'xl';
 		/** Whether to show the avatar circle (default: true) */
 		showAvatar?: boolean;
+		/** Whether to show credibility badge (default: true) */
+		showReputation?: boolean;
 	} = $props();
 
 	const npub = $derived(nip19.npubEncode(pubkey));
@@ -63,4 +67,7 @@
 		<ProfileAvatar {pubkey} {size} />
 	{/if}
 	<span class="truncate">{label}</span>
+	{#if showReputation}
+		<CredibilityBadge {pubkey} />
+	{/if}
 </a>

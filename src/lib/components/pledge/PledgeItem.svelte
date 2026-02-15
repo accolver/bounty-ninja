@@ -6,8 +6,24 @@
 	import { tokenValidator, type TokenVerificationStatus } from '$lib/cashu/token-validator.svelte';
 
 	import type { Payout } from '$lib/bounty/types';
+	import RetractPledgeButton from '$lib/components/pledge/RetractPledgeButton.svelte';
+	import { accountState } from '$lib/nostr/account.svelte';
 
-	const { pledge, payouts = [] }: { pledge: Pledge; payouts?: Payout[] } = $props();
+	const {
+		pledge,
+		payouts = [],
+		taskAddress = '',
+		hasSolutions = false,
+		isRetracted = false
+	}: {
+		pledge: Pledge;
+		payouts?: Payout[];
+		taskAddress?: string;
+		hasSolutions?: boolean;
+		isRetracted?: boolean;
+	} = $props();
+
+	const isPledgeAuthor = $derived(accountState.pubkey === pledge.pubkey);
 
 	/** Check if this pledger has released (has a corresponding Kind 73004 event) */
 	const hasReleased = $derived(payouts.some((p) => p.pubkey === pledge.pubkey));
@@ -66,7 +82,15 @@
 	<div class="flex items-center justify-between gap-2">
 		<ProfileLink pubkey={pledge.pubkey} />
 		<div class="flex items-center gap-2">
-			{#if hasReleased}
+			{#if isRetracted}
+				<span
+					class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium leading-tight bg-destructive/15 text-destructive border-destructive/30"
+					aria-label="Pledge retracted"
+					role="status"
+				>
+					Retracted
+				</span>
+			{:else if hasReleased}
 				<span
 					class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium leading-tight bg-success/15 text-success border-success/30"
 					aria-label="Funds released to solver"
@@ -92,6 +116,15 @@
 		{:else}
 			<span></span>
 		{/if}
-		<TimeAgo timestamp={pledge.createdAt} />
+		<div class="flex items-center gap-2">
+			{#if isPledgeAuthor && !isRetracted && !hasReleased && taskAddress}
+				<RetractPledgeButton
+					{taskAddress}
+					pledgeEventId={pledge.id}
+					{hasSolutions}
+				/>
+			{/if}
+			<TimeAgo timestamp={pledge.createdAt} />
+		</div>
 	</div>
 </li>

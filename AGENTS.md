@@ -128,6 +128,8 @@ src/
 | 73002 | Regular                   | Solution submission             |
 | 1018  | Regular                   | Consensus vote                  |
 | 73004 | Regular                   | Payout record                   |
+| 73005 | Regular                   | Retraction (cancel/withdraw)    |
+| 73006 | Regular                   | Reputation attestation          |
 
 ### Bounty Lifecycle
 

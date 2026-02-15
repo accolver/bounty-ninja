@@ -1,5 +1,6 @@
 import type { NostrEvent } from 'nostr-tools';
 import type { BountyStatus } from './types';
+import { RETRACTION_KIND } from './kinds';
 
 /**
  * Extract the expiration timestamp from a bounty event's 'expiration' tag.
@@ -33,11 +34,22 @@ export function deriveBountyStatus(
 	payouts: NostrEvent[],
 	deleteEvents: NostrEvent[],
 	now?: number,
-	hasConsensus: boolean = false
+	hasConsensus: boolean = false,
+	retractions: NostrEvent[] = []
 ): BountyStatus {
 	const currentTime = now ?? Math.floor(Date.now() / 1000);
 
-	// 1. Cancelled — delete events exist
+	// 1a. Cancelled — Kind 73005 bounty retraction exists
+	const hasBountyRetraction = retractions.some((e) => {
+		if (e.kind !== RETRACTION_KIND) return false;
+		const typeTag = e.tags.find((t) => t[0] === 'type');
+		return typeTag?.[1] === 'bounty';
+	});
+	if (hasBountyRetraction) {
+		return 'cancelled';
+	}
+
+	// 1b. Cancelled — legacy Kind 5 delete events (fallback)
 	if (deleteEvents.length > 0) {
 		return 'cancelled';
 	}

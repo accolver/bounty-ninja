@@ -56,6 +56,8 @@ their funds until community consensus triggers release.
 - Anyone can submit solutions with proof of work
 - Funders vote on solutions weighted by their contribution
 - Payout is automatic upon consensus
+- Retracting a bounty or pledge after solutions or funding exist incurs an
+  on-chain reputation penalty — credibility is visible throughout the app
 
 ---
 
@@ -606,6 +608,12 @@ export const VOTE_KIND = 1018;
 
 /** Payout record */
 export const PAYOUT_KIND = 73004;
+
+/** Retraction (bounty cancellation or pledge withdrawal) */
+export const RETRACTION_KIND = 73005;
+
+/** Reputation attestation (published on retraction after solutions exist) */
+export const REPUTATION_KIND = 73006;
 ```
 
 ### 6.2 Task Event (Kind 37300)
@@ -965,7 +973,135 @@ export interface Payout {
  */
 ```
 
-### 6.7 Aggregate Types
+### 6.7 Retraction Event (Kind 73005)
+
+```typescript
+/**
+ * Parsed representation of a Kind 73005 retraction event.
+ * Used for both bounty cancellation (by creator) and pledge retraction (by pledger).
+ * Replaces Kind 5 deletes for explicit audit trail.
+ */
+export interface Retraction {
+  /** Raw Nostr event */
+  event: NostrEvent;
+
+  /** Event ID */
+  id: string;
+
+  /** Pubkey of the retracting party (creator or pledger) */
+  pubkey: string;
+
+  /** Reference to the bounty — extracted from `a` tag */
+  taskAddress: string;
+
+  /** Retraction type */
+  type: "bounty" | "pledge";
+
+  /** Reference to the pledge event being retracted (only for pledge retractions) */
+  pledgeEventId: string | null;
+
+  /** Optional reason for retraction — from `content` field */
+  reason: string;
+
+  /** Event created_at timestamp */
+  createdAt: number;
+
+  /** Whether solutions existed at time of retraction (determines reputation impact) */
+  hasSolutions: boolean;
+}
+
+/**
+ * Raw Nostr event structure for Kind 73005.
+ *
+ * Tags:
+ *   ["a", "37300:<task-creator-pubkey>:<d-tag>", "<relay-hint>"]  — REQUIRED, bounty reference
+ *   ["type", "bounty" | "pledge"]                                    — REQUIRED, retraction type
+ *   ["e", "<pledge-event-id>", "<relay-hint>"]                       — CONDITIONAL, required for pledge retractions
+ *   ["p", "<task-creator-pubkey>"]                                    — REQUIRED, for notifications
+ *   ["client", "bounty.ninja"]                                          — RECOMMENDED
+ *
+ * Content: Optional human-readable reason for retraction.
+ *
+ * Retraction Policy:
+ *   - Bounty cancellation: Published by the bounty creator. Transitions the bounty to `cancelled`.
+ *   - Pledge retraction: Published by a pledger. Removes their pledge from the bounty total.
+ *   - If NO solutions exist at time of retraction: no penalty, free retraction.
+ *   - If solutions exist at time of retraction: a Kind 73006 reputation event is
+ *     automatically published as a self-attestation of poor behavior.
+ *   - The retraction event provides an explicit audit trail (unlike Kind 5 deletes
+ *     which may be silently dropped by relays).
+ */
+```
+
+### 6.8 Reputation Event (Kind 73006)
+
+```typescript
+/**
+ * Parsed representation of a Kind 73006 reputation attestation.
+ * Published automatically by the client when a retraction occurs after
+ * solutions have been submitted. This is a self-attestation — the retracting
+ * user's own client publishes it in their event stream.
+ */
+export interface ReputationEvent {
+  /** Raw Nostr event */
+  event: NostrEvent;
+
+  /** Event ID */
+  id: string;
+
+  /** Pubkey of the offending party (same as event author — self-attestation) */
+  pubkey: string;
+
+  /** The offending party's pubkey — extracted from `p` tag */
+  offenderPubkey: string;
+
+  /** Reference to the bounty */
+  taskAddress: string;
+
+  /** Type of offense */
+  type: "bounty_retraction" | "pledge_retraction";
+
+  /** Reference to the retraction event that triggered this */
+  retractionEventId: string;
+
+  /** Human-readable description of the offense — from `content` field */
+  description: string;
+
+  /** Event created_at timestamp */
+  createdAt: number;
+}
+
+/**
+ * Raw Nostr event structure for Kind 73006.
+ *
+ * Tags:
+ *   ["p", "<offending-pubkey>"]                                      — REQUIRED, the retracting party
+ *   ["a", "37300:<task-creator-pubkey>:<d-tag>", "<relay-hint>"]  — REQUIRED, bounty reference
+ *   ["type", "bounty_retraction" | "pledge_retraction"]              — REQUIRED, offense type
+ *   ["e", "<retraction-event-id>", "<relay-hint>"]                   — REQUIRED, link to Kind 73005
+ *   ["client", "bounty.ninja"]                                          — RECOMMENDED
+ *
+ * Content: Human-readable description of the offense, e.g.,
+ *   "Bounty cancelled after 3 solutions were submitted"
+ *   "Pledge retracted after 2 solutions were submitted"
+ *
+ * Self-Attestation Model:
+ *   This event is published by the CLIENT (bounty.ninja) on behalf of the
+ *   retracting user. It is signed by the retracting user's key and included
+ *   in their own event stream. This means:
+ *     - The user attests to their own behavior (cannot be forged by others)
+ *     - Other clients can query Kind 73006 events by pubkey to build reputation
+ *     - The event is immutable once published (cannot be deleted without
+ *       leaving a Kind 5 trace)
+ *
+ * Reputation Derivation:
+ *   Clients derive reputation scores by querying Kind 73006 events for a pubkey
+ *   and combining with positive signals (completed bounties, timely releases).
+ *   See Section 10.7 for the full reputation/credibility system.
+ */
+```
+
+### 6.9 Aggregate Types
 
 ```typescript
 /**
@@ -1300,7 +1436,8 @@ export const load: PageLoad = ({ params }) => {
 
   Side transitions:
     Any state ──[deadline passed, no payout]──▶ EXPIRED
-    Any state ──[creator publishes Kind 5 delete]──▶ CANCELLED
+    Any state ──[creator publishes Kind 73005 type=bounty]──▶ CANCELLED
+    OPEN/IN_REVIEW ──[pledger publishes Kind 73005 type=pledge]──▶ pledge removed (bounty remains)
 ```
 
 ```typescript
@@ -1315,10 +1452,14 @@ export function deriveBountyStatus(
   solutions: NostrEvent[],
   payouts: NostrEvent[],
   deleteEvents: NostrEvent[],
+  retractions: NostrEvent[] = [],
   now: number = Math.floor(Date.now() / 1000),
 ): TaskStatus {
-  // Check for cancellation (Kind 5 delete referencing this task)
-  if (deleteEvents.length > 0) return "cancelled";
+  // Check for cancellation (Kind 73005 type=bounty retraction, or legacy Kind 5 delete)
+  const hasBountyRetraction = retractions.some(
+    (e) => e.tags.find((t) => t[0] === "type")?.[1] === "bounty",
+  );
+  if (hasBountyRetraction || deleteEvents.length > 0) return "cancelled";
 
   // Check for completion
   if (payouts.length > 0) return "completed";
@@ -2132,6 +2273,159 @@ Beyond standard human labor, the board supports:
 > **Note:** DVM/ContextVM integration is out of scope for MVP but the event
 > schema is designed to be forward-compatible. Tasks can include a
 > `["dvm", "true"]` tag to signal they accept automated solutions.
+
+### 10.6 Retraction & Deletion Policy
+
+Retractions use a **dedicated event kind (73005)** instead of Kind 5 deletes.
+This provides an explicit, queryable audit trail that relays cannot silently
+drop.
+
+#### 10.6.1 Bounty Cancellation (by Creator)
+
+The bounty creator publishes a Kind 73005 event with `["type", "bounty"]`.
+
+- **No solutions exist**: Free cancellation. No reputation impact. The bounty
+  transitions to `cancelled`. Pledgers can reclaim their tokens immediately.
+- **Solutions exist**: The client **automatically publishes a Kind 73006
+  reputation event** as a self-attestation before completing the cancellation.
+  The bounty transitions to `cancelled`. Pledgers can reclaim tokens.
+
+#### 10.6.2 Pledge Retraction (by Pledger)
+
+A pledger publishes a Kind 73005 event with `["type", "pledge"]` and an `e` tag
+referencing their pledge event.
+
+- **No solutions exist**: Free retraction. No reputation impact. The pledge is
+  removed from the bounty total. The pledger reclaims their tokens via
+  `reclaimPledge()`.
+- **Solutions exist**: The client **automatically publishes a Kind 73006
+  reputation event** before completing the retraction. The pledge is removed.
+  Solvers who submitted work see the reduced bounty pool.
+
+#### 10.6.3 Token Reclaim on Retraction
+
+Since pledger-controlled escrow locks tokens to the pledger's own pubkey,
+reclaim is straightforward — the pledger already holds the P2PK key. The
+`reclaimPledge()` function in `src/lib/cashu/escrow.ts` handles the mint swap.
+
+#### 10.6.4 Legacy Kind 5 Delete Support
+
+The state machine continues to recognize Kind 5 delete events for backward
+compatibility. However, new cancellations should always use Kind 73005. The UI
+should not offer Kind 5 deletion as a cancellation mechanism.
+
+### 10.7 Reputation & Credibility System
+
+Reputation is derived entirely from on-chain Nostr events — no centralized
+score server. The client computes reputation client-side by querying relevant
+event kinds for a given pubkey.
+
+#### 10.7.1 Reputation Signals
+
+| Signal                    | Source                            | Weight   | Direction |
+| ------------------------- | --------------------------------- | -------- | --------- |
+| Bounties completed        | Kind 73004 payouts as creator     | High     | Positive  |
+| Pledges released on time  | Kind 73004 payouts as pledger     | High     | Positive  |
+| Solutions accepted        | Kind 73004 referencing solver     | High     | Positive  |
+| Bounty retractions        | Kind 73006 type=bounty_retraction | High     | Negative  |
+| Pledge retractions        | Kind 73006 type=pledge_retraction | Medium   | Negative  |
+| Total sats pledged        | Kind 73002 events                 | Low      | Positive  |
+| Total sats earned         | Kind 73004 as solver              | Low      | Positive  |
+
+#### 10.7.2 Credibility Score Derivation
+
+```typescript
+// src/lib/reputation/score.ts
+
+export interface ReputationScore {
+  /** Number of bounties successfully completed (as creator) */
+  bountiesCompleted: number;
+
+  /** Number of pledges released on time (as pledger) */
+  pledgesReleased: number;
+
+  /** Total pledges made */
+  totalPledges: number;
+
+  /** Release rate: pledgesReleased / totalPledges (0-1) */
+  releaseRate: number;
+
+  /** Number of solutions accepted (as solver) */
+  solutionsAccepted: number;
+
+  /** Number of bounty retractions (negative) */
+  bountyRetractions: number;
+
+  /** Number of pledge retractions (negative) */
+  pledgeRetractions: number;
+
+  /** Overall credibility tier */
+  tier: "new" | "emerging" | "established" | "trusted" | "flagged";
+}
+
+/**
+ * Derive a reputation score from on-chain events for a given pubkey.
+ * Queries: Kind 73004 (payouts), Kind 73006 (reputation events),
+ *          Kind 73002 (pledges), Kind 73001 (solutions).
+ */
+export function deriveReputation(
+  pubkey: string,
+  payouts: NostrEvent[],
+  reputationEvents: NostrEvent[],
+  pledges: NostrEvent[],
+): ReputationScore {
+  // ... compute from events
+}
+```
+
+#### 10.7.3 Credibility Tiers
+
+| Tier          | Criteria                                                      | Visual               |
+| ------------- | ------------------------------------------------------------- | -------------------- |
+| `new`         | < 3 total interactions                                        | No badge             |
+| `emerging`    | ≥ 3 interactions, no retractions                              | 🌱 green seedling    |
+| `established` | ≥ 10 interactions, release rate > 90%                         | ✅ green checkmark   |
+| `trusted`     | ≥ 25 interactions, release rate > 95%, 0 bounty retractions  | ⭐ gold star         |
+| `flagged`     | Any retraction with solutions existing (Kind 73006 present)  | ⚠️ yellow warning    |
+
+#### 10.7.4 UI Integration Points
+
+Credibility indicators appear everywhere a pubkey is displayed:
+
+- **ProfileLink component**: Extend with reputation badge next to display name.
+  The existing `ProfileLink` component already resolves pubkey → profile. Add a
+  `reputation` prop or derive it internally via a reputation store.
+- **BountyCard**: Show creator credibility badge next to creator name.
+- **BountyDetailView**: Show creator credibility in header. Show pledger
+  credibility next to each pledge in PledgeList. Show solver credibility next to
+  each solution.
+- **PledgeItem**: Show pledger credibility badge and release rate.
+- **SolutionItem**: Show solver credibility badge and acceptance rate.
+- **Profile page**: Full reputation breakdown with history.
+
+#### 10.7.5 Reputation Store
+
+```typescript
+// src/lib/stores/reputation.svelte.ts
+
+import type { ReputationScore } from "$lib/reputation/score";
+
+/**
+ * Reactive reputation store. Caches computed reputation scores per pubkey.
+ * Lazily fetches Kind 73006 and Kind 73004 events when a pubkey's
+ * reputation is first requested.
+ */
+class ReputationStore {
+  #cache: Map<string, ReputationScore> = new Map();
+
+  /** Get reputation for a pubkey (triggers fetch if not cached) */
+  getReputation(pubkey: string): ReputationScore | null {
+    // ... lazy load from relay subscriptions
+  }
+}
+
+export const reputationStore = new ReputationStore();
+```
 
 ---
 
@@ -2991,6 +3285,8 @@ multi-mint support.
 | **Applesauce API stability** | Medium   | Applesauce is actively developed (v5 released recently). API may change. Mitigation: pin versions, wrap Applesauce calls in adapter layer.                                                                                                                         |
 | **Cashu token double-spend** | Medium   | A funder could pledge the same token to multiple tasks. Mitigation: verify tokens against mint on receipt (async validation).                                                                                                                                      |
 | **Large event payloads**     | Low      | Cashu tokens in tags can be large. Some relays may reject events exceeding size limits. Mitigation: compress tokens, split large pledges.                                                                                                                          |
+| **Reputation gaming**        | Medium   | Users could create fresh pubkeys to escape negative reputation. Mitigation: "new" tier has no credibility — established reputation takes time to build. Social graph (NIP-05, follows) adds friction to identity rotation.                                          |
+| **Self-attestation bypass**  | Low      | A modified client could skip Kind 73006 on retraction. Mitigation: other clients can detect retractions (Kind 73005) with solutions present and derive negative signal independently.                                                                              |
 
 ### 22.4 Suggested Simplifications for MVP
 
@@ -3042,6 +3338,11 @@ multi-mint support.
 | **Release**                   | The act of a pledger swapping their self-locked tokens for solver-locked tokens after vote consensus                                                             |
 | **Release Rate**              | A pledger's reputation metric: percentage of pledges released on time after consensus was reached                                                                |
 | **Anti-spam fee**             | A small, non-refundable Cashu token attached to solution submissions to deter spam                                                                               |
+| **Retraction**                | An explicit cancellation of a bounty (by creator) or withdrawal of a pledge (by pledger), recorded as a Kind 73005 event                                        |
+| **Retraction Event**          | Kind 73005 — dedicated event for bounty cancellations and pledge retractions, providing an explicit audit trail                                                  |
+| **Reputation Event**          | Kind 73006 — self-attestation published when a retraction occurs after solutions exist, recording poor behavior for credibility scoring                          |
+| **Credibility Tier**          | A derived reputation level (new, emerging, established, trusted, flagged) computed from on-chain events                                                          |
+| **Self-Attestation**          | A reputation event signed by the offending party's own key, published by the client on their behalf — cannot be forged by others                                |
 | **Tokyo Night**               | A popular dark/light color scheme used as the app's visual theme                                                                                                 |
 
 ---

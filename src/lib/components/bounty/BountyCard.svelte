@@ -4,6 +4,7 @@
 	import { nip19 } from 'nostr-tools';
 	import SatAmount from '$lib/components/shared/SatAmount.svelte';
 	import TimeAgo from '$lib/components/shared/TimeAgo.svelte';
+	import ProfileLink from '$lib/components/shared/ProfileLink.svelte';
 
 	const { bounty }: { bounty: BountySummary } = $props();
 
@@ -27,8 +28,11 @@
 		focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
 	aria-label="Bounty: {bounty.title}"
 >
-	<!-- Header: Time -->
-	<div class="flex items-center justify-end px-4 pt-4 pb-2">
+	<!-- Header: Creator + Time -->
+	<div class="flex items-center justify-between px-4 pt-4 pb-2">
+		<span class="text-xs text-muted-foreground" onclick={(e) => e.preventDefault()}>
+			<ProfileLink pubkey={bounty.pubkey} size="sm" showAvatar={false} />
+		</span>
 		<TimeAgo timestamp={bounty.createdAt} />
 	</div>
 

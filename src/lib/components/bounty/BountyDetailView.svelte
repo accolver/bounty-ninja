@@ -24,8 +24,16 @@
 	import VoteResults from '$lib/components/voting/VoteResults.svelte';
 	import PayoutTrigger from '$lib/components/voting/PayoutTrigger.svelte';
 	import SolverClaim from '$lib/components/voting/SolverClaim.svelte';
+	import RetractButton from '$lib/components/bounty/RetractButton.svelte';
+	import type { Retraction } from '$lib/bounty/types';
 
-	const { detail }: { detail: BountyDetail } = $props();
+	const {
+		detail,
+		retractions = []
+	}: {
+		detail: BountyDetail;
+		retractions?: Retraction[];
+	} = $props();
 
 	/** NIP-33 bounty address: kind:pubkey:d-tag */
 	const bountyAddress = $derived(`${BOUNTY_KIND}:${detail.pubkey}:${detail.dTag}`);
@@ -82,8 +90,31 @@
 				Posted by
 				<ProfileLink pubkey={detail.pubkey} />
 			</span>
+			{#if isCreator && detail.status !== 'completed' && detail.status !== 'cancelled'}
+				<RetractButton
+					taskAddress={bountyAddress}
+					hasSolutions={detail.solutions.length > 0}
+				/>
+			{/if}
 		</div>
 	</header>
+
+	<!-- Retraction history -->
+	{#if retractions.length > 0}
+		<section class="rounded-lg border border-destructive/30 bg-destructive/5 p-4 space-y-2" aria-label="Retraction history">
+			<h2 class="text-sm font-semibold text-destructive">Retraction History</h2>
+			<ul class="space-y-1">
+				{#each retractions as retraction (retraction.id)}
+					<li class="text-xs text-muted-foreground">
+						<span class="font-medium">{retraction.type === 'bounty' ? 'Bounty cancelled' : 'Pledge retracted'}</span>
+						{#if retraction.reason}
+							— {retraction.reason}
+						{/if}
+					</li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
 
 	<!-- Reclaim alert for expired bounties (prominent, persistent) -->
 	<ReclaimAlert {detail} />

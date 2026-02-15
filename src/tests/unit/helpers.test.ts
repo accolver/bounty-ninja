@@ -12,8 +12,11 @@ import {
 	parseSolution,
 	parseVote,
 	parsePayout,
-	parseBountyDetail
+	parseBountyDetail,
+	parseRetraction,
+	parseReputationEvent
 } from '$lib/bounty/helpers';
+import { RETRACTION_KIND, REPUTATION_KIND } from '$lib/bounty/kinds';
 
 // Valid hex constants for reuse across tests
 const PUBKEY_A = 'a'.repeat(64);
@@ -598,5 +601,75 @@ describe('parseBountyDetail', () => {
 
 		const detail = parseBountyDetail(bountyEvent, [], [], [], [], [])!;
 		expect(detail.submissionFee).toBe(0);
+	});
+});
+
+describe('parseRetraction (integration)', () => {
+	it('parses valid bounty retraction', () => {
+		const event = mockEvent({
+			kind: RETRACTION_KIND,
+			tags: [
+				['a', VALID_TASK_ADDR],
+				['type', 'bounty'],
+				['p', PUBKEY_A]
+			],
+			content: 'No longer needed'
+		});
+		const result = parseRetraction(event);
+		expect(result).not.toBeNull();
+		expect(result!.type).toBe('bounty');
+		expect(result!.reason).toBe('No longer needed');
+	});
+
+	it('parses valid pledge retraction', () => {
+		const event = mockEvent({
+			kind: RETRACTION_KIND,
+			tags: [
+				['a', VALID_TASK_ADDR],
+				['type', 'pledge'],
+				['e', EVENT_ID_1]
+			]
+		});
+		const result = parseRetraction(event);
+		expect(result).not.toBeNull();
+		expect(result!.pledgeEventId).toBe(EVENT_ID_1);
+	});
+
+	it('rejects retraction with invalid type', () => {
+		const event = mockEvent({
+			kind: RETRACTION_KIND,
+			tags: [
+				['a', VALID_TASK_ADDR],
+				['type', 'invalid']
+			]
+		});
+		expect(parseRetraction(event)).toBeNull();
+	});
+});
+
+describe('parseReputationEvent (integration)', () => {
+	it('parses valid reputation event', () => {
+		const event = mockEvent({
+			kind: REPUTATION_KIND,
+			tags: [
+				['p', PUBKEY_A],
+				['a', VALID_TASK_ADDR],
+				['type', 'bounty_retraction'],
+				['e', EVENT_ID_1]
+			],
+			content: 'Cancelled after solutions'
+		});
+		const result = parseReputationEvent(event);
+		expect(result).not.toBeNull();
+		expect(result!.offenderPubkey).toBe(PUBKEY_A);
+		expect(result!.type).toBe('bounty_retraction');
+	});
+
+	it('rejects reputation event missing required tags', () => {
+		const event = mockEvent({
+			kind: REPUTATION_KIND,
+			tags: [['type', 'bounty_retraction']]
+		});
+		expect(parseReputationEvent(event)).toBeNull();
 	});
 });

@@ -1,5 +1,5 @@
 import type { EventTemplate } from 'nostr-tools';
-import { BOUNTY_KIND, PLEDGE_KIND, SOLUTION_KIND, VOTE_KIND, PAYOUT_KIND } from './kinds';
+import { BOUNTY_KIND, PLEDGE_KIND, SOLUTION_KIND, VOTE_KIND, PAYOUT_KIND, RETRACTION_KIND, REPUTATION_KIND } from './kinds';
 import { CLIENT_TAG } from '$lib/utils/constants';
 
 /**
@@ -212,6 +212,83 @@ export function payoutBlueprint(params: PayoutBlueprintParams): EventTemplate {
 		kind: PAYOUT_KIND,
 		tags,
 		content: '',
+		created_at: Math.floor(Date.now() / 1000)
+	};
+}
+
+/**
+ * Blueprint parameters for creating a retraction event (kind 73005).
+ */
+export interface RetractionBlueprintParams {
+	/** NIP-33 address of the bounty (kind:pubkey:d-tag) */
+	taskAddress: string;
+	/** Whether this is a bounty cancellation or pledge retraction */
+	type: 'bounty' | 'pledge';
+	/** Event ID of the pledge being retracted (required for pledge retractions) */
+	pledgeEventId?: string;
+	/** Pubkey of the bounty creator (for p-tag) */
+	creatorPubkey: string;
+	/** Human-readable reason for retraction */
+	reason?: string;
+}
+
+/**
+ * Blueprint parameters for creating a reputation event (kind 73006).
+ */
+export interface ReputationBlueprintParams {
+	/** Pubkey of the user whose reputation is affected */
+	offenderPubkey: string;
+	/** NIP-33 address of the bounty */
+	taskAddress: string;
+	/** Type of retraction that triggered this reputation event */
+	type: 'bounty_retraction' | 'pledge_retraction';
+	/** Event ID of the retraction event */
+	retractionEventId: string;
+	/** Human-readable description of the reputation impact */
+	description?: string;
+}
+
+/**
+ * Create an EventTemplate for a retraction event (kind 73005).
+ * Used for both bounty cancellation and pledge withdrawal.
+ */
+export function retractionBlueprint(params: RetractionBlueprintParams): EventTemplate {
+	const tags: string[][] = [
+		['a', params.taskAddress],
+		['type', params.type],
+		['p', params.creatorPubkey],
+		['client', CLIENT_TAG]
+	];
+
+	if (params.pledgeEventId) {
+		tags.push(['e', params.pledgeEventId]);
+	}
+
+	return {
+		kind: RETRACTION_KIND,
+		tags,
+		content: params.reason ?? '',
+		created_at: Math.floor(Date.now() / 1000)
+	};
+}
+
+/**
+ * Create an EventTemplate for a reputation attestation (kind 73006).
+ * Published automatically when a retraction occurs after solutions exist.
+ */
+export function reputationBlueprint(params: ReputationBlueprintParams): EventTemplate {
+	const tags: string[][] = [
+		['p', params.offenderPubkey],
+		['a', params.taskAddress],
+		['type', params.type],
+		['e', params.retractionEventId],
+		['client', CLIENT_TAG]
+	];
+
+	return {
+		kind: REPUTATION_KIND,
+		tags,
+		content: params.description ?? '',
 		created_at: Math.floor(Date.now() / 1000)
 	};
 }

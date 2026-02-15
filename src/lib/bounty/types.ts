@@ -99,6 +99,30 @@ export interface BountyDetail extends Bounty {
 	creatorProfile: Record<string, string> | null;
 }
 
+export interface Retraction {
+	event: NostrEvent;
+	id: string;
+	pubkey: string;
+	taskAddress: string;
+	type: 'bounty' | 'pledge';
+	pledgeEventId: string | null;
+	reason: string;
+	createdAt: number;
+	hasSolutions: boolean;
+}
+
+export interface ReputationEvent {
+	event: NostrEvent;
+	id: string;
+	pubkey: string;
+	offenderPubkey: string;
+	taskAddress: string;
+	type: 'bounty_retraction' | 'pledge_retraction';
+	retractionEventId: string;
+	description: string;
+	createdAt: number;
+}
+
 export interface VoteTally {
 	approveWeight: number;
 	rejectWeight: number;
