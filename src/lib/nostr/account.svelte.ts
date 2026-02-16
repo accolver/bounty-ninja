@@ -406,6 +406,56 @@ class AccountState {
 	}
 
 	/**
+	 * Reconnect using an existing bunker signer (after logout without page refresh).
+	 * Does NOT call connect() — the connection is already established.
+	 */
+	async reconnectBunker(): Promise<void> {
+		this.error = null;
+		this.loading = true;
+		this.bunkerConnecting = true;
+
+		try {
+			const signer = getBunkerSigner();
+			if (!signer || !signer.isConnected) {
+				this.error = {
+					type: 'bunker-error',
+					message: 'No active bunker connection. Please enter a new bunker:// URI.'
+				};
+				return;
+			}
+
+			const pubkey = await Promise.race([
+				signer.getPublicKey(),
+				new Promise<never>((_, reject) =>
+					setTimeout(() => reject(new Error('timeout')), BUNKER_CONNECT_TIMEOUT_MS)
+				)
+			]);
+
+			if (typeof pubkey !== 'string' || !/^[0-9a-f]{64}$/i.test(pubkey)) {
+				this.error = {
+					type: 'bunker-error',
+					message: 'Remote signer returned an invalid public key.'
+				};
+				return;
+			}
+
+			setBunkerSigner(signer);
+			resetEventFactory();
+			this.pubkey = pubkey;
+			this.loginMethod = 'bunker';
+			this.persistSession();
+		} catch {
+			this.error = {
+				type: 'bunker-error',
+				message: 'Bunker connection is no longer active. Please enter a new bunker:// URI.'
+			};
+		} finally {
+			this.bunkerConnecting = false;
+			this.loading = false;
+		}
+	}
+
+	/**
 	 * Fully disconnect from bunker and clear all state.
 	 * Use this when the user wants to switch to a different signer.
 	 */

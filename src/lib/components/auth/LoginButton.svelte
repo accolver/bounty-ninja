@@ -35,6 +35,10 @@
 		nsecError = null;
 		bunkerValue = '';
 		bunkerError = null;
+		// Clear account-level errors so they don't leak after dropdown closes
+		if (accountState.error) {
+			accountState.error = null;
+		}
 	}
 
 	let showInstallLinks = $state(false);
@@ -91,8 +95,7 @@
 
 	async function handleBunkerReconnect() {
 		bunkerError = null;
-		// Pass empty string — loginWithBunker checks for existing connection first
-		await accountState.loginWithBunker('');
+		await accountState.reconnectBunker();
 
 		if (accountState.error) {
 			bunkerError = accountState.error.message;

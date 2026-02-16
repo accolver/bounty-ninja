@@ -80,6 +80,7 @@ import { NostrConnectSigner } from 'applesauce-signers';
 import {
 	setBunkerSigner,
 	clearBunkerSigner,
+	getBunkerSigner,
 	getEventFactory,
 	resetEventFactory
 } from '$lib/nostr/signer.svelte';
@@ -203,10 +204,12 @@ describe('NIP-46 bunker login', () => {
 			expect(mockInstance.close).toHaveBeenCalled();
 		});
 
-		it('clearBunkerSigner without disconnect keeps connection open', async () => {
+		it('clearBunkerSigner without disconnect keeps signer alive', async () => {
 			setBunkerSigner(mockInstance as any);
 			await clearBunkerSigner(false);
 			expect(mockInstance.close).not.toHaveBeenCalled();
+			// Signer should still be accessible
+			expect(getBunkerSigner()).not.toBeNull();
 		});
 
 		it('bunker signer takes priority over NIP-07', () => {
