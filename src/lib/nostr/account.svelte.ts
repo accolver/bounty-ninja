@@ -1,12 +1,26 @@
 // SECURITY: This file handles private key material. Never persist or log nsec values.
 import { nip19, getPublicKey } from 'nostr-tools';
-import { SESSION_STORAGE_KEY, SIGNER_TIMEOUT_MS } from '$lib/utils/constants';
-import { signerState, resetEventFactory, setNsecSigner, clearNsecSigner } from './signer.svelte';
+import {
+	SESSION_STORAGE_KEY,
+	SIGNER_TIMEOUT_MS,
+	BUNKER_STORAGE_KEY,
+	BUNKER_CONNECT_TIMEOUT_MS
+} from '$lib/utils/constants';
+import { NostrConnectSigner } from 'applesauce-signers';
+import {
+	signerState,
+	resetEventFactory,
+	setNsecSigner,
+	clearNsecSigner,
+	setBunkerSigner,
+	clearBunkerSigner
+} from './signer.svelte';
+import { pool } from './relay-pool';
 
-export type LoginMethod = 'nip07' | 'nsec';
+export type LoginMethod = 'nip07' | 'nsec' | 'bunker';
 
 export type LoginError = {
-	type: 'no-extension' | 'rejected' | 'timeout' | 'unknown' | 'invalid-nsec';
+	type: 'no-extension' | 'rejected' | 'timeout' | 'unknown' | 'invalid-nsec' | 'bunker-error';
 	message: string;
 };
 
@@ -26,6 +40,9 @@ class AccountState {
 
 	/** How the user logged in (not persisted) */
 	loginMethod = $state<LoginMethod | null>(null);
+
+	/** Whether a bunker connection is being established */
+	bunkerConnecting = $state(false);
 
 	/** NIP-19 encoded npub derived from the hex pubkey */
 	get npub(): string | null {
@@ -171,12 +188,116 @@ class AccountState {
 		}
 	}
 
+	/**
+	 * Login via NIP-46 bunker (remote signer).
+	 * Parses a bunker:// URI, establishes connection, and retrieves the user's pubkey.
+	 * SECURITY: The bunker secret is never persisted — only remote pubkey + relays are stored.
+	 */
+	async loginWithBunker(bunkerUri: string): Promise<void> {
+		this.error = null;
+		this.bunkerConnecting = true;
+		this.loading = true;
+
+		try {
+			if (!bunkerUri.startsWith('bunker://')) {
+				this.error = {
+					type: 'bunker-error',
+					message: 'Invalid URI. Must start with bunker://'
+				};
+				return;
+			}
+
+			// Set static pool so NostrConnectSigner can communicate over relays
+			NostrConnectSigner.pool = pool;
+
+			const signer = await NostrConnectSigner.fromBunkerURI(bunkerUri, {
+				permissions: NostrConnectSigner.buildSigningPermissions([
+					37300, 73001, 73002, 1018, 73004, 73005, 73006
+				])
+			});
+
+			await signer.open();
+
+			// Extract secret from URI for connect call
+			const parsed = NostrConnectSigner.parseBunkerURI(bunkerUri);
+			await Promise.race([
+				signer.connect(parsed.secret),
+				new Promise<never>((_, reject) =>
+					setTimeout(() => reject(new Error('timeout')), BUNKER_CONNECT_TIMEOUT_MS)
+				)
+			]);
+
+			const pubkey = await signer.getPublicKey();
+
+			if (typeof pubkey !== 'string' || !/^[0-9a-f]{64}$/i.test(pubkey)) {
+				await signer.close();
+				this.error = {
+					type: 'bunker-error',
+					message: 'Remote signer returned an invalid public key.'
+				};
+				return;
+			}
+
+			// Store signer for EventFactory
+			setBunkerSigner(signer);
+			resetEventFactory();
+
+			this.pubkey = pubkey;
+			this.loginMethod = 'bunker';
+			this.persistSession();
+
+			// Persist minimal reconnection info (no secrets)
+			this.persistBunkerInfo(parsed.remote, parsed.relays);
+		} catch (err) {
+			if (err instanceof Error && err.message === 'timeout') {
+				this.error = {
+					type: 'timeout',
+					message: 'Bunker connection timed out. Please check the URI and try again.'
+				};
+			} else {
+				this.error = {
+					type: 'bunker-error',
+					message:
+						err instanceof Error
+							? err.message
+							: 'Failed to connect to bunker. Please check the URI and try again.'
+				};
+			}
+		} finally {
+			this.bunkerConnecting = false;
+			this.loading = false;
+		}
+	}
+
+	/** Persist minimal bunker connection info for display purposes (no secrets) */
+	private persistBunkerInfo(remotePubkey: string, relays: string[]): void {
+		try {
+			localStorage.setItem(
+				BUNKER_STORAGE_KEY,
+				JSON.stringify({ remotePubkey, relays })
+			);
+		} catch {
+			// localStorage may be unavailable
+		}
+	}
+
+	/** Clear persisted bunker connection info */
+	private clearBunkerInfo(): void {
+		try {
+			localStorage.removeItem(BUNKER_STORAGE_KEY);
+		} catch {
+			// localStorage may be unavailable
+		}
+	}
+
 	/** Logout — clear pubkey and session data */
-	logout(): void {
+	async logout(): Promise<void> {
 		this.pubkey = null;
 		this.error = null;
 		this.loginMethod = null;
 		clearNsecSigner();
+		await clearBunkerSigner();
+		this.clearBunkerInfo();
 		resetEventFactory();
 		this.persistSession();
 	}

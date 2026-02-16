@@ -1,7 +1,7 @@
 // SECURITY: This file handles private key material. Never persist or log nsec values.
 import type { EventTemplate, NostrEvent } from 'nostr-tools';
 import { EventFactory } from 'applesauce-core/event-factory';
-import { ExtensionSigner, PrivateKeySigner } from 'applesauce-signers';
+import { ExtensionSigner, PrivateKeySigner, NostrConnectSigner } from 'applesauce-signers';
 import {
 	SIGNER_POLL_INTERVAL_MS,
 	SIGNER_MAX_RETRIES,
@@ -52,6 +52,30 @@ let factoryInstance: EventFactory | null = null;
 /** SECURITY: Memory-only nsec signer reference. Never persist. */
 let nsecSignerInstance: PrivateKeySigner | null = null;
 
+/** NIP-46 bunker signer instance. Kept alive for the session. */
+let bunkerSignerInstance: NostrConnectSigner | null = null;
+
+/**
+ * Set the NIP-46 bunker signer instance.
+ */
+export function setBunkerSigner(signer: NostrConnectSigner): void {
+	bunkerSignerInstance = signer;
+}
+
+/**
+ * Clear and close the bunker signer.
+ */
+export async function clearBunkerSigner(): Promise<void> {
+	if (bunkerSignerInstance) {
+		try {
+			await bunkerSignerInstance.close();
+		} catch {
+			// Ignore close errors during cleanup
+		}
+		bunkerSignerInstance = null;
+	}
+}
+
 /**
  * Set the nsec signer from a private key string.
  * SECURITY: The signer is held in memory only and cleared on logout/beforeunload.
@@ -80,6 +104,14 @@ if (typeof window !== 'undefined') {
  */
 export function getEventFactory(): EventFactory {
 	if (factoryInstance) return factoryInstance;
+
+	if (bunkerSignerInstance) {
+		factoryInstance = new EventFactory({
+			signer: bunkerSignerInstance,
+			client: { name: CLIENT_TAG }
+		});
+		return factoryInstance;
+	}
 
 	if (nsecSignerInstance) {
 		factoryInstance = new EventFactory({

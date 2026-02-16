@@ -5,8 +5,11 @@
 
 	let open = $state(false);
 	let showNsecForm = $state(false);
+	let showBunkerForm = $state(false);
 	let nsecValue = $state('');
 	let nsecError = $state<string | null>(null);
+	let bunkerValue = $state('');
+	let bunkerError = $state<string | null>(null);
 	let menuRef = $state<HTMLDivElement | null>(null);
 	let triggerRef = $state<HTMLButtonElement | null>(null);
 
@@ -14,18 +17,24 @@
 		open = !open;
 		if (!open) {
 			showNsecForm = false;
+			showBunkerForm = false;
 			showInstallLinks = false;
 			nsecValue = '';
 			nsecError = null;
+			bunkerValue = '';
+			bunkerError = null;
 		}
 	}
 
 	function close() {
 		open = false;
 		showNsecForm = false;
+		showBunkerForm = false;
 		showInstallLinks = false;
 		nsecValue = '';
 		nsecError = null;
+		bunkerValue = '';
+		bunkerError = null;
 	}
 
 	let showInstallLinks = $state(false);
@@ -56,6 +65,26 @@
 		if (accountState.error?.type === 'invalid-nsec') {
 			nsecError = accountState.error.message;
 		} else {
+			close();
+		}
+	}
+
+	async function handleBunkerSubmit() {
+		bunkerError = null;
+		const uri = bunkerValue.trim();
+		// SECURITY: Clear input immediately
+		bunkerValue = '';
+
+		if (!uri) {
+			bunkerError = 'Please enter a bunker:// URI.';
+			return;
+		}
+
+		await accountState.loginWithBunker(uri);
+
+		if (accountState.error?.type === 'bunker-error' || accountState.error?.type === 'timeout') {
+			bunkerError = accountState.error.message;
+		} else if (!accountState.error) {
 			close();
 		}
 	}
@@ -121,7 +150,62 @@
 			role="menu"
 			aria-label="Login options"
 		>
-			{#if showInstallLinks}
+			{#if showBunkerForm}
+				<!-- Bunker form -->
+				<div class="space-y-3">
+					<div class="flex items-center gap-2">
+						<button
+							onclick={() => (showBunkerForm = false)}
+							class="cursor-pointer text-muted-foreground transition-colors hover:text-foreground"
+							aria-label="Back to login options"
+						>
+							<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+							</svg>
+						</button>
+						<h3 class="text-sm font-medium text-card-foreground">Remote Signer</h3>
+					</div>
+
+					<p class="text-xs text-muted-foreground">
+						Paste a <code class="rounded bg-muted px-1">bunker://</code> URI from your remote signer (e.g. Amber, Signet, nsecBunker).
+					</p>
+					<p class="text-xs text-success">
+						🔒 Most secure — your private key never leaves your signer device.
+					</p>
+
+					<form
+						onsubmit={(e) => { e.preventDefault(); handleBunkerSubmit(); }}
+						class="flex flex-col gap-2"
+					>
+						<input
+							type="text"
+							autocomplete="off"
+							data-1p-ignore
+							data-lpignore="true"
+							data-form-type="other"
+							placeholder="bunker://…"
+							bind:value={bunkerValue}
+							disabled={accountState.bunkerConnecting}
+							class="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+						/>
+						<button
+							type="submit"
+							disabled={accountState.bunkerConnecting}
+							class="cursor-pointer rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+						>
+							{#if accountState.bunkerConnecting}
+								Connecting…
+							{:else}
+								Connect
+							{/if}
+						</button>
+					</form>
+
+					{#if bunkerError}
+						<p class="text-xs text-destructive" role="alert">{bunkerError}</p>
+					{/if}
+				</div>
+			{:else if showInstallLinks}
 				<!-- No extension detected — install links -->
 				<div class="space-y-3">
 					<div class="flex items-center gap-2">
@@ -182,6 +266,23 @@
 					<div class="text-left">
 						<div class="font-medium">Paste Private Key</div>
 						<div class="text-xs text-muted-foreground">Less secure — use if you don't have an extension</div>
+					</div>
+				</button>
+
+				<div class="my-1.5 border-t border-border"></div>
+
+				<!-- Option 3: NIP-46 Bunker -->
+				<button
+					onclick={() => (showBunkerForm = true)}
+					class="flex w-full cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm text-card-foreground transition-colors hover:bg-muted"
+					role="menuitem"
+				>
+					<svg class="h-5 w-5 shrink-0 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+					</svg>
+					<div class="text-left">
+						<div class="font-medium">Remote Signer (Bunker)</div>
+						<div class="text-xs text-muted-foreground">NIP-46 — keys stay on your signer device</div>
 					</div>
 				</button>
 

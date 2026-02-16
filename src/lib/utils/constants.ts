@@ -17,3 +17,9 @@ export const SIGNER_POLL_INTERVAL_MS = 500;
 
 /** Maximum number of NIP-07 detection retries */
 export const SIGNER_MAX_RETRIES = 10;
+
+/** localStorage key for bunker connection info (pubkey + relays, never secrets) */
+export const BUNKER_STORAGE_KEY = `${config.storagePrefix}:bunker`;
+
+/** Timeout for NIP-46 bunker connection (ms) */
+export const BUNKER_CONNECT_TIMEOUT_MS = 30_000;
