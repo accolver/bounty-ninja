@@ -13,7 +13,8 @@ import {
 	setNsecSigner,
 	clearNsecSigner,
 	setBunkerSigner,
-	clearBunkerSigner
+	clearBunkerSigner,
+	getBunkerSigner
 } from './signer.svelte';
 import { pool } from './relay-pool';
 
@@ -199,6 +200,24 @@ class AccountState {
 		this.loading = true;
 
 		try {
+			// Check if we already have an active bunker connection (e.g., after logout + re-login)
+			const existingSigner = getBunkerSigner();
+			if (existingSigner?.isConnected) {
+				try {
+					const pubkey = await existingSigner.getPublicKey();
+					if (typeof pubkey === 'string' && /^[0-9a-f]{64}$/i.test(pubkey)) {
+						setBunkerSigner(existingSigner);
+						resetEventFactory();
+						this.pubkey = pubkey;
+						this.loginMethod = 'bunker';
+						this.persistSession();
+						return;
+					}
+				} catch {
+					// Existing connection stale — fall through to new connection
+				}
+			}
+
 			if (!bunkerUri.startsWith('bunker://')) {
 				this.error = {
 					type: 'bunker-error',
@@ -206,6 +225,9 @@ class AccountState {
 				};
 				return;
 			}
+
+			// Clear any stale bunker signer before creating new one
+			await clearBunkerSigner(true);
 
 			// Set static pool so NostrConnectSigner can communicate over relays
 			NostrConnectSigner.pool = pool;
@@ -290,16 +312,40 @@ class AccountState {
 		}
 	}
 
-	/** Logout — clear pubkey and session data */
+	/**
+	 * Logout — clear pubkey and session data.
+	 * Bunker connection is kept alive so the user can re-login without a new URI.
+	 * Use disconnectBunker() to fully close the bunker connection.
+	 */
 	async logout(): Promise<void> {
 		this.pubkey = null;
 		this.error = null;
+		const wasBunker = this.loginMethod === 'bunker';
 		this.loginMethod = null;
 		clearNsecSigner();
-		await clearBunkerSigner();
-		this.clearBunkerInfo();
+		if (!wasBunker) {
+			// Only close bunker connection if we weren't using bunker login
+			// (i.e., switching from NIP-07/nsec). Keep bunker alive for re-login.
+			await clearBunkerSigner(true);
+			this.clearBunkerInfo();
+		}
 		resetEventFactory();
 		this.persistSession();
+	}
+
+	/**
+	 * Fully disconnect from bunker and clear all state.
+	 * Use this when the user wants to switch to a different signer.
+	 */
+	async disconnectBunker(): Promise<void> {
+		await clearBunkerSigner(true);
+		this.clearBunkerInfo();
+		if (this.loginMethod === 'bunker') {
+			this.pubkey = null;
+			this.loginMethod = null;
+			resetEventFactory();
+			this.persistSession();
+		}
 	}
 }
 

@@ -65,15 +65,29 @@ export function setBunkerSigner(signer: NostrConnectSigner): void {
 /**
  * Clear and close the bunker signer.
  */
-export async function clearBunkerSigner(): Promise<void> {
+/**
+ * Clear the bunker signer reference.
+ * @param disconnect - If true, close the WebSocket connection. If false, just clear the reference
+ *                     (keeping the connection alive for potential re-login).
+ */
+export async function clearBunkerSigner(disconnect: boolean = false): Promise<void> {
 	if (bunkerSignerInstance) {
-		try {
-			await bunkerSignerInstance.close();
-		} catch {
-			// Ignore close errors during cleanup
+		if (disconnect) {
+			try {
+				await bunkerSignerInstance.close();
+			} catch {
+				// Ignore close errors during cleanup
+			}
 		}
 		bunkerSignerInstance = null;
 	}
+}
+
+/**
+ * Get the current bunker signer instance, if one exists and is connected.
+ */
+export function getBunkerSigner(): NostrConnectSigner | null {
+	return bunkerSignerInstance;
 }
 
 /**

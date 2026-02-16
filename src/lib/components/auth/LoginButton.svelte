@@ -1,7 +1,7 @@
 <!-- SECURITY: This file handles private key material. Never persist or log nsec values. -->
 <script lang="ts">
 	import { accountState } from '$lib/nostr/account.svelte';
-	import { signerState } from '$lib/nostr/signer.svelte';
+	import { signerState, getBunkerSigner } from '$lib/nostr/signer.svelte';
 
 	let open = $state(false);
 	let showNsecForm = $state(false);
@@ -89,6 +89,20 @@
 		}
 	}
 
+	async function handleBunkerReconnect() {
+		bunkerError = null;
+		// Pass empty string — loginWithBunker checks for existing connection first
+		await accountState.loginWithBunker('');
+
+		if (accountState.error) {
+			bunkerError = accountState.error.message;
+		} else {
+			close();
+		}
+	}
+
+	let hasBunkerConnection = $derived(getBunkerSigner()?.isConnected ?? false);
+
 	/** Close dropdown when clicking outside */
 	$effect(() => {
 		if (!open) return;
@@ -172,6 +186,24 @@
 					<p class="text-xs text-success">
 						🔒 Most secure — your private key never leaves your signer device.
 					</p>
+
+					{#if hasBunkerConnection}
+						<button
+							onclick={handleBunkerReconnect}
+							disabled={accountState.bunkerConnecting}
+							class="w-full cursor-pointer rounded-md bg-success/15 px-3 py-2 text-sm font-medium text-success transition-colors hover:bg-success/25 disabled:opacity-50"
+						>
+							{#if accountState.bunkerConnecting}
+								Reconnecting…
+							{:else}
+								Reconnect (session active)
+							{/if}
+						</button>
+						<div class="flex items-center gap-2 text-xs text-muted-foreground">
+							<span class="h-1.5 w-1.5 rounded-full bg-success"></span>
+							Bunker still connected — or enter a new URI below
+						</div>
+					{/if}
 
 					<form
 						onsubmit={(e) => { e.preventDefault(); handleBunkerSubmit(); }}

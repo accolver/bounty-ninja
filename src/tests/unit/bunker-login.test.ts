@@ -197,10 +197,16 @@ describe('NIP-46 bunker login', () => {
 			expect(factory).toBeDefined();
 		});
 
-		it('clearBunkerSigner closes the connection', async () => {
+		it('clearBunkerSigner with disconnect=true closes the connection', async () => {
 			setBunkerSigner(mockInstance as any);
-			await clearBunkerSigner();
+			await clearBunkerSigner(true);
 			expect(mockInstance.close).toHaveBeenCalled();
+		});
+
+		it('clearBunkerSigner without disconnect keeps connection open', async () => {
+			setBunkerSigner(mockInstance as any);
+			await clearBunkerSigner(false);
+			expect(mockInstance.close).not.toHaveBeenCalled();
 		});
 
 		it('bunker signer takes priority over NIP-07', () => {
