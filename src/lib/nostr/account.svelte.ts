@@ -6,7 +6,7 @@ import {
 	BUNKER_STORAGE_KEY,
 	BUNKER_CONNECT_TIMEOUT_MS
 } from '$lib/utils/constants';
-import { NostrConnectSigner } from 'applesauce-signers';
+import { NostrConnectSigner, PrivateKeySigner } from 'applesauce-signers';
 import {
 	signerState,
 	resetEventFactory,
@@ -68,9 +68,68 @@ class AccountState {
 			const stored = localStorage.getItem(SESSION_STORAGE_KEY);
 			if (stored && /^[0-9a-f]{64}$/i.test(stored)) {
 				this.pubkey = stored;
+
+				// Check if this was a bunker session and auto-reconnect
+				const bunkerInfo = localStorage.getItem(BUNKER_STORAGE_KEY);
+				if (bunkerInfo) {
+					this.restoreBunkerSession(bunkerInfo);
+				}
 			}
 		} catch {
 			// localStorage may be unavailable
+		}
+	}
+
+	/**
+	 * Restore a bunker session from persisted connection info.
+	 * Reconstructs the NostrConnectSigner using the saved client keypair
+	 * and reconnects to the remote signer without needing a new bunker:// URI.
+	 */
+	private restoreBunkerSession(bunkerInfoJson: string): void {
+		try {
+			const info = JSON.parse(bunkerInfoJson);
+			if (!info.clientKeyHex || !info.remotePubkey || !info.relays?.length) return;
+
+			// Reconstruct client keypair from persisted hex
+			const keyBytes = new Uint8Array(
+				info.clientKeyHex.match(/.{2}/g)!.map((h: string) => parseInt(h, 16))
+			);
+			const clientSigner = new PrivateKeySigner(keyBytes);
+
+			NostrConnectSigner.pool = pool;
+
+			const signer = new NostrConnectSigner({
+				relays: info.relays,
+				signer: clientSigner,
+				remote: info.remotePubkey,
+				pubkey: this.pubkey ?? undefined
+			});
+
+			// Open connection asynchronously — don't block session restore
+			signer.open().then(async () => {
+				// Ping to verify the connection is still alive
+				try {
+					await Promise.race([
+						signer.ping(),
+						new Promise<never>((_, reject) =>
+							setTimeout(() => reject(new Error('timeout')), 5000)
+						)
+					]);
+					setBunkerSigner(signer);
+					resetEventFactory();
+					this.loginMethod = 'bunker';
+				} catch {
+					// Remote signer not responding — user will need to re-login
+					console.warn('[account] Bunker session restore failed — signer not responding');
+					this.clearBunkerInfo();
+				}
+			}).catch(() => {
+				console.warn('[account] Bunker session restore failed — could not open connection');
+				this.clearBunkerInfo();
+			});
+		} catch {
+			// Invalid stored data — clear it
+			this.clearBunkerInfo();
 		}
 	}
 
@@ -268,8 +327,12 @@ class AccountState {
 			this.loginMethod = 'bunker';
 			this.persistSession();
 
-			// Persist minimal reconnection info (no secrets)
-			this.persistBunkerInfo(parsed.remote, parsed.relays);
+			// Persist connection info for session restoration across page reloads
+			// Client key is a disposable comm keypair, NOT the user's identity key
+			const clientKeyHex = Array.from(signer.signer.key)
+				.map((b: number) => b.toString(16).padStart(2, '0'))
+				.join('');
+			this.persistBunkerInfo(parsed.remote, signer.relays, clientKeyHex);
 		} catch (err) {
 			if (err instanceof Error && err.message === 'timeout') {
 				this.error = {
@@ -291,12 +354,21 @@ class AccountState {
 		}
 	}
 
-	/** Persist minimal bunker connection info for display purposes (no secrets) */
-	private persistBunkerInfo(remotePubkey: string, relays: string[]): void {
+	/**
+	 * Persist bunker connection info for session restoration across page reloads.
+	 * Stores the client keypair (hex) so we can reconstruct the NostrConnectSigner
+	 * without needing a new bunker:// URI (the secret is one-time use).
+	 *
+	 * SECURITY: The client keypair is a disposable keypair generated per connection.
+	 * It is NOT the user's identity key — it's only used for NIP-44 encrypted
+	 * communication with the remote signer. Stored in localStorage for session
+	 * persistence; cleared on explicit disconnect.
+	 */
+	private persistBunkerInfo(remotePubkey: string, relays: string[], clientKeyHex: string): void {
 		try {
 			localStorage.setItem(
 				BUNKER_STORAGE_KEY,
-				JSON.stringify({ remotePubkey, relays })
+				JSON.stringify({ remotePubkey, relays, clientKeyHex })
 			);
 		} catch {
 			// localStorage may be unavailable
