@@ -94,6 +94,9 @@
 			connectivity.online
 	);
 
+	/** Whether the dialog should be locked open (non-dismissable) */
+	const dialogLocked = $derived(processing || step === 'broadcast-failure');
+
 	// ── Nsec decoding ───────────────────────────────────────────
 	let privkeyHex = $derived.by(() => {
 		const trimmed = nsecInput.trim();
@@ -124,9 +127,7 @@
 		if (!privkeyHex || !accountState.pubkey) return false;
 		try {
 			// getPublicKey expects Uint8Array — convert hex to bytes
-			const privBytes = new Uint8Array(
-				privkeyHex.match(/.{2}/g)!.map((b) => parseInt(b, 16))
-			);
+			const privBytes = new Uint8Array(privkeyHex.match(/.{2}/g)!.map((b) => parseInt(b, 16)));
 			const derived = getPublicKey(privBytes);
 			return derived === accountState.pubkey;
 		} catch {
@@ -317,15 +318,17 @@
 		</Button>
 
 		<!-- Multi-step release dialog -->
-		<Dialog.Root bind:open={showConfirm}>
+		<Dialog.Root
+			bind:open={showConfirm}
+			onOpenChange={(open) => {
+				if (!open && dialogLocked) return;
+				showConfirm = open;
+			}}
+		>
 			<Dialog.Content
-				showCloseButton={step !== 'processing' && step !== 'broadcast-failure'}
-				onInteractOutside={(e: Event) => {
-					if (step === 'processing' || step === 'broadcast-failure') e.preventDefault();
-				}}
-				onEscapeKeydown={(e: KeyboardEvent) => {
-					if (step === 'processing' || step === 'broadcast-failure') e.preventDefault();
-				}}
+				showCloseButton={!dialogLocked}
+				interactOutsideBehavior={dialogLocked ? 'ignore' : 'close'}
+				escapeKeydownBehavior={dialogLocked ? 'ignore' : 'close'}
 			>
 				<Dialog.Header>
 					<Dialog.Title>
