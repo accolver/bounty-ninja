@@ -37,6 +37,7 @@ class BountyListStore {
 	#pledgeLoader: { unsubscribe(): void } | null = null;
 	#solutionLoader: { unsubscribe(): void } | null = null;
 	#payoutLoader: { unsubscribe(): void } | null = null;
+	#loadingTimer: ReturnType<typeof setTimeout> | null = null;
 	#initialized = false;
 
 	/**
@@ -50,17 +51,33 @@ class BountyListStore {
 	}
 
 	#startSubscription() {
+		// Safety timeout: stop showing spinner after 8s even if relays return nothing.
+		this.#loadingTimer = setTimeout(() => {
+			this.#loading = false;
+		}, 8000);
+
 		// Subscribe to EventStore timeline for bounty events
 		this.#bountySub = eventStore.timeline({ kinds: [BOUNTY_KIND] }).subscribe({
 			next: (events: NostrEvent[]) => {
 				this.#bounties = events
 					.map(parseBountySummary)
 					.filter((s): s is BountySummary => s !== null);
-				this.#loading = false;
+				// Only mark loading complete when we have actual data or timeout fires
+				if (events.length > 0) {
+					this.#loading = false;
+					if (this.#loadingTimer) {
+						clearTimeout(this.#loadingTimer);
+						this.#loadingTimer = null;
+					}
+				}
 			},
 			error: (err: unknown) => {
 				this.#error = err instanceof Error ? err.message : 'Failed to load bounties';
 				this.#loading = false;
+				if (this.#loadingTimer) {
+					clearTimeout(this.#loadingTimer);
+					this.#loadingTimer = null;
+				}
 			}
 		});
 
@@ -196,6 +213,10 @@ class BountyListStore {
 		this.#solutionLoader = null;
 		this.#payoutLoader?.unsubscribe();
 		this.#payoutLoader = null;
+		if (this.#loadingTimer) {
+			clearTimeout(this.#loadingTimer);
+			this.#loadingTimer = null;
+		}
 	}
 }
 

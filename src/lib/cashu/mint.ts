@@ -33,6 +33,16 @@ const walletCache = new Map<string, Wallet>();
 const mintCache = new Map<string, Mint>();
 
 /**
+ * Negative cache for mints that failed to initialize.
+ * Maps mint URL → failure timestamp. Prevents hammering unreachable mints.
+ * Entries expire after FAILURE_CACHE_TTL_MS to allow eventual retry.
+ */
+const failureCache = new Map<string, number>();
+
+/** How long to suppress retries for a failed mint (5 minutes). */
+const FAILURE_CACHE_TTL_MS = 5 * 60 * 1000;
+
+/**
  * Sleep for a given number of milliseconds.
  */
 function sleep(ms: number): Promise<void> {
@@ -107,11 +117,23 @@ export async function getWallet(mintUrl?: string): Promise<Wallet> {
 		return cached;
 	}
 
+	// Check negative cache — if this mint recently failed, don't retry
+	const failedAt = failureCache.get(url);
+	if (failedAt && Date.now() - failedAt < FAILURE_CACHE_TTL_MS) {
+		throw new MintConnectionError(url, new Error('Mint recently unreachable (cached failure)'));
+	}
+
 	const cashu = await getCashu();
 	const mint = await getMintInstance(url);
 	const wallet = new cashu.Wallet(mint, { unit: 'sat' });
 
-	await initializeWallet(wallet, url);
+	try {
+		await initializeWallet(wallet, url);
+	} catch (err) {
+		// Cache the failure to prevent repeated retry storms
+		failureCache.set(url, Date.now());
+		throw err;
+	}
 
 	walletCache.set(url, wallet);
 	return wallet;
@@ -147,4 +169,5 @@ export async function getDefaultWallet(): Promise<Wallet> {
 export function clearWalletCache(): void {
 	walletCache.clear();
 	mintCache.clear();
+	failureCache.clear();
 }

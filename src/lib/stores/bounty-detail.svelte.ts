@@ -4,7 +4,13 @@ import type { NostrEvent } from 'nostr-tools';
 import type { BountyDetail } from '$lib/bounty/types';
 import { eventStore } from '$lib/nostr/event-store';
 import { parseBountyDetail } from '$lib/bounty/helpers';
-import { PLEDGE_KIND, SOLUTION_KIND, VOTE_KIND, PAYOUT_KIND, RETRACTION_KIND } from '$lib/bounty/kinds';
+import {
+	PLEDGE_KIND,
+	SOLUTION_KIND,
+	VOTE_KIND,
+	PAYOUT_KIND,
+	RETRACTION_KIND
+} from '$lib/bounty/kinds';
 import { parseRetraction } from '$lib/bounty/helpers';
 import type { Retraction } from '$lib/bounty/types';
 import { pool } from '$lib/nostr/relay-pool';
@@ -15,7 +21,10 @@ import { createPledgeLoader } from '$lib/nostr/loaders/pledge-loader';
 import { createSolutionLoader } from '$lib/nostr/loaders/solution-loader';
 import { createVoteLoader } from '$lib/nostr/loaders/vote-loader';
 import { createProfileLoader } from '$lib/nostr/loaders/profile-loader';
-import { detectSpentUnretractedPledges, autoRetractSpentPledge } from '$lib/cashu/pledge-monitor.svelte';
+import {
+	detectSpentUnretractedPledges,
+	autoRetractSpentPledge
+} from '$lib/cashu/pledge-monitor.svelte';
 import { parsePledge } from '$lib/bounty/helpers';
 
 /**
@@ -34,6 +43,7 @@ export class BountyDetailStore {
 	#combinedSub: Subscription | null = null;
 	#relaySubs: Array<{ unsubscribe(): void }> = [];
 	#spentCheckTimer: ReturnType<typeof setTimeout> | null = null;
+	#loadingTimer: ReturnType<typeof setTimeout> | null = null;
 	#taskAddress: string | null = null;
 
 	/** The full bounty detail, or null if not loaded */
@@ -76,6 +86,12 @@ export class BountyDetailStore {
 		this.#error = null;
 		this.#taskAddress = bountyAddress;
 
+		// Safety timeout: stop showing spinner after 8s even if no data arrives.
+		// This gives relays ample time to respond while avoiding infinite loading.
+		this.#loadingTimer = setTimeout(() => {
+			this.#loading = false;
+		}, 8000);
+
 		// Subscribe to EventStore timelines for all related event kinds
 		const bounty$ = eventStore.replaceable(kind, pubkey, dTag);
 		const pledges$ = eventStore.timeline({ kinds: [PLEDGE_KIND], '#a': [bountyAddress] });
@@ -84,8 +100,22 @@ export class BountyDetailStore {
 		const payouts$ = eventStore.timeline({ kinds: [PAYOUT_KIND], '#a': [bountyAddress] });
 		const retractions$ = eventStore.timeline({ kinds: [RETRACTION_KIND], '#a': [bountyAddress] });
 
-		this.#combinedSub = combineLatest([bounty$, pledges$, solutions$, votes$, payouts$, retractions$]).subscribe({
-			next: ([bountyEvent, pledgeEvents, solutionEvents, voteEvents, payoutEvents, retractionEvents]: [
+		this.#combinedSub = combineLatest([
+			bounty$,
+			pledges$,
+			solutions$,
+			votes$,
+			payouts$,
+			retractions$
+		]).subscribe({
+			next: ([
+				bountyEvent,
+				pledgeEvents,
+				solutionEvents,
+				voteEvents,
+				payoutEvents,
+				retractionEvents
+			]: [
 				NostrEvent | undefined,
 				NostrEvent[],
 				NostrEvent[],
@@ -109,9 +139,7 @@ export class BountyDetailStore {
 				this.#retractedPledgeIds = retractedIds;
 
 				// Filter out retracted pledges
-				const activePledgeEvents = pledgeEvents.filter(
-					(e) => !retractedIds.has(e.id)
-				);
+				const activePledgeEvents = pledgeEvents.filter((e) => !retractedIds.has(e.id));
 
 				if (bountyEvent) {
 					this.#bounty = parseBountyDetail(
@@ -123,10 +151,21 @@ export class BountyDetailStore {
 						[] // delete events — legacy fallback
 					);
 
+					// Data arrived — stop loading and cancel the safety timeout
+					this.#loading = false;
+					if (this.#loadingTimer) {
+						clearTimeout(this.#loadingTimer);
+						this.#loadingTimer = null;
+					}
+
 					// Schedule spent-pledge detection (debounced — only after data settles)
-					this.#scheduleSpentCheck(activePledgeEvents, parsedRetractions, solutionEvents.length > 0);
+					this.#scheduleSpentCheck(
+						activePledgeEvents,
+						parsedRetractions,
+						solutionEvents.length > 0
+					);
 				}
-				this.#loading = false;
+				// Don't set loading=false here — wait for bountyEvent or timeout
 			},
 			error: (err: unknown) => {
 				this.#error = err instanceof Error ? err.message : 'Failed to load bounty details';
@@ -189,7 +228,11 @@ export class BountyDetailStore {
 	 * When spent tokens are detected for the current user, auto-publishes
 	 * retraction (and reputation) events to keep state in sync.
 	 */
-	#scheduleSpentCheck(pledgeEvents: NostrEvent[], retractions: Retraction[], hasSolutions: boolean) {
+	#scheduleSpentCheck(
+		pledgeEvents: NostrEvent[],
+		retractions: Retraction[],
+		hasSolutions: boolean
+	) {
 		if (this.#spentCheckTimer) clearTimeout(this.#spentCheckTimer);
 
 		this.#spentCheckTimer = setTimeout(async () => {
@@ -219,6 +262,10 @@ export class BountyDetailStore {
 		if (this.#spentCheckTimer) {
 			clearTimeout(this.#spentCheckTimer);
 			this.#spentCheckTimer = null;
+		}
+		if (this.#loadingTimer) {
+			clearTimeout(this.#loadingTimer);
+			this.#loadingTimer = null;
 		}
 		for (const sub of this.#relaySubs) {
 			sub.unsubscribe();
