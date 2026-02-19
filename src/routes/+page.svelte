@@ -315,46 +315,48 @@
 			</div>
 
 			<!-- Bounty list -->
-			{#if bountyList.loading && bountyList.items.length === 0}
-				<div out:fade={{ duration: 300 }}>
-					<LoadingLogo />
-				</div>
-			{:else if bountyList.error}
-				<div
-					in:fade={{ duration: 500 }}
-					class="rounded-lg border border-destructive/50 bg-destructive/10 p-8 text-center"
-				>
-					<p class="text-sm text-destructive">{bountyList.error}</p>
-				</div>
-			{:else if filteredBounties.length === 0 && bountyList.items.length === 0}
-				<div in:fade={{ duration: 500 }} class="space-y-6 py-6">
-					<EmptyState
-						message="No bounties yet — be the first to post one!"
-						hint="Bounties are jobs with Bitcoin rewards. Post what you need done and builders will compete to deliver."
-						action={{ label: 'Post Your First Bounty', href: '/bounty/new' }}
-					/>
-				</div>
-			{:else if filteredBounties.length === 0}
-				<div in:fade={{ duration: 500 }}>
-					<EmptyState
-						message={selectedTag
-							? `No bounties found for "${selectedTag}". Try a different category.`
-							: 'No bounties match the current filters. Try adjusting the status or minimum reward.'}
-						hint="Tip: Enable more status filters or lower the minimum sats to see more results."
-					/>
-				</div>
-			{:else}
-				<div in:fade={{ duration: 500 }}>
-					{#each filteredBounties as bounty (bounty.id)}
-						<div
-							animate:flip={{ duration: animate ? 250 : 0 }}
-							out:fly={{ y: -10, duration: animate ? 150 : 0 }}
-						>
-							<BountyListItem {bounty} />
-						</div>
-					{/each}
-				</div>
-			{/if}
+			<div class="grid [&>*]:col-start-1 [&>*]:row-start-1">
+				{#if bountyList.loading && bountyList.items.length === 0}
+					<div out:fade={{ duration: 300 }}>
+						<LoadingLogo />
+					</div>
+				{:else if bountyList.error}
+					<div
+						in:fade={{ duration: 500 }}
+						class="rounded-lg border border-destructive/50 bg-destructive/10 p-8 text-center"
+					>
+						<p class="text-sm text-destructive">{bountyList.error}</p>
+					</div>
+				{:else if filteredBounties.length === 0 && bountyList.items.length === 0}
+					<div in:fade={{ duration: 500 }} class="space-y-6 py-6">
+						<EmptyState
+							message="No bounties yet — be the first to post one!"
+							hint="Bounties are jobs with Bitcoin rewards. Post what you need done and builders will compete to deliver."
+							action={{ label: 'Post Your First Bounty', href: '/bounty/new' }}
+						/>
+					</div>
+				{:else if filteredBounties.length === 0}
+					<div in:fade={{ duration: 500 }}>
+						<EmptyState
+							message={selectedTag
+								? `No bounties found for "${selectedTag}". Try a different category.`
+								: 'No bounties match the current filters. Try adjusting the status or minimum reward.'}
+							hint="Tip: Enable more status filters or lower the minimum sats to see more results."
+						/>
+					</div>
+				{:else}
+					<div in:fade={{ duration: 500 }}>
+						{#each filteredBounties as bounty (bounty.id)}
+							<div
+								animate:flip={{ duration: animate ? 250 : 0 }}
+								out:fly={{ y: -10, duration: animate ? 150 : 0 }}
+							>
+								<BountyListItem {bounty} />
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</div>
 		</section>
 	</div>
 </ErrorBoundary>

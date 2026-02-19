@@ -174,31 +174,33 @@
 				{/if}
 			</div>
 
-			{#if loading && bounties.length === 0}
-				<div out:fade={{ duration: 300 }}>
-					<LoadingLogo />
-				</div>
-			{:else if bounties.length === 0}
-				<div in:fade={{ duration: 500 }}>
-					<EmptyState
-						message={isOwnProfile
-							? "You haven't posted any bounties yet."
-							: "This user hasn't posted any bounties yet."}
-						hint={isOwnProfile
-							? 'Post your first bounty to get started — describe what you need built and set a reward.'
-							: undefined}
-						action={isOwnProfile
-							? { label: 'Create Your First Bounty', href: '/bounty/new' }
-							: undefined}
-					/>
-				</div>
-			{:else}
-				<div in:fade={{ duration: 500 }} class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-					{#each bounties as bounty (bounty.id)}
-						<BountyCard {bounty} />
-					{/each}
-				</div>
-			{/if}
+			<div class="grid [&>*]:col-start-1 [&>*]:row-start-1">
+				{#if loading && bounties.length === 0}
+					<div out:fade={{ duration: 300 }}>
+						<LoadingLogo />
+					</div>
+				{:else if bounties.length === 0}
+					<div in:fade={{ duration: 500 }}>
+						<EmptyState
+							message={isOwnProfile
+								? "You haven't posted any bounties yet."
+								: "This user hasn't posted any bounties yet."}
+							hint={isOwnProfile
+								? 'Post your first bounty to get started — describe what you need built and set a reward.'
+								: undefined}
+							action={isOwnProfile
+								? { label: 'Create Your First Bounty', href: '/bounty/new' }
+								: undefined}
+						/>
+					</div>
+				{:else}
+					<div in:fade={{ duration: 500 }} class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+						{#each bounties as bounty (bounty.id)}
+							<BountyCard {bounty} />
+						{/each}
+					</div>
+				{/if}
+			</div>
 		</section>
 	</section>
 </ErrorBoundary>
