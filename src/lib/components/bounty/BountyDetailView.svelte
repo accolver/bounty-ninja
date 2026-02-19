@@ -246,7 +246,7 @@
 	<div class="grid grid-cols-1 gap-12 pt-5 md:grid-cols-2">
 		<!-- Pledges section -->
 		<ErrorBoundary>
-			<section class="space-y-3" aria-label="Pledges">
+			<section class="order-2 md:order-1 space-y-3" aria-label="Pledges">
 				<div class="flex items-center justify-between">
 					<h2 class="text-base font-semibold text-foreground">
 						Pledges ({detail.pledges.length})
@@ -281,7 +281,7 @@
 
 		<!-- Solutions section -->
 		<ErrorBoundary>
-			<section class="space-y-3" aria-label="Solutions">
+			<section class="order-1 md:order-2 space-y-3" aria-label="Solutions">
 				<h2 class="text-base font-semibold text-foreground">
 					Solutions ({detail.solutions.length})
 				</h2>

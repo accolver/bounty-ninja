@@ -22,6 +22,7 @@
 	import { browser } from '$app/environment';
 	import type { BountySummary, BountyStatus } from '$lib/bounty/types';
 	import { config } from '$lib/config';
+	import { pageLoading } from '$lib/stores/page-loading.svelte';
 
 	// --- Read initial query params ---
 	const initialParams = browser
@@ -53,11 +54,22 @@
 		bountyList.init();
 	});
 
-	// Track whether we actually needed to show the loading logo.
-	// If data was already cached (e.g. navigating back), skip fade-in entirely.
+	// Full-page loading overlay: show for at least 1s, skip entirely if data was cached.
 	const hadDataAtMount = bountyList.items.length > 0;
-	let showedLoading = $state(!hadDataAtMount && bountyList.loading);
-	const fadeDuration = $derived(showedLoading ? 500 : 0);
+	let minTimeElapsed = $state(hadDataAtMount);
+	const dataReady = $derived(!bountyList.loading || bountyList.items.length > 0);
+	const showOverlay = $derived(!hadDataAtMount && (!dataReady || !minTimeElapsed));
+
+	if (!hadDataAtMount) {
+		setTimeout(() => {
+			minTimeElapsed = true;
+		}, 1000);
+	}
+
+	// Sync overlay state to layout so footer can be hidden during loading
+	$effect(() => {
+		pageLoading.active = showOverlay;
+	});
 
 	// Animations only play after a user-initiated filter/sort change,
 	// not during the initial relay data stream.
@@ -193,176 +205,171 @@
 </svelte:head>
 
 <ErrorBoundary>
-	<div class="flex gap-8">
-		<Sidebar bind:selectedTag />
-
-		<section class="min-w-0 flex-1">
-			<!-- How it works — shown for first-time visitors until dismissed -->
-			<div class="mb-4 px-4">
-				<HowItWorks />
+	<div class="relative">
+		{#if showOverlay}
+			<div out:fade={{ duration: 300 }}>
+				<LoadingLogo />
 			</div>
+		{/if}
+		<div class="flex gap-8" class:animate-fade-in={!hadDataAtMount && !showOverlay}>
+			<Sidebar bind:selectedTag />
 
-			<!-- Stats bar + CTA -->
-			{#if !bountyList.loading || bountyList.items.length > 0}
-				<div
-					class="flex flex-col gap-3 px-4 pb-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
-				>
-					<div class="flex flex-wrap items-center gap-3 sm:gap-5">
-						<div class="flex items-center gap-1.5 text-xs text-muted-foreground">
-							<Clock class="h-3.5 w-3.5 shrink-0 text-primary/70" />
-							<span class="font-medium text-foreground">{recentCount}</span>
-							<span>new today</span>
-						</div>
-						<div class="flex items-center gap-1.5 text-xs text-muted-foreground">
-							<Target class="h-3.5 w-3.5 shrink-0 text-primary/70" />
-							<span class="font-medium text-foreground">{openBounties.length}</span>
-							<span>active</span>
-						</div>
-						<Tooltip
-							text="Sats (satoshis) are the smallest unit of Bitcoin. 100,000 sats ≈ a few dollars."
-						>
-							{#snippet children()}
-								<div class="flex items-center gap-1.5 text-xs text-muted-foreground cursor-help">
-									<Zap class="h-3.5 w-3.5 shrink-0 text-secondary" />
-									<span class="font-medium text-foreground">{formatSats(totalSatsAvailable)}</span>
-									<span>sats available</span>
-								</div>
-							{/snippet}
-						</Tooltip>
-					</div>
-					<a
-						href="/bounty/new"
-						class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:w-auto"
-					>
-						<Plus class="h-3.5 w-3.5" />
-						Post a Bounty
-					</a>
+			<section class="min-w-0 flex-1">
+				<!-- How it works — shown for first-time visitors until dismissed -->
+				<div class="mb-4 px-4">
+					<HowItWorks />
 				</div>
-			{/if}
 
-			<!-- List header with filters -->
-			<div class="flex flex-col gap-3 border-b border-border px-4 pb-3">
-				<div class="flex items-center justify-between">
-					<h2 class="text-sm font-medium text-foreground">
-						{selectedTag ? selectedTag : 'All bounties'}
-					</h2>
-					<div class="relative">
-						<label for="sort-select" class="sr-only">Sort by</label>
-						<select
-							id="sort-select"
-							bind:value={sortBy}
-							class="appearance-none bg-transparent pr-6 pl-2 py-1 text-xs text-muted-foreground
+				<!-- Stats bar + CTA -->
+				{#if !bountyList.loading || bountyList.items.length > 0}
+					<div
+						class="flex flex-col gap-3 px-4 pb-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+					>
+						<div class="flex flex-wrap items-center gap-3 sm:gap-5">
+							<div class="flex items-center gap-1.5 text-xs text-muted-foreground">
+								<Clock class="h-3.5 w-3.5 shrink-0 text-primary/70" />
+								<span class="font-medium text-foreground">{recentCount}</span>
+								<span>new today</span>
+							</div>
+							<div class="flex items-center gap-1.5 text-xs text-muted-foreground">
+								<Target class="h-3.5 w-3.5 shrink-0 text-primary/70" />
+								<span class="font-medium text-foreground">{openBounties.length}</span>
+								<span>active</span>
+							</div>
+							<Tooltip
+								text="Sats (satoshis) are the smallest unit of Bitcoin. 100,000 sats ≈ a few dollars."
+							>
+								{#snippet children()}
+									<div class="flex items-center gap-1.5 text-xs text-muted-foreground cursor-help">
+										<Zap class="h-3.5 w-3.5 shrink-0 text-secondary" />
+										<span class="font-medium text-foreground">{formatSats(totalSatsAvailable)}</span
+										>
+										<span>sats available</span>
+									</div>
+								{/snippet}
+							</Tooltip>
+						</div>
+						<a
+							href="/bounty/new"
+							class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:w-auto"
+						>
+							<Plus class="h-3.5 w-3.5" />
+							Post a Bounty
+						</a>
+					</div>
+				{/if}
+
+				<!-- List header with filters -->
+				<div class="flex flex-col gap-3 border-b border-border px-4 pb-3">
+					<div class="flex items-center justify-between">
+						<h2 class="text-sm font-medium text-foreground">
+							{selectedTag ? selectedTag : 'All bounties'}
+						</h2>
+						<div class="relative">
+							<label for="sort-select" class="sr-only">Sort by</label>
+							<select
+								id="sort-select"
+								bind:value={sortBy}
+								class="appearance-none bg-transparent pr-6 pl-2 py-1 text-xs text-muted-foreground
 								cursor-pointer hover:text-foreground transition-colors
 								focus-visible:ring-2 focus-visible:ring-ring rounded"
-						>
-							<option value="reward">Reward</option>
-							<option value="newest">Newest</option>
-							<option value="solutions">Solutions</option>
-						</select>
-						<ArrowUpDown
-							class="pointer-events-none absolute right-0 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
-						/>
+							>
+								<option value="reward">Reward</option>
+								<option value="newest">Newest</option>
+								<option value="solutions">Solutions</option>
+							</select>
+							<ArrowUpDown
+								class="pointer-events-none absolute right-0 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+							/>
+						</div>
 					</div>
-				</div>
 
-				<!-- Filter row -->
-				<div class="flex items-center gap-3">
-					<!-- Status dropdown -->
-					<DropdownMenu.Root>
-						<DropdownMenu.Trigger>
-							{#snippet child({ props })}
-								<button
-									{...props}
-									class="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs text-muted-foreground shadow-xs transition-colors hover:border-primary/40 hover:text-foreground"
-								>
-									<ListFilter class="h-3.5 w-3.5" />
-									Status
-									{#if activeStatusCount < 4}
-										<span
-											class="ml-0.5 rounded border border-primary px-1.5 py-0.5 text-[10px] font-medium text-primary bg-transparent"
-										>
-											{activeStatusCount}
-										</span>
-									{/if}
-								</button>
-							{/snippet}
-						</DropdownMenu.Trigger>
-						<DropdownMenu.Content class="w-44">
-							<DropdownMenu.Label>Filter by status</DropdownMenu.Label>
-							<DropdownMenu.Separator />
-							<DropdownMenu.CheckboxItem bind:checked={showOpen}>Open</DropdownMenu.CheckboxItem>
-							<DropdownMenu.CheckboxItem bind:checked={showInReview}>
-								In Review
-							</DropdownMenu.CheckboxItem>
-							<DropdownMenu.CheckboxItem bind:checked={showCompleted}>
-								Completed
-							</DropdownMenu.CheckboxItem>
-							<DropdownMenu.CheckboxItem bind:checked={showExpired}>
-								Expired
-							</DropdownMenu.CheckboxItem>
-						</DropdownMenu.Content>
-					</DropdownMenu.Root>
-
-					<!-- Sats slider -->
+					<!-- Filter row -->
 					<div class="flex items-center gap-3">
-						<span class="text-xs text-muted-foreground whitespace-nowrap">Min sats</span>
-						<Slider
-							bind:value={minSats}
-							max={sliderMax}
-							step={1000}
-							class="w-28"
-							aria-label="Minimum sats filter"
-						/>
-						<span class="text-xs font-medium tabular-nums text-foreground w-10">
-							{formatSats(minSats)}
-						</span>
+						<!-- Status dropdown -->
+						<DropdownMenu.Root>
+							<DropdownMenu.Trigger>
+								{#snippet child({ props })}
+									<button
+										{...props}
+										class="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs text-muted-foreground shadow-xs transition-colors hover:border-primary/40 hover:text-foreground"
+									>
+										<ListFilter class="h-3.5 w-3.5" />
+										Status
+										{#if activeStatusCount < 4}
+											<span
+												class="ml-0.5 rounded border border-primary px-1.5 py-0.5 text-[10px] font-medium text-primary bg-transparent"
+											>
+												{activeStatusCount}
+											</span>
+										{/if}
+									</button>
+								{/snippet}
+							</DropdownMenu.Trigger>
+							<DropdownMenu.Content class="w-44">
+								<DropdownMenu.Label>Filter by status</DropdownMenu.Label>
+								<DropdownMenu.Separator />
+								<DropdownMenu.CheckboxItem bind:checked={showOpen}>Open</DropdownMenu.CheckboxItem>
+								<DropdownMenu.CheckboxItem bind:checked={showInReview}>
+									In Review
+								</DropdownMenu.CheckboxItem>
+								<DropdownMenu.CheckboxItem bind:checked={showCompleted}>
+									Completed
+								</DropdownMenu.CheckboxItem>
+								<DropdownMenu.CheckboxItem bind:checked={showExpired}>
+									Expired
+								</DropdownMenu.CheckboxItem>
+							</DropdownMenu.Content>
+						</DropdownMenu.Root>
+
+						<!-- Sats slider -->
+						<div class="flex items-center gap-3">
+							<span class="text-xs text-muted-foreground whitespace-nowrap">Min sats</span>
+							<Slider
+								bind:value={minSats}
+								max={sliderMax}
+								step={1000}
+								class="w-28"
+								aria-label="Minimum sats filter"
+							/>
+							<span class="text-xs font-medium tabular-nums text-foreground w-10">
+								{formatSats(minSats)}
+							</span>
+						</div>
 					</div>
 				</div>
-			</div>
 
-			<!-- Bounty list -->
-			<div class="grid [&>*]:col-start-1 [&>*]:row-start-1">
-				{#if bountyList.loading && bountyList.items.length === 0}
-					<div out:fade={{ duration: 300 }}>
-						<LoadingLogo />
-					</div>
-				{:else if bountyList.error}
-					<div
-						in:fade={{ duration: fadeDuration }}
-						class="rounded-lg border border-destructive/50 bg-destructive/10 p-8 text-center"
-					>
+				<!-- Bounty list -->
+				{#if bountyList.error}
+					<div class="rounded-lg border border-destructive/50 bg-destructive/10 p-8 text-center">
 						<p class="text-sm text-destructive">{bountyList.error}</p>
 					</div>
-				{:else if filteredBounties.length === 0 && bountyList.items.length === 0}
-					<div in:fade={{ duration: fadeDuration }} class="space-y-6 py-6">
+				{:else if !bountyList.loading && filteredBounties.length === 0 && bountyList.items.length === 0}
+					<div class="space-y-6 py-6">
 						<EmptyState
 							message="No bounties yet — be the first to post one!"
 							hint="Bounties are jobs with Bitcoin rewards. Post what you need done and builders will compete to deliver."
 							action={{ label: 'Post Your First Bounty', href: '/bounty/new' }}
 						/>
 					</div>
-				{:else if filteredBounties.length === 0}
-					<div in:fade={{ duration: fadeDuration }}>
-						<EmptyState
-							message={selectedTag
-								? `No bounties found for "${selectedTag}". Try a different category.`
-								: 'No bounties match the current filters. Try adjusting the status or minimum reward.'}
-							hint="Tip: Enable more status filters or lower the minimum sats to see more results."
-						/>
-					</div>
+				{:else if !bountyList.loading && filteredBounties.length === 0}
+					<EmptyState
+						message={selectedTag
+							? `No bounties found for "${selectedTag}". Try a different category.`
+							: 'No bounties match the current filters. Try adjusting the status or minimum reward.'}
+						hint="Tip: Enable more status filters or lower the minimum sats to see more results."
+					/>
 				{:else}
-					<div in:fade={{ duration: fadeDuration }}>
-						{#each filteredBounties as bounty (bounty.id)}
-							<div
-								animate:flip={{ duration: animate ? 250 : 0 }}
-								out:fly={{ y: -10, duration: animate ? 150 : 0 }}
-							>
-								<BountyListItem {bounty} />
-							</div>
-						{/each}
-					</div>
+					{#each filteredBounties as bounty (bounty.id)}
+						<div
+							animate:flip={{ duration: animate ? 250 : 0 }}
+							out:fly={{ y: -10, duration: animate ? 150 : 0 }}
+						>
+							<BountyListItem {bounty} />
+						</div>
+					{/each}
 				{/if}
-			</div>
-		</section>
+			</section>
+		</div>
 	</div>
 </ErrorBoundary>

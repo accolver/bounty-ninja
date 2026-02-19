@@ -9,6 +9,7 @@
 	import { initCache } from '$lib/nostr/cache';
 	import { errorMonitor } from '$lib/stores/error-monitor.svelte';
 	import { searchDialog } from '$lib/stores/search-dialog.svelte';
+	import { pageLoading } from '$lib/stores/page-loading.svelte';
 	import { beforeNavigate } from '$app/navigation';
 	import { onMount } from 'svelte';
 
@@ -34,13 +35,15 @@
 	});
 </script>
 
-<div class="flex min-h-dvh flex-col">
+<div class="flex min-h-dvh flex-col overflow-x-hidden">
 	<OfflineBanner />
 	<Header />
 	<main class="mx-auto w-full max-w-6xl flex-1 px-4 py-6 pb-20 sm:pb-6">
 		{@render children()}
 	</main>
-	<Footer />
+	{#if !pageLoading.active}
+		<Footer />
+	{/if}
 </div>
 
 <MobileNav />

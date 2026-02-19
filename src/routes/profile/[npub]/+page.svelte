@@ -9,6 +9,7 @@
 	import { createProfileLoader } from '$lib/nostr/loaders/profile-loader';
 	import { createBountyByAuthorLoader } from '$lib/nostr/loaders/bounty-loader';
 	import type { BountySummary } from '$lib/bounty/types';
+	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import BountyCard from '$lib/components/bounty/BountyCard.svelte';
 	import LoadingLogo from '$lib/components/shared/LoadingLogo.svelte';
@@ -21,6 +22,7 @@
 	import Plus from '@lucide/svelte/icons/plus';
 	import CredibilityBadge from '$lib/components/reputation/CredibilityBadge.svelte';
 	import { reputationStore } from '$lib/stores/reputation.svelte';
+	import { pageLoading } from '$lib/stores/page-loading.svelte';
 
 	const { data } = $props();
 
@@ -30,10 +32,9 @@
 	let bounties = $state<BountySummary[]>([]);
 	let loading = $state(true);
 
-	// Track whether the loading logo was actually shown.
-	// If EventStore already had cached data, subscriptions resolve synchronously
-	// and we skip the fade-in on subsequent navigations.
-	let showedLoading = $state(false);
+	// Full-page loading overlay: show for at least 1s, skip entirely if data resolves synchronously.
+	let minTimeElapsed = $state(false);
+	let needsOverlay = $state(false);
 
 	$effect(() => {
 		const subs: Array<Subscription | { unsubscribe(): void }> = [];
@@ -70,10 +71,14 @@
 		subs.push(createProfileLoader([data.pubkey]));
 		subs.push(createBountyByAuthorLoader(data.pubkey));
 
-		// If data didn't resolve synchronously from cache, we're showing the loading logo
-		if (loading && bounties.length === 0) {
-			showedLoading = true;
-		}
+		// Check whether data resolved synchronously from cache.
+		// Use untrack to avoid creating a reactive dependency on loading/bounties
+		// (which would cause an infinite effect loop since the subscriptions write to them).
+		untrack(() => {
+			if (loading && bounties.length === 0) {
+				needsOverlay = true;
+			}
+		});
 
 		// Safety timeout: stop loading after 8s if no data arrives
 		const timer = setTimeout(() => {
@@ -88,7 +93,20 @@
 		};
 	});
 
-	const fadeDuration = $derived(showedLoading ? 500 : 0);
+	if (!minTimeElapsed) {
+		setTimeout(() => {
+			minTimeElapsed = true;
+		}, 1000);
+	}
+
+	const dataReady = $derived(!loading || bounties.length > 0);
+	const showOverlay = $derived(needsOverlay && (!dataReady || !minTimeElapsed));
+
+	// Sync overlay state to layout so footer can be hidden during loading
+	$effect(() => {
+		pageLoading.active = showOverlay;
+	});
+
 	const displayName = $derived(profile?.name || profile?.display_name || formatNpub(npub));
 	const about = $derived(profile?.about || '');
 	const isOwnProfile = $derived(accountState.pubkey === data.pubkey);
@@ -100,105 +118,107 @@
 </svelte:head>
 
 <ErrorBoundary>
-	<section class="mx-auto max-w-3xl space-y-8">
-		<!-- Profile header -->
-		<header class="flex items-center gap-4">
-			<ProfileAvatar pubkey={data.pubkey} size="xl" />
-			<div>
-				<h1 class="text-xl font-bold text-foreground">{displayName}</h1>
-				<p class="text-xs font-mono text-muted-foreground">{formatNpub(npub)}</p>
+	<div class="relative">
+		{#if showOverlay}
+			<div out:fade={{ duration: 300 }}>
+				<LoadingLogo />
 			</div>
-		</header>
-
-		{#if about}
-			<p class="text-sm text-muted-foreground">{about}</p>
 		{/if}
-
-		<!-- Reputation section -->
-		{#if reputation}
-			<section class="border-t border-border pt-5 space-y-4" aria-label="Reputation">
-				<div class="flex items-center gap-2">
-					<h2 class="text-lg font-semibold text-foreground">Reputation</h2>
-					<CredibilityBadge pubkey={data.pubkey} size="md" />
+		<section
+			class="mx-auto max-w-3xl space-y-8"
+			class:animate-fade-in={needsOverlay && !showOverlay}
+		>
+			<!-- Profile header -->
+			<header class="flex items-center gap-4">
+				<ProfileAvatar pubkey={data.pubkey} size="xl" />
+				<div>
+					<h1 class="text-xl font-bold text-foreground">{displayName}</h1>
+					<p class="text-xs font-mono text-muted-foreground">{formatNpub(npub)}</p>
 				</div>
-				<div class="flex gap-x-8 gap-y-4 flex-wrap">
-					<div>
-						<p class="text-xs uppercase text-muted-foreground">Bounties Completed</p>
-						<p class="text-lg font-semibold text-foreground">{reputation.bountiesCompleted}</p>
+			</header>
+
+			{#if about}
+				<p class="text-sm text-muted-foreground">{about}</p>
+			{/if}
+
+			<!-- Reputation section -->
+			{#if reputation}
+				<section class="border-t border-border pt-5 space-y-4" aria-label="Reputation">
+					<div class="flex items-center gap-2">
+						<h2 class="text-lg font-semibold text-foreground">Reputation</h2>
+						<CredibilityBadge pubkey={data.pubkey} size="md" />
 					</div>
-					<div>
-						<p class="text-xs uppercase text-muted-foreground">Solutions Accepted</p>
-						<p class="text-lg font-semibold text-foreground">{reputation.solutionsAccepted}</p>
-					</div>
-					<div>
-						<p class="text-xs uppercase text-muted-foreground">Pledges Released</p>
-						<p class="text-lg font-semibold text-foreground">
-							{reputation.pledgesReleased}/{reputation.totalPledges}
-						</p>
-					</div>
-					{#if reputation.totalPledges > 0}
+					<div class="flex gap-x-8 gap-y-4 flex-wrap">
 						<div>
-							<p class="text-xs uppercase text-muted-foreground">Release Rate</p>
+							<p class="text-xs uppercase text-muted-foreground">Bounties Completed</p>
+							<p class="text-lg font-semibold text-foreground">{reputation.bountiesCompleted}</p>
+						</div>
+						<div>
+							<p class="text-xs uppercase text-muted-foreground">Solutions Accepted</p>
+							<p class="text-lg font-semibold text-foreground">{reputation.solutionsAccepted}</p>
+						</div>
+						<div>
+							<p class="text-xs uppercase text-muted-foreground">Pledges Released</p>
 							<p class="text-lg font-semibold text-foreground">
-								{Math.round(reputation.releaseRate * 100)}%
+								{reputation.pledgesReleased}/{reputation.totalPledges}
 							</p>
 						</div>
-					{/if}
-					{#if reputation.bountyRetractions > 0 || reputation.pledgeRetractions > 0}
-						<div>
-							<p class="text-xs uppercase text-destructive/70">Retractions</p>
-							<p class="text-lg font-semibold text-destructive/70">
-								{reputation.bountyRetractions + reputation.pledgeRetractions}
-							</p>
-						</div>
+						{#if reputation.totalPledges > 0}
+							<div>
+								<p class="text-xs uppercase text-muted-foreground">Release Rate</p>
+								<p class="text-lg font-semibold text-foreground">
+									{Math.round(reputation.releaseRate * 100)}%
+								</p>
+							</div>
+						{/if}
+						{#if reputation.bountyRetractions > 0 || reputation.pledgeRetractions > 0}
+							<div>
+								<p class="text-xs uppercase text-destructive/70">Retractions</p>
+								<p class="text-lg font-semibold text-destructive/70">
+									{reputation.bountyRetractions + reputation.pledgeRetractions}
+								</p>
+							</div>
+						{/if}
+					</div>
+				</section>
+			{/if}
+
+			<!-- Bounties by this author -->
+			<section>
+				<div class="mb-4 flex items-center justify-between">
+					<h2 class="text-lg font-semibold text-foreground">
+						{isOwnProfile ? 'My Bounties' : 'Bounties'} ({bounties.length})
+					</h2>
+					{#if isOwnProfile}
+						<a href="/bounty/new">
+							<Button variant="default" size="sm" class="gap-1.5">
+								<Plus class="size-4" />
+								Create Bounty
+							</Button>
+						</a>
 					{/if}
 				</div>
-			</section>
-		{/if}
 
-		<!-- Bounties by this author -->
-		<section>
-			<div class="mb-4 flex items-center justify-between">
-				<h2 class="text-lg font-semibold text-foreground">
-					{isOwnProfile ? 'My Bounties' : 'Bounties'} ({bounties.length})
-				</h2>
-				{#if isOwnProfile}
-					<a href="/bounty/new">
-						<Button variant="default" size="sm" class="gap-1.5">
-							<Plus class="size-4" />
-							Create Bounty
-						</Button>
-					</a>
-				{/if}
-			</div>
-
-			<div class="grid [&>*]:col-start-1 [&>*]:row-start-1">
-				{#if loading && bounties.length === 0}
-					<div out:fade={{ duration: 300 }}>
-						<LoadingLogo />
-					</div>
-				{:else if bounties.length === 0}
-					<div in:fade={{ duration: fadeDuration }}>
-						<EmptyState
-							message={isOwnProfile
-								? "You haven't posted any bounties yet."
-								: "This user hasn't posted any bounties yet."}
-							hint={isOwnProfile
-								? 'Post your first bounty to get started — describe what you need built and set a reward.'
-								: undefined}
-							action={isOwnProfile
-								? { label: 'Create Your First Bounty', href: '/bounty/new' }
-								: undefined}
-						/>
-					</div>
-				{:else}
-					<div in:fade={{ duration: fadeDuration }} class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+				{#if !loading && bounties.length === 0}
+					<EmptyState
+						message={isOwnProfile
+							? "You haven't posted any bounties yet."
+							: "This user hasn't posted any bounties yet."}
+						hint={isOwnProfile
+							? 'Post your first bounty to get started — describe what you need built and set a reward.'
+							: undefined}
+						action={isOwnProfile
+							? { label: 'Create Your First Bounty', href: '/bounty/new' }
+							: undefined}
+					/>
+				{:else if bounties.length > 0}
+					<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
 						{#each bounties as bounty (bounty.id)}
 							<BountyCard {bounty} />
 						{/each}
 					</div>
 				{/if}
-			</div>
+			</section>
 		</section>
-	</section>
-</ErrorBoundary>
+	</div></ErrorBoundary
+>

@@ -2,7 +2,11 @@
 	import { config } from '$lib/config';
 </script>
 
-<div class="flex items-center justify-center py-16" role="status" aria-label="Loading">
+<div
+	class="absolute inset-0 z-10 flex justify-center bg-background pt-[20vh]"
+	role="status"
+	aria-label="Loading"
+>
 	<img src={config.app.logo} alt="" class="loading-logo h-16 w-16 opacity-60" aria-hidden="true" />
 	<span class="sr-only">Loading</span>
 </div>
