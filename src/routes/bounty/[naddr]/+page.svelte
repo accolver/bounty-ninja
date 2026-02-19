@@ -10,6 +10,13 @@
 
 	const store = new BountyDetailStore();
 
+	// Track whether the loading logo was actually shown.
+	// If EventStore already had cached data, load() resolves synchronously
+	// and we skip the fade-in on subsequent navigations.
+	let showedLoading = $state(false);
+
+	// Load bounty data — must NOT read store.bounty/store.loading here
+	// to avoid a reactive cycle (load writes those, re-triggering the effect).
 	$effect(() => {
 		store.load(data.bountyAddress, data.kind, data.pubkey, data.dTag);
 
@@ -17,6 +24,16 @@
 			store.destroy();
 		};
 	});
+
+	// Separate effect to detect if loading state was visible to the user.
+	// Reads store.bounty/store.loading reactively without calling store.load().
+	$effect(() => {
+		if (!store.bounty && store.loading) {
+			showedLoading = true;
+		}
+	});
+
+	const fadeDuration = $derived(showedLoading ? 500 : 0);
 </script>
 
 <svelte:head>
@@ -33,19 +50,19 @@
 			</div>
 		{:else if store.error}
 			<div
-				in:fade={{ duration: 500 }}
+				in:fade={{ duration: fadeDuration }}
 				class="mx-auto max-w-5xl rounded-lg border border-destructive/50 bg-destructive/10 p-8 text-center"
 			>
 				<p class="text-sm text-destructive">{store.error}</p>
 			</div>
 		{:else if store.bounty}
-			<div in:fade={{ duration: 500 }}>
+			<div in:fade={{ duration: fadeDuration }}>
 				<BountyDetailView detail={store.bounty} />
 			</div>
 		{:else}
 			<div
-				in:fade={{ duration: 500 }}
-				class="mx-auto max-w-5xl rounded-lg border border-border bg-card p-8 text-center space-y-3"
+				in:fade={{ duration: fadeDuration }}
+				class="mx-auto max-w-5xl py-8 text-center space-y-3"
 			>
 				<p class="text-base font-medium text-foreground">Bounty not found</p>
 				<p class="text-sm text-muted-foreground">

@@ -30,6 +30,11 @@
 	let bounties = $state<BountySummary[]>([]);
 	let loading = $state(true);
 
+	// Track whether the loading logo was actually shown.
+	// If EventStore already had cached data, subscriptions resolve synchronously
+	// and we skip the fade-in on subsequent navigations.
+	let showedLoading = $state(false);
+
 	$effect(() => {
 		const subs: Array<Subscription | { unsubscribe(): void }> = [];
 
@@ -65,6 +70,11 @@
 		subs.push(createProfileLoader([data.pubkey]));
 		subs.push(createBountyByAuthorLoader(data.pubkey));
 
+		// If data didn't resolve synchronously from cache, we're showing the loading logo
+		if (loading && bounties.length === 0) {
+			showedLoading = true;
+		}
+
 		// Safety timeout: stop loading after 8s if no data arrives
 		const timer = setTimeout(() => {
 			loading = false;
@@ -78,6 +88,7 @@
 		};
 	});
 
+	const fadeDuration = $derived(showedLoading ? 500 : 0);
 	const displayName = $derived(profile?.name || profile?.display_name || formatNpub(npub));
 	const about = $derived(profile?.about || '');
 	const isOwnProfile = $derived(accountState.pubkey === data.pubkey);
@@ -105,51 +116,38 @@
 
 		<!-- Reputation section -->
 		{#if reputation}
-			<section
-				class="rounded-lg border border-border bg-card p-5 space-y-3"
-				aria-label="Reputation"
-			>
+			<section class="border-t border-border pt-5 space-y-4" aria-label="Reputation">
 				<div class="flex items-center gap-2">
 					<h2 class="text-lg font-semibold text-foreground">Reputation</h2>
 					<CredibilityBadge pubkey={data.pubkey} size="md" />
 				</div>
-				<div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
-					<div class="rounded-md border border-border bg-background p-3">
-						<p class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-							Bounties Completed
-						</p>
-						<p class="text-lg font-bold text-foreground">{reputation.bountiesCompleted}</p>
+				<div class="flex gap-x-8 gap-y-4 flex-wrap">
+					<div>
+						<p class="text-xs uppercase text-muted-foreground">Bounties Completed</p>
+						<p class="text-lg font-semibold text-foreground">{reputation.bountiesCompleted}</p>
 					</div>
-					<div class="rounded-md border border-border bg-background p-3">
-						<p class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-							Solutions Accepted
-						</p>
-						<p class="text-lg font-bold text-foreground">{reputation.solutionsAccepted}</p>
+					<div>
+						<p class="text-xs uppercase text-muted-foreground">Solutions Accepted</p>
+						<p class="text-lg font-semibold text-foreground">{reputation.solutionsAccepted}</p>
 					</div>
-					<div class="rounded-md border border-border bg-background p-3">
-						<p class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-							Pledges Released
-						</p>
-						<p class="text-lg font-bold text-foreground">
+					<div>
+						<p class="text-xs uppercase text-muted-foreground">Pledges Released</p>
+						<p class="text-lg font-semibold text-foreground">
 							{reputation.pledgesReleased}/{reputation.totalPledges}
 						</p>
 					</div>
 					{#if reputation.totalPledges > 0}
-						<div class="rounded-md border border-border bg-background p-3">
-							<p class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-								Release Rate
-							</p>
-							<p class="text-lg font-bold text-foreground">
+						<div>
+							<p class="text-xs uppercase text-muted-foreground">Release Rate</p>
+							<p class="text-lg font-semibold text-foreground">
 								{Math.round(reputation.releaseRate * 100)}%
 							</p>
 						</div>
 					{/if}
 					{#if reputation.bountyRetractions > 0 || reputation.pledgeRetractions > 0}
-						<div class="rounded-md border border-destructive/30 bg-destructive/5 p-3">
-							<p class="text-xs font-medium uppercase tracking-wider text-destructive">
-								Retractions
-							</p>
-							<p class="text-lg font-bold text-destructive">
+						<div>
+							<p class="text-xs uppercase text-destructive/70">Retractions</p>
+							<p class="text-lg font-semibold text-destructive/70">
 								{reputation.bountyRetractions + reputation.pledgeRetractions}
 							</p>
 						</div>
@@ -180,7 +178,7 @@
 						<LoadingLogo />
 					</div>
 				{:else if bounties.length === 0}
-					<div in:fade={{ duration: 500 }}>
+					<div in:fade={{ duration: fadeDuration }}>
 						<EmptyState
 							message={isOwnProfile
 								? "You haven't posted any bounties yet."
@@ -194,7 +192,7 @@
 						/>
 					</div>
 				{:else}
-					<div in:fade={{ duration: 500 }} class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+					<div in:fade={{ duration: fadeDuration }} class="grid grid-cols-1 gap-4 sm:grid-cols-2">
 						{#each bounties as bounty (bounty.id)}
 							<BountyCard {bounty} />
 						{/each}

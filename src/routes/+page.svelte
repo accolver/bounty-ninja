@@ -53,6 +53,12 @@
 		bountyList.init();
 	});
 
+	// Track whether we actually needed to show the loading logo.
+	// If data was already cached (e.g. navigating back), skip fade-in entirely.
+	const hadDataAtMount = bountyList.items.length > 0;
+	let showedLoading = $state(!hadDataAtMount && bountyList.loading);
+	const fadeDuration = $derived(showedLoading ? 500 : 0);
+
 	// Animations only play after a user-initiated filter/sort change,
 	// not during the initial relay data stream.
 	let animate = $state(false);
@@ -273,7 +279,7 @@
 									Status
 									{#if activeStatusCount < 4}
 										<span
-											class="ml-0.5 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+											class="ml-0.5 rounded border border-primary px-1.5 py-0.5 text-[10px] font-medium text-primary bg-transparent"
 										>
 											{activeStatusCount}
 										</span>
@@ -322,13 +328,13 @@
 					</div>
 				{:else if bountyList.error}
 					<div
-						in:fade={{ duration: 500 }}
+						in:fade={{ duration: fadeDuration }}
 						class="rounded-lg border border-destructive/50 bg-destructive/10 p-8 text-center"
 					>
 						<p class="text-sm text-destructive">{bountyList.error}</p>
 					</div>
 				{:else if filteredBounties.length === 0 && bountyList.items.length === 0}
-					<div in:fade={{ duration: 500 }} class="space-y-6 py-6">
+					<div in:fade={{ duration: fadeDuration }} class="space-y-6 py-6">
 						<EmptyState
 							message="No bounties yet — be the first to post one!"
 							hint="Bounties are jobs with Bitcoin rewards. Post what you need done and builders will compete to deliver."
@@ -336,7 +342,7 @@
 						/>
 					</div>
 				{:else if filteredBounties.length === 0}
-					<div in:fade={{ duration: 500 }}>
+					<div in:fade={{ duration: fadeDuration }}>
 						<EmptyState
 							message={selectedTag
 								? `No bounties found for "${selectedTag}". Try a different category.`
@@ -345,7 +351,7 @@
 						/>
 					</div>
 				{:else}
-					<div in:fade={{ duration: 500 }}>
+					<div in:fade={{ duration: fadeDuration }}>
 						{#each filteredBounties as bounty (bounty.id)}
 							<div
 								animate:flip={{ duration: animate ? 250 : 0 }}
