@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { bountyList } from '$lib/stores/bounties.svelte';
 	import BountyListItem from '$lib/components/bounty/BountyListItem.svelte';
-	import LoadingSpinner from '$lib/components/shared/LoadingSpinner.svelte';
+	import LoadingLogo from '$lib/components/shared/LoadingLogo.svelte';
 	import EmptyState from '$lib/components/shared/EmptyState.svelte';
 	import ErrorBoundary from '$lib/components/shared/ErrorBoundary.svelte';
 	import Tooltip from '$lib/components/shared/Tooltip.svelte';
@@ -15,7 +15,7 @@
 	import Zap from '@lucide/svelte/icons/zap';
 	import Clock from '@lucide/svelte/icons/clock';
 	import Target from '@lucide/svelte/icons/target';
-	import { fly } from 'svelte/transition';
+	import { fade, fly } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
@@ -24,9 +24,16 @@
 	import { config } from '$lib/config';
 
 	// --- Read initial query params ---
-	const initialParams = browser ? new URLSearchParams(window.location.search) : new URLSearchParams();
+	const initialParams = browser
+		? new URLSearchParams(window.location.search)
+		: new URLSearchParams();
 
-	function parseInitialStatus(param: string | null): { open: boolean; inReview: boolean; completed: boolean; expired: boolean } {
+	function parseInitialStatus(param: string | null): {
+		open: boolean;
+		inReview: boolean;
+		completed: boolean;
+		expired: boolean;
+	} {
 		if (!param) return { open: true, inReview: true, completed: false, expired: false };
 		const parts = param.split(',').map((s) => s.trim());
 		return {
@@ -52,7 +59,9 @@
 
 	let selectedTag = $state(initialParams.get('tag') ?? '');
 	let sortBy = $state<'reward' | 'newest' | 'solutions'>(
-		initSort && validSorts.includes(initSort as any) ? (initSort as 'reward' | 'newest' | 'solutions') : 'reward'
+		initSort && validSorts.includes(initSort as any)
+			? (initSort as 'reward' | 'newest' | 'solutions')
+			: 'reward'
 	);
 
 	// Status filter — initialized from URL or defaults
@@ -129,9 +138,7 @@
 	});
 
 	// Compute the max pledge across all items for the slider range
-	const maxPledge = $derived(
-		Math.max(1000, ...bountyList.items.map((t) => t.totalPledged))
-	);
+	const maxPledge = $derived(Math.max(1000, ...bountyList.items.map((t) => t.totalPledged)));
 
 	// Round up to a nice number for the slider max
 	const sliderMax = $derived.by(() => {
@@ -160,17 +167,13 @@
 	// Stats derived from all bounties (unfiltered)
 	const now24h = $derived(Math.floor(Date.now() / 1000) - 86_400);
 
-	const recentCount = $derived(
-		bountyList.items.filter((b) => b.createdAt >= now24h).length
-	);
+	const recentCount = $derived(bountyList.items.filter((b) => b.createdAt >= now24h).length);
 
 	const openBounties = $derived(
 		bountyList.items.filter((b) => b.status === 'open' || b.status === 'in_review')
 	);
 
-	const totalSatsAvailable = $derived(
-		openBounties.reduce((sum, b) => sum + b.totalPledged, 0)
-	);
+	const totalSatsAvailable = $derived(openBounties.reduce((sum, b) => sum + b.totalPledged, 0));
 
 	function formatSats(n: number): string {
 		if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -195,7 +198,9 @@
 
 			<!-- Stats bar + CTA -->
 			{#if !bountyList.loading || bountyList.items.length > 0}
-				<div class="flex flex-col gap-3 px-4 pb-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+				<div
+					class="flex flex-col gap-3 px-4 pb-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+				>
 					<div class="flex flex-wrap items-center gap-3 sm:gap-5">
 						<div class="flex items-center gap-1.5 text-xs text-muted-foreground">
 							<Clock class="h-3.5 w-3.5 shrink-0 text-primary/70" />
@@ -207,7 +212,9 @@
 							<span class="font-medium text-foreground">{openBounties.length}</span>
 							<span>active</span>
 						</div>
-						<Tooltip text="Sats (satoshis) are the smallest unit of Bitcoin. 100,000 sats ≈ a few dollars.">
+						<Tooltip
+							text="Sats (satoshis) are the smallest unit of Bitcoin. 100,000 sats ≈ a few dollars."
+						>
 							{#snippet children()}
 								<div class="flex items-center gap-1.5 text-xs text-muted-foreground cursor-help">
 									<Zap class="h-3.5 w-3.5 shrink-0 text-secondary" />
@@ -246,7 +253,9 @@
 							<option value="newest">Newest</option>
 							<option value="solutions">Solutions</option>
 						</select>
-						<ArrowUpDown class="pointer-events-none absolute right-0 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+						<ArrowUpDown
+							class="pointer-events-none absolute right-0 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+						/>
 					</div>
 				</div>
 
@@ -263,7 +272,9 @@
 									<ListFilter class="h-3.5 w-3.5" />
 									Status
 									{#if activeStatusCount < 4}
-										<span class="ml-0.5 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+										<span
+											class="ml-0.5 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+										>
 											{activeStatusCount}
 										</span>
 									{/if}
@@ -273,9 +284,7 @@
 						<DropdownMenu.Content class="w-44">
 							<DropdownMenu.Label>Filter by status</DropdownMenu.Label>
 							<DropdownMenu.Separator />
-							<DropdownMenu.CheckboxItem bind:checked={showOpen}>
-								Open
-							</DropdownMenu.CheckboxItem>
+							<DropdownMenu.CheckboxItem bind:checked={showOpen}>Open</DropdownMenu.CheckboxItem>
 							<DropdownMenu.CheckboxItem bind:checked={showInReview}>
 								In Review
 							</DropdownMenu.CheckboxItem>
@@ -307,15 +316,18 @@
 
 			<!-- Bounty list -->
 			{#if bountyList.loading && bountyList.items.length === 0}
-				<div class="flex items-center justify-center py-12">
-					<LoadingSpinner size="lg" />
+				<div out:fade={{ duration: 300 }}>
+					<LoadingLogo />
 				</div>
 			{:else if bountyList.error}
-				<div class="rounded-lg border border-destructive/50 bg-destructive/10 p-8 text-center">
+				<div
+					in:fade={{ duration: 500 }}
+					class="rounded-lg border border-destructive/50 bg-destructive/10 p-8 text-center"
+				>
 					<p class="text-sm text-destructive">{bountyList.error}</p>
 				</div>
 			{:else if filteredBounties.length === 0 && bountyList.items.length === 0}
-				<div class="space-y-6 py-6">
+				<div in:fade={{ duration: 500 }} class="space-y-6 py-6">
 					<EmptyState
 						message="No bounties yet — be the first to post one!"
 						hint="Bounties are jobs with Bitcoin rewards. Post what you need done and builders will compete to deliver."
@@ -323,14 +335,16 @@
 					/>
 				</div>
 			{:else if filteredBounties.length === 0}
-				<EmptyState
-					message={selectedTag
-						? `No bounties found for "${selectedTag}". Try a different category.`
-						: 'No bounties match the current filters. Try adjusting the status or minimum reward.'}
-					hint="Tip: Enable more status filters or lower the minimum sats to see more results."
-				/>
+				<div in:fade={{ duration: 500 }}>
+					<EmptyState
+						message={selectedTag
+							? `No bounties found for "${selectedTag}". Try a different category.`
+							: 'No bounties match the current filters. Try adjusting the status or minimum reward.'}
+						hint="Tip: Enable more status filters or lower the minimum sats to see more results."
+					/>
+				</div>
 			{:else}
-				<div>
+				<div in:fade={{ duration: 500 }}>
 					{#each filteredBounties as bounty (bounty.id)}
 						<div
 							animate:flip={{ duration: animate ? 250 : 0 }}

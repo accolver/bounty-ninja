@@ -9,8 +9,9 @@
 	import { createProfileLoader } from '$lib/nostr/loaders/profile-loader';
 	import { createBountyByAuthorLoader } from '$lib/nostr/loaders/bounty-loader';
 	import type { BountySummary } from '$lib/bounty/types';
+	import { fade } from 'svelte/transition';
 	import BountyCard from '$lib/components/bounty/BountyCard.svelte';
-	import LoadingSpinner from '$lib/components/shared/LoadingSpinner.svelte';
+	import LoadingLogo from '$lib/components/shared/LoadingLogo.svelte';
 	import EmptyState from '$lib/components/shared/EmptyState.svelte';
 	import ErrorBoundary from '$lib/components/shared/ErrorBoundary.svelte';
 	import ProfileAvatar from '$lib/components/auth/ProfileAvatar.svelte';
@@ -174,23 +175,25 @@
 			</div>
 
 			{#if loading && bounties.length === 0}
-				<div class="flex items-center justify-center py-12">
-					<LoadingSpinner size="md" />
+				<div out:fade={{ duration: 300 }}>
+					<LoadingLogo />
 				</div>
 			{:else if bounties.length === 0}
-				<EmptyState
-					message={isOwnProfile
-						? "You haven't posted any bounties yet."
-						: "This user hasn't posted any bounties yet."}
-					hint={isOwnProfile
-						? 'Post your first bounty to get started — describe what you need built and set a reward.'
-						: undefined}
-					action={isOwnProfile
-						? { label: 'Create Your First Bounty', href: '/bounty/new' }
-						: undefined}
-				/>
+				<div in:fade={{ duration: 500 }}>
+					<EmptyState
+						message={isOwnProfile
+							? "You haven't posted any bounties yet."
+							: "This user hasn't posted any bounties yet."}
+						hint={isOwnProfile
+							? 'Post your first bounty to get started — describe what you need built and set a reward.'
+							: undefined}
+						action={isOwnProfile
+							? { label: 'Create Your First Bounty', href: '/bounty/new' }
+							: undefined}
+					/>
+				</div>
 			{:else}
-				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+				<div in:fade={{ duration: 500 }} class="grid grid-cols-1 gap-4 sm:grid-cols-2">
 					{#each bounties as bounty (bounty.id)}
 						<BountyCard {bounty} />
 					{/each}

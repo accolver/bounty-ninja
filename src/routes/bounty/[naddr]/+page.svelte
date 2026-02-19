@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { config } from '$lib/config';
+	import { fade } from 'svelte/transition';
 	import { BountyDetailStore } from '$lib/stores/bounty-detail.svelte';
 	import BountyDetailView from '$lib/components/bounty/BountyDetailView.svelte';
-	import LoadingSpinner from '$lib/components/shared/LoadingSpinner.svelte';
+	import LoadingLogo from '$lib/components/shared/LoadingLogo.svelte';
 	import ErrorBoundary from '$lib/components/shared/ErrorBoundary.svelte';
 
 	const { data } = $props();
@@ -26,19 +27,23 @@
 
 <ErrorBoundary>
 	{#if store.loading && !store.bounty}
-		<div class="mx-auto flex max-w-5xl items-center justify-center py-12">
-			<LoadingSpinner size="lg" />
+		<div out:fade={{ duration: 300 }}>
+			<LoadingLogo />
 		</div>
 	{:else if store.error}
 		<div
+			in:fade={{ duration: 500 }}
 			class="mx-auto max-w-5xl rounded-lg border border-destructive/50 bg-destructive/10 p-8 text-center"
 		>
 			<p class="text-sm text-destructive">{store.error}</p>
 		</div>
 	{:else if store.bounty}
-		<BountyDetailView detail={store.bounty} />
+		<div in:fade={{ duration: 500 }}>
+			<BountyDetailView detail={store.bounty} />
+		</div>
 	{:else}
 		<div
+			in:fade={{ duration: 500 }}
 			class="mx-auto max-w-5xl rounded-lg border border-border bg-card p-8 text-center space-y-3"
 		>
 			<p class="text-base font-medium text-foreground">Bounty not found</p>
