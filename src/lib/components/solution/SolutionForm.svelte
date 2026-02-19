@@ -136,9 +136,7 @@
 
 	const descriptionLengthValid = $derived(description.length <= DESCRIPTION_MAX);
 
-	const isFeeValid = $derived(
-		feeAmount === 0 || (Number.isInteger(feeAmount) && feeAmount > 0)
-	);
+	const isFeeValid = $derived(feeAmount === 0 || (Number.isInteger(feeAmount) && feeAmount > 0));
 
 	const isValid = $derived(
 		description.trim().length > 0 &&
@@ -209,7 +207,7 @@
 	<!-- Hidden entirely for completed/expired/cancelled -->
 {:else if !accountState.isLoggedIn}
 	<!-- Unauthenticated prompt -->
-	<section class="rounded-lg border border-border bg-card p-6" aria-label="Submit a solution">
+	<section class="border-t border-border pt-4" aria-label="Submit a solution">
 		<div class="flex flex-col items-center gap-3 text-center">
 			<FileTextIcon class="size-8 text-muted-foreground" />
 			<p class="text-sm text-muted-foreground">
@@ -220,7 +218,7 @@
 	</section>
 {:else}
 	<!-- Solution submission form -->
-	<section class="rounded-lg border border-border bg-card p-6" aria-label="Submit a solution">
+	<section class="border-t border-border pt-4" aria-label="Submit a solution">
 		<h3 class="mb-4 text-lg font-semibold text-foreground">Submit a solution</h3>
 
 		<form
@@ -251,9 +249,7 @@
 							Description must be {DESCRIPTION_MAX.toLocaleString()} characters or fewer.
 						</p>
 					{:else if description.length > 0 && description.trim().length === 0}
-						<p class="text-xs text-destructive" role="alert">
-							Description cannot be empty.
-						</p>
+						<p class="text-xs text-destructive" role="alert">Description cannot be empty.</p>
 					{:else}
 						<span></span>
 					{/if}
@@ -346,7 +342,9 @@
 								{isFeeTokenValid ? 'Fee covered' : `${feeRemaining} sats remaining`}
 							</span>
 							<span class="font-medium {isFeeTokenValid ? 'text-success' : 'text-foreground'}">
-								{new Intl.NumberFormat().format(feeTokenTotal)} / {new Intl.NumberFormat().format(feeAmount)} sats
+								{new Intl.NumberFormat().format(feeTokenTotal)} / {new Intl.NumberFormat().format(
+									feeAmount
+								)} sats
 							</span>
 						</div>
 					{/if}
@@ -375,8 +373,8 @@
 							</button>
 						</div>
 						<p id="solution-fee-help" class="text-xs text-muted-foreground">
-							This bounty requires a {feeAmount} sat submission fee. Paste one or more Cashu tokens
-							that total at least {feeAmount} sats. This fee is non-refundable.
+							This bounty requires a {feeAmount} sat submission fee. Paste one or more Cashu tokens that
+							total at least {feeAmount} sats. This fee is non-refundable.
 						</p>
 					{/if}
 

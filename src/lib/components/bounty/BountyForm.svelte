@@ -85,9 +85,7 @@
 
 	/** Formatted sats equivalent shown below USD input */
 	const satsEquivalent = $derived(
-		rewardInUsd && rewardAmount > 0
-			? `≈ ${new Intl.NumberFormat().format(rewardAmount)} sats`
-			: ''
+		rewardInUsd && rewardAmount > 0 ? `≈ ${new Intl.NumberFormat().format(rewardAmount)} sats` : ''
 	);
 
 	/** Formatted USD equivalent shown below sats input */
@@ -292,8 +290,8 @@
 	class="bounty-form space-y-6"
 	aria-label="Create bounty form"
 >
-	<!-- Title — full width card -->
-	<div class="space-y-4 rounded-lg border border-border bg-card p-5">
+	<!-- Title -->
+	<div class="space-y-3">
 		<div class="flex flex-col gap-1.5">
 			<label for="bounty-title" class="text-sm font-medium text-foreground">
 				Title <span class="text-destructive" aria-hidden="true">*</span>
@@ -331,8 +329,8 @@
 		</div>
 	</div>
 
-	<!-- Description — full width card -->
-	<div class="space-y-4 rounded-lg border border-border bg-card p-5">
+	<!-- Description -->
+	<div class="space-y-3">
 		<div class="flex flex-col gap-1.5">
 			<label for="bounty-description" class="text-sm font-medium text-foreground">
 				Description <span class="text-destructive" aria-hidden="true">*</span>
@@ -364,59 +362,69 @@
 	<!-- Reward + Deadline row — side by side on lg -->
 	<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
 		<!-- Reward Amount — takes 1 col -->
-		<div class="space-y-3 rounded-lg border border-border bg-card p-5">
-			<div class="flex items-center justify-between">
-				<label for="bounty-reward" class="text-sm font-medium text-foreground">
-					<Tooltip
-						text="Satoshis (sats) are small units of Bitcoin. ~100K sats ≈ $50–100 USD at recent rates."
-					>
-						{#snippet children()}
-							<span class="cursor-help border-b border-dotted border-muted-foreground/50"
-								>Reward Amount {rewardInUsd ? '(USD)' : '(sats)'}</span
-							>
-						{/snippet}
-					</Tooltip>
-					<span class="text-destructive" aria-hidden="true">*</span>
-				</label>
+		<div class="space-y-3">
+			<label for="bounty-reward" class="text-sm font-medium text-foreground">
+				<Tooltip
+					text="Satoshis (sats) are small units of Bitcoin. ~100K sats ≈ $50–100 USD at recent rates."
+				>
+					{#snippet children()}
+						<span class="cursor-help border-b border-dotted border-muted-foreground/50"
+							>Reward Amount</span
+						>
+					{/snippet}
+				</Tooltip>
+				<span class="text-destructive" aria-hidden="true">*</span>
+			</label>
+			<div class="relative">
+				<span
+					class="pointer-events-none absolute left-3 top-1/2 -translate-y-[55%] text-sm text-muted-foreground"
+					aria-hidden="true"
+				>
+					{rewardInUsd ? '$' : '₿'}
+				</span>
+				{#if rewardInUsd}
+					<input
+						id="bounty-reward"
+						type="number"
+						value={rewardUsdInput}
+						oninput={handleUsdInput}
+						required
+						min="0.01"
+						step="0.01"
+						placeholder="10.00"
+						class="w-full rounded-md border border-border bg-input dark:bg-input/30 py-2 pl-8 pr-16 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
+						aria-required="true"
+						aria-invalid={rewardAmount !== 0 && !rewardValid}
+					/>
+				{:else}
+					<input
+						id="bounty-reward"
+						type="number"
+						value={rewardAmount || ''}
+						oninput={(e) => {
+							const v = parseInt((e.target as HTMLInputElement).value, 10);
+							rewardAmount = isNaN(v) ? 0 : v;
+						}}
+						required
+						min="1"
+						step="1"
+						placeholder="21,420"
+						class="w-full rounded-md border border-border bg-input dark:bg-input/30 py-2 pl-8 pr-16 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
+						aria-required="true"
+						aria-invalid={rewardAmount !== 0 && !rewardValid}
+					/>
+				{/if}
 				{#if btcPrice.priceUsd}
 					<button
 						type="button"
 						onclick={toggleRewardCurrency}
-						class="cursor-pointer rounded-md border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+						class="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer rounded border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 						title="Toggle between USD and sats"
 					>
-						{rewardInUsd ? 'sats' : 'USD'}
+						{rewardInUsd ? 'USD' : 'sats'}
 					</button>
 				{/if}
 			</div>
-			{#if rewardInUsd}
-				<input
-					id="bounty-reward"
-					type="number"
-					value={rewardUsdInput}
-					oninput={handleUsdInput}
-					required
-					min="0.01"
-					step="0.01"
-					placeholder="10.00"
-					class="w-full rounded-md border border-border bg-input dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
-					aria-required="true"
-					aria-invalid={rewardAmount !== 0 && !rewardValid}
-				/>
-			{:else}
-				<input
-					id="bounty-reward"
-					type="number"
-					bind:value={rewardAmount}
-					required
-					min="1"
-					step="1"
-					placeholder="1000"
-					class="w-full rounded-md border border-border bg-input dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
-					aria-required="true"
-					aria-invalid={rewardAmount !== 0 && !rewardValid}
-				/>
-			{/if}
 			{#if satsEquivalent}
 				<p class="text-xs text-muted-foreground">{satsEquivalent}</p>
 			{/if}
@@ -429,7 +437,7 @@
 		</div>
 
 		<!-- Deadline — takes 1 col -->
-		<div class="space-y-3 rounded-lg border border-border bg-card p-5">
+		<div class="space-y-3">
 			<label for="bounty-deadline" class="text-sm font-medium text-foreground"> Deadline </label>
 			<input
 				id="bounty-deadline"
@@ -450,7 +458,7 @@
 		</div>
 
 		<!-- Tags — takes 1 col -->
-		<div class="space-y-3 rounded-lg border border-border bg-card p-5">
+		<div class="space-y-3">
 			<label for="bounty-tags" class="text-sm font-medium text-foreground"> Tags </label>
 			{#if tags.length > 0}
 				<ul class="flex flex-wrap gap-1.5" aria-label="Selected tags">
@@ -535,7 +543,9 @@
 					</ul>
 				{/if}
 			</div>
-			<p class="text-xs text-muted-foreground">What kind of work is this? Comma-separated or press Enter.</p>
+			<p class="text-xs text-muted-foreground">
+				What kind of work is this? Comma-separated or press Enter.
+			</p>
 		</div>
 	</div>
 
@@ -553,7 +563,7 @@
 		<!-- Advanced settings row — side by side on md+ -->
 		<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 			<!-- Submission Fee -->
-			<div class="space-y-3 rounded-lg border border-border bg-card p-5">
+			<div class="space-y-3">
 				<label for="bounty-fee" class="text-sm font-medium text-foreground">
 					<Tooltip
 						text="A small fee that builders pay to submit a solution. This prevents spam submissions on popular bounties."
@@ -591,7 +601,7 @@
 			</div>
 
 			<!-- Mint URL -->
-			<div class="space-y-3 rounded-lg border border-border bg-card p-5">
+			<div class="space-y-3">
 				<label for="bounty-mint" class="text-sm font-medium text-foreground">
 					<Tooltip
 						text="A Cashu mint holds Bitcoin in escrow for your bounty. Think of it as the payment processor. The default works great for most users."
@@ -679,7 +689,9 @@
 	/* Fix calendar/date picker icon color for light mode.
 	 * The browser-native icon is white by default — invisible on light backgrounds.
 	 * In dark mode the icon inherits the default white, which works fine. */
-	:global(.light) .bounty-form :global(input[type='datetime-local'])::-webkit-calendar-picker-indicator {
+	:global(.light)
+		.bounty-form
+		:global(input[type='datetime-local'])::-webkit-calendar-picker-indicator {
 		filter: invert(0.3);
 	}
 </style>

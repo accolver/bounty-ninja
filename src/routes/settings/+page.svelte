@@ -143,7 +143,6 @@
 		saveSettings(settings);
 		toastStore.success('Mint reset to default');
 	}
-
 </script>
 
 <svelte:head>
@@ -164,14 +163,15 @@
 			<!-- Top row: Relays + Cashu Mint side by side -->
 			<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
 				<!-- Relay Management — takes 2 cols on desktop -->
-				<div class="space-y-4 rounded-lg border border-border bg-card p-5 lg:col-span-2">
+				<div class="border-t border-border pt-5 space-y-3 lg:col-span-2">
 					<h2 class="text-lg font-semibold text-foreground">Relay Management</h2>
-					<p class="text-xs text-muted-foreground">Relays are servers that store and forward your bounties. More relays = better availability and redundancy.</p>
-					<ul class="space-y-1.5" aria-label="Configured relays">
+					<p class="text-xs text-muted-foreground">
+						Relays are servers that store and forward your bounties. More relays = better
+						availability and redundancy.
+					</p>
+					<ul class="space-y-0" aria-label="Configured relays">
 						{#each settings.relays as relay}
-							<li
-								class="flex items-center justify-between gap-2 rounded-md border border-border bg-background px-3 py-1.5"
-							>
+							<li class="flex items-center justify-between gap-2 py-2 border-b border-border px-3">
 								<span class="truncate font-mono text-sm text-foreground">{relay}</span>
 								<Button
 									variant="ghost"
@@ -207,9 +207,12 @@
 				<!-- Right column: Cashu Mint + Currency Display stacked -->
 				<div class="space-y-6">
 					<!-- Cashu Mint Selection -->
-					<div class="space-y-3 rounded-lg border border-border bg-card p-5">
+					<div class="border-t border-border pt-5 space-y-3">
 						<h2 class="text-lg font-semibold text-foreground">Cashu Mint</h2>
-						<p class="text-xs text-muted-foreground">The mint handles Bitcoin payments for bounties. The default works great for most users.</p>
+						<p class="text-xs text-muted-foreground">
+							The mint handles Bitcoin payments for bounties. The default works great for most
+							users.
+						</p>
 						<Input
 							bind:value={settings.mint}
 							placeholder="https://mint.example.com"
@@ -222,9 +225,12 @@
 					</div>
 
 					<!-- Currency Display Preference -->
-					<div class="space-y-3 rounded-lg border border-border bg-card p-5">
+					<div class="border-t border-border pt-5 space-y-3">
 						<h2 class="text-lg font-semibold text-foreground">Currency Display</h2>
-						<p class="text-xs text-muted-foreground">Choose how bounty amounts are shown. You can also click any amount in the app to toggle.</p>
+						<p class="text-xs text-muted-foreground">
+							Choose how bounty amounts are shown. You can also click any amount in the app to
+							toggle.
+						</p>
 						<div class="flex gap-2">
 							<button
 								type="button"
@@ -248,7 +254,10 @@
 						{#if currencyStore.isUsd}
 							<p class="text-xs text-muted-foreground">
 								{#if btcPrice.priceUsd}
-									BTC price: ${btcPrice.priceUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+									BTC price: ${btcPrice.priceUsd.toLocaleString(undefined, {
+										minimumFractionDigits: 2,
+										maximumFractionDigits: 2
+									})}
 									<span class="text-muted-foreground/60">
 										via {btcPrice.source}
 										{#if !btcPrice.isFresh}(stale){/if}
@@ -267,19 +276,21 @@
 			<!-- Bottom row: Cache Management + Error Log side by side -->
 			<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 				<!-- Cache Management -->
-				<div class="space-y-4 rounded-lg border border-border bg-card p-5">
+				<div class="border-t border-border pt-5 space-y-4">
 					<h2 class="text-lg font-semibold text-foreground">Cache Management</h2>
-					<p class="text-xs text-muted-foreground">Cached data speeds up loading. Clear the cache if you're seeing outdated information.</p>
+					<p class="text-xs text-muted-foreground">
+						Cached data speeds up loading. Clear the cache if you're seeing outdated information.
+					</p>
 
 					<!-- Cache Statistics -->
-					<div class="grid grid-cols-2 gap-3">
-						<div class="rounded-md border border-border bg-background p-3">
+					<div class="flex gap-x-8 gap-y-4 flex-wrap">
+						<div>
 							<p class="text-xs text-muted-foreground">Cached Events</p>
 							<p class="text-lg font-semibold text-foreground">
 								{cacheMonitor.eventCount.toLocaleString()}
 							</p>
 						</div>
-						<div class="rounded-md border border-border bg-background p-3">
+						<div>
 							<p class="text-xs text-muted-foreground">Estimated Size</p>
 							<p class="text-lg font-semibold text-foreground">
 								{cacheMonitor.estimatedSizeFormatted}
@@ -293,7 +304,10 @@
 						onclick={() => (showAdvancedCache = !showAdvancedCache)}
 						class="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
 					>
-						<span class="transition-transform {showAdvancedCache ? 'rotate-90' : ''}" aria-hidden="true">▸</span>
+						<span
+							class="transition-transform {showAdvancedCache ? 'rotate-90' : ''}"
+							aria-hidden="true">▸</span
+						>
 						Advanced limits
 					</button>
 					{#if showAdvancedCache}
@@ -342,7 +356,7 @@
 
 				<!-- Error Log (only visible when errors exist) -->
 				{#if errorMonitor.hasErrors}
-					<div class="space-y-4 rounded-lg border border-border bg-card p-5">
+					<div class="border-t border-border pt-5 space-y-4">
 						<div class="flex items-center justify-between">
 							<button
 								onclick={() => (errorLogOpen = !errorLogOpen)}
@@ -351,9 +365,7 @@
 								aria-controls="error-log-list"
 							>
 								<span
-									class="inline-block transition-transform {errorLogOpen
-										? 'rotate-90'
-										: ''}"
+									class="inline-block transition-transform {errorLogOpen ? 'rotate-90' : ''}"
 									aria-hidden="true">&#9654;</span
 								>
 								Error Log ({errorMonitor.count})
@@ -378,7 +390,7 @@
 								aria-label="Captured errors"
 							>
 								{#each errorMonitor.entries as entry}
-									<li class="rounded-md border border-border bg-background p-2.5">
+									<li class="py-2 border-b border-border">
 										<div class="flex items-start justify-between gap-2">
 											<span
 												class="inline-block rounded px-1.5 py-0.5 text-xs font-medium {entry.type ===

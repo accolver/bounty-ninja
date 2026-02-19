@@ -49,12 +49,16 @@
 	{#if visibleTags.length > 0}
 		<div class="flex flex-wrap gap-1.5 px-4 pb-3" aria-label="Bounty tags">
 			{#each visibleTags as tag (tag)}
-				<span class="rounded-md bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground">
+				<span
+					class="rounded-md border border-muted-foreground/40 px-2 py-0.5 text-xs text-muted-foreground bg-transparent"
+				>
 					{tag}
 				</span>
 			{/each}
 			{#if overflowCount > 0}
-				<span class="rounded-md bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground/70">
+				<span
+					class="rounded-md border border-muted-foreground/40 px-2 py-0.5 text-xs text-muted-foreground/70 bg-transparent"
+				>
 					+{overflowCount}
 				</span>
 			{/if}
@@ -65,7 +69,7 @@
 	<div class="flex-1"></div>
 
 	<!-- Funding bar + Reward -->
-	<div class="mt-auto border-t border-border/50 px-4 pt-3 pb-4">
+	<div class="mt-auto px-4 pt-3 pb-4">
 		<!-- Pledged amount -->
 		<div class="flex items-baseline gap-2">
 			<span class="text-lg font-bold">

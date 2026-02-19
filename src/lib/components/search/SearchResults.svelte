@@ -25,7 +25,7 @@
 					type="button"
 					class="cursor-pointer rounded-md px-3 py-1 text-xs font-medium transition-colors
 						{statusFilter === status
-						? 'bg-primary text-primary-foreground'
+						? 'border border-primary text-primary bg-transparent'
 						: 'text-muted-foreground hover:text-foreground'}"
 					onclick={() => (statusFilter = status as 'all' | 'open' | 'completed')}
 				>
@@ -42,7 +42,7 @@
 	{#if searchStore.loading}
 		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 			{#each Array(3) as _}
-				<div class="h-40 animate-pulse rounded-lg border border-border bg-card"></div>
+				<div class="h-40 animate-pulse py-4 border-b border-border"></div>
 			{/each}
 		</div>
 	{:else if searchStore.error}
@@ -50,7 +50,9 @@
 			<p class="text-sm text-warning">{searchStore.error}</p>
 		</div>
 	{:else if filteredResults.length === 0}
-		<EmptyState message={`No bounties found for "${searchStore.query}". Try different keywords or check your spelling.`} />
+		<EmptyState
+			message={`No bounties found for "${searchStore.query}". Try different keywords or check your spelling.`}
+		/>
 	{:else}
 		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 			{#each filteredResults as bounty (bounty.id)}
