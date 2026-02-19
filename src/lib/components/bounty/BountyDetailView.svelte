@@ -19,13 +19,13 @@
 	import SolutionForm from '$lib/components/solution/SolutionForm.svelte';
 	import VoteButton from '$lib/components/voting/VoteButton.svelte';
 	import VoteProgress from '$lib/components/voting/VoteProgress.svelte';
-	import VoteResults from '$lib/components/voting/VoteResults.svelte';
 	import PayoutTrigger from '$lib/components/voting/PayoutTrigger.svelte';
 	import SolverClaim from '$lib/components/voting/SolverClaim.svelte';
 	import RetractButton from '$lib/components/bounty/RetractButton.svelte';
 	import { connectivity } from '$lib/stores/connectivity.svelte';
 	import type { Retraction } from '$lib/bounty/types';
-	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
+	import UnlockIcon from '@lucide/svelte/icons/unlock';
+	import CrownIcon from '@lucide/svelte/icons/crown';
 
 	const {
 		detail,
@@ -71,6 +71,18 @@
 		detail.status === 'consensus_reached' || detail.status === 'releasing'
 	);
 
+	/** Solutions sorted with winning solution first */
+	const sortedSolutions = $derived.by(() => {
+		if (!winningSolution) return detail.solutions;
+		const winner = detail.solutions.find((s) => s.id === winningSolution.id);
+		const rest = detail.solutions.filter((s) => s.id !== winningSolution.id);
+		return winner ? [winner, ...rest] : detail.solutions;
+	});
+
+	/** Release progress stats for pledges header */
+	const uniquePledgers = $derived(new Set(detail.pledges.map((p) => p.pubkey)).size);
+	const releasedPledgers = $derived(new Set(detail.payouts.map((p) => p.pubkey)).size);
+
 	/** Whether the current user is a pledger who still needs to release funds */
 	const needsRelease = $derived.by(() => {
 		if (!accountState.isLoggedIn || !accountState.pubkey) return false;
@@ -90,85 +102,90 @@
 	);
 
 	let pledgeFormOpen = $state(false);
-
-	function scrollToPayout() {
-		document.getElementById('payout-section')?.scrollIntoView({ behavior: 'smooth' });
-	}
+	let releaseDialogOpen = $state(false);
 </script>
 
 <article class="mx-auto max-w-5xl space-y-4">
-	<!-- Header -->
-	<header class="space-y-3">
-		<div class="flex flex-wrap items-center gap-2">
-			<BountyStatusBadge status={detail.status} />
-			<BountyTimer deadline={detail.deadline} />
-			<TimeAgo timestamp={detail.createdAt} />
-		</div>
-
-		<h1 class="text-2xl font-bold text-foreground">{detail.title}</h1>
-
-		<div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-			<span class="inline-flex items-center gap-1 text-muted-foreground">
-				Posted by
-				<ProfileLink pubkey={detail.pubkey} />
-			</span>
-			{#if isCreator && detail.status !== 'completed' && detail.status !== 'cancelled'}
-				<RetractButton taskAddress={bountyAddress} hasSolutions={detail.solutions.length > 0} />
-			{/if}
-			{#if detail.tags.length > 0}
-				<div class="flex items-center gap-1.5" aria-label="Bounty tags">
-					{#each detail.tags as tag (tag)}
-						<span
-							class="inline-block rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
-						>
-							{tag}
-						</span>
-					{/each}
-				</div>
-			{/if}
-		</div>
-	</header>
-
-	<!-- Funding stats — compact horizontal strip -->
-	<section
-		class="grid grid-cols-3 gap-3 rounded-lg border border-border bg-card p-3"
-		aria-label="Bounty funding"
+	<!-- Header + stats -->
+	<div
+		class="flex flex-col gap-4 border-b border-border pb-4 md:flex-row md:items-end md:justify-between"
 	>
-		<div class="rounded-md border border-border bg-background px-3 py-2">
-			<p
-				class="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-muted-foreground"
-			>
-				<span>Asking</span>
-				<Tooltip
-					text="The amount the creator is requesting. This is a target — no funds are locked until someone pledges."
+		<header class="space-y-3">
+			<div class="flex flex-wrap items-center gap-2">
+				<BountyStatusBadge status={detail.status} />
+				<BountyTimer deadline={detail.deadline} />
+				<TimeAgo timestamp={detail.createdAt} />
+			</div>
+
+			<h1 class="pt-4 text-2xl font-bold text-foreground">{detail.title}</h1>
+
+			<div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+				<span class="inline-flex items-center gap-1 text-muted-foreground">
+					Posted by
+					<ProfileLink pubkey={detail.pubkey} />
+				</span>
+				{#if isCreator && detail.status !== 'completed' && detail.status !== 'cancelled'}
+					<RetractButton taskAddress={bountyAddress} hasSolutions={detail.solutions.length > 0} />
+				{/if}
+				{#if detail.tags.length > 0}
+					<div class="flex items-center gap-1.5" aria-label="Bounty tags">
+						{#each detail.tags as tag (tag)}
+							<span
+								class="inline-block rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+							>
+								{tag}
+							</span>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		</header>
+
+		<!-- Funding stats -->
+		<section
+			class="flex flex-wrap gap-x-10 gap-y-3 md:shrink-0 md:text-right"
+			aria-label="Bounty funding"
+		>
+			<div>
+				<p
+					class="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-muted-foreground md:justify-end"
 				>
-					{#snippet children()}
-						<InfoIcon class="h-3 w-3 text-muted-foreground/70" />
-					{/snippet}
-				</Tooltip>
-			</p>
-			<SatAmount amount={detail.rewardAmount} />
-		</div>
-		<div class="rounded-md border border-border bg-background px-3 py-2">
-			<p
-				class="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-muted-foreground"
-			>
-				<span>Funded</span>
-				<Tooltip
-					text="Actual ecash pledged by supporters, held in escrow until a solution is approved. Anyone can pledge — not just the creator."
+					<span>Asking</span>
+					<Tooltip
+						text="The amount the creator is requesting. This is a target — no funds are locked until someone pledges."
+					>
+						{#snippet children()}
+							<InfoIcon class="h-3 w-3 text-muted-foreground/70" />
+						{/snippet}
+					</Tooltip>
+				</p>
+				<p class="text-lg font-semibold text-foreground">
+					<SatAmount amount={detail.rewardAmount} />
+				</p>
+			</div>
+			<div>
+				<p
+					class="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-muted-foreground md:justify-end"
 				>
-					{#snippet children()}
-						<InfoIcon class="h-3 w-3 text-muted-foreground/70" />
-					{/snippet}
-				</Tooltip>
-			</p>
-			<SatAmount amount={detail.totalPledged} />
-		</div>
-		<div class="rounded-md border border-border bg-background px-3 py-2">
-			<p class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Solutions</p>
-			<p class="font-medium text-foreground">{detail.solutionCount}</p>
-		</div>
-	</section>
+					<span>Funded</span>
+					<Tooltip
+						text="Actual ecash pledged by supporters, held in escrow until a solution is approved. Anyone can pledge — not just the creator."
+					>
+						{#snippet children()}
+							<InfoIcon class="h-3 w-3 text-muted-foreground/70" />
+						{/snippet}
+					</Tooltip>
+				</p>
+				<p class="text-lg font-semibold text-foreground">
+					<SatAmount amount={detail.totalPledged} />
+				</p>
+			</div>
+			<div>
+				<p class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Solutions</p>
+				<p class="text-lg font-semibold text-foreground">{detail.solutionCount}</p>
+			</div>
+		</section>
+	</div>
 
 	<!-- Sticky release banner for pledgers who need to act -->
 	{#if needsRelease}
@@ -178,7 +195,7 @@
 			aria-label="Action required: release funds"
 		>
 			<button
-				onclick={scrollToPayout}
+				onclick={() => (releaseDialogOpen = true)}
 				disabled={!connectivity.online}
 				class="flex w-full items-center justify-between gap-3 border-b border-success/40 bg-success/90 px-4 py-3 text-left transition-colors hover:bg-success hover:cursor-pointer sm:rounded-lg sm:border"
 			>
@@ -190,7 +207,7 @@
 						You pledged {myPledgeTotal.toLocaleString()} sats — release them to the winning solver.
 					</p>
 				</div>
-				<ArrowDownIcon class="size-4 shrink-0 text-success-foreground" />
+				<UnlockIcon class="size-4 shrink-0 text-success-foreground" />
 			</button>
 		</div>
 	{/if}
@@ -221,24 +238,37 @@
 	<ReclaimAlert {detail} />
 
 	<!-- Description — full width -->
-	<section aria-label="Bounty description">
-		<div class="rounded-lg border border-border bg-card p-4">
-			<MarkdownViewer content={detail.description} />
-		</div>
+	<section class="py-5" aria-label="Bounty description">
+		<MarkdownViewer content={detail.description} />
 	</section>
 
 	<!-- Pledges + Solutions row — side by side on md+ -->
-	<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+	<div class="grid grid-cols-1 gap-12 pt-5 md:grid-cols-2">
 		<!-- Pledges section -->
 		<ErrorBoundary>
-			<section class="space-y-3 rounded-lg border border-border bg-card p-4" aria-label="Pledges">
+			<section class="space-y-3" aria-label="Pledges">
 				<div class="flex items-center justify-between">
 					<h2 class="text-base font-semibold text-foreground">
 						Pledges ({detail.pledges.length})
 					</h2>
 					<PledgeButton taskStatus={detail.status} onPledge={() => (pledgeFormOpen = true)} />
 				</div>
-				<PledgeList pledges={detail.pledges} payouts={detail.payouts} />
+				{#if (isReleasePhase || detail.payouts.length > 0) && uniquePledgers > 0}
+					<div class="flex items-center gap-2 text-xs text-muted-foreground">
+						<span
+							>{releasedPledgers} of {uniquePledgers} pledger{uniquePledgers === 1 ? '' : 's'} released</span
+						>
+						<div class="h-1.5 flex-1 rounded-full bg-muted">
+							<div
+								class="h-full rounded-full bg-success transition-all"
+								style="width: {uniquePledgers > 0
+									? Math.round((releasedPledgers / uniquePledgers) * 100)
+									: 0}%"
+							></div>
+						</div>
+					</div>
+				{/if}
+				<PledgeList pledges={detail.pledges} payouts={detail.payouts} {isReleasePhase} />
 				<PledgeForm
 					{bountyAddress}
 					creatorPubkey={detail.pubkey}
@@ -251,25 +281,35 @@
 
 		<!-- Solutions section -->
 		<ErrorBoundary>
-			<section class="space-y-3 rounded-lg border border-border bg-card p-4" aria-label="Solutions">
+			<section class="space-y-3" aria-label="Solutions">
 				<h2 class="text-base font-semibold text-foreground">
 					Solutions ({detail.solutions.length})
 				</h2>
 
 				<!-- Existing solutions with voting controls -->
 				{#if detail.solutions.length === 0}
-					<div class="rounded-md border border-border bg-background p-4 text-center">
+					<div class="py-4 text-center">
 						<p class="text-sm text-muted-foreground">No solutions submitted yet.</p>
 					</div>
 				{:else}
 					<ul class="space-y-3" aria-label="Solution list">
-						{#each detail.solutions as solution (solution.id)}
+						{#each sortedSolutions as solution (solution.id)}
 							{@const votes = detail.votesBySolution.get(solution.id) ?? []}
 							{@const tally = tallyVotes(votes, pledgesByPubkey, detail.totalPledged)}
-							<li class="rounded-md border border-border bg-background p-3 space-y-2">
+							{@const isWinner = winningSolution?.id === solution.id}
+							<li
+								class="py-3 border-b border-border last:border-b-0 space-y-2 {isWinner
+									? 'bg-primary/5 -mx-3 px-3 rounded-md'
+									: ''}"
+							>
 								<!-- Solution content -->
 								<div class="flex items-center justify-between gap-2">
-									<ProfileLink pubkey={solution.pubkey} />
+									<div class="flex items-center gap-2">
+										{#if isWinner}
+											<CrownIcon class="size-4 text-warning" aria-label="Winning solution" />
+										{/if}
+										<ProfileLink pubkey={solution.pubkey} />
+									</div>
 									<TimeAgo timestamp={solution.createdAt} />
 								</div>
 
@@ -282,7 +322,7 @@
 											href={solution.deliverableUrl}
 											target="_blank"
 											rel="noopener noreferrer"
-											class="font-medium text-primary underline underline-offset-2 transition-colors hover:text-primary/80 hover:cursor-pointer focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+											class="font-medium text-foreground underline underline-offset-2 hover:text-primary transition-colors hover:cursor-pointer focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
 										>
 											{solution.deliverableUrl}
 										</a>
@@ -310,8 +350,8 @@
 
 								<!-- Consensus message -->
 								{#if tally.isApproved}
-									<div class="rounded-md border border-success/40 bg-success/10 p-2 text-center">
-										<p class="text-sm font-medium text-success">
+									<div class="mt-2 text-center">
+										<p class="text-sm font-medium text-primary">
 											{#if isReleasePhase}
 												Solution approved! Pledgers are releasing funds to the solver.
 											{:else if detail.payouts.length > 0}
@@ -328,14 +368,12 @@
 				{/if}
 
 				<!-- Solution submission form -->
-				<div class="border-t border-border pt-3">
-					<SolutionForm
-						{bountyAddress}
-						creatorPubkey={detail.pubkey}
-						taskStatus={detail.status}
-						requiredFee={detail.submissionFee}
-					/>
-				</div>
+				<SolutionForm
+					{bountyAddress}
+					creatorPubkey={detail.pubkey}
+					taskStatus={detail.status}
+					requiredFee={detail.submissionFee}
+				/>
 			</section>
 		</ErrorBoundary>
 	</div>
@@ -344,33 +382,15 @@
 	<ErrorBoundary>
 		<!-- Release trigger for pledgers when consensus reached or releasing -->
 		{#if winningSolution && (isReleasePhase || detail.payouts.length > 0)}
-			<section
-				id="payout-section"
-				class="scroll-mt-16 space-y-3 rounded-lg border border-border bg-card p-4"
-				aria-label="Payout"
-			>
-				<h2 class="text-base font-semibold text-foreground">Payout</h2>
-				<div class="space-y-3">
-					<PayoutTrigger
-						{bountyAddress}
-						{winningSolution}
-						pledges={detail.pledges}
-						payouts={detail.payouts}
-					/>
-					<SolverClaim payouts={detail.payouts} pledges={detail.pledges} />
-					<VoteResults {winningSolution} payouts={detail.payouts} pledges={detail.pledges} />
-				</div>
-			</section>
-		{/if}
-
-		<!-- Completed bounty with no release phase visible (e.g. loaded after completion) -->
-		{#if detail.status === 'completed' && detail.payouts.length > 0 && !isReleasePhase && !winningSolution}
-			<section
-				class="space-y-3 rounded-lg border border-border bg-card p-4"
-				aria-label="Vote results"
-			>
-				<h2 class="text-base font-semibold text-foreground">Results</h2>
-				<VoteResults payouts={detail.payouts} pledges={detail.pledges} />
+			<section class="space-y-3" aria-label="Payout">
+				<PayoutTrigger
+					{bountyAddress}
+					{winningSolution}
+					pledges={detail.pledges}
+					payouts={detail.payouts}
+					bind:open={releaseDialogOpen}
+				/>
+				<SolverClaim payouts={detail.payouts} pledges={detail.pledges} />
 			</section>
 		{/if}
 	</ErrorBoundary>

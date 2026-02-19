@@ -37,11 +37,7 @@
 </script>
 
 {#if isSolver && payouts.length > 0}
-	<div
-		class="rounded-lg border border-success/50 bg-success/10 p-4 space-y-3"
-		role="status"
-		aria-label="Payout awarded"
-	>
+	<div class="border-t border-border pt-4 space-y-3" role="status" aria-label="Payout awarded">
 		<!-- Award header -->
 		<div class="flex items-center gap-2">
 			<svg
@@ -84,7 +80,7 @@
 			</p>
 
 			{#each payouts as payout, i (payout.id)}
-				<div class="rounded-md border border-border bg-background p-2 space-y-1.5">
+				<div class="py-2 border-b border-border last:border-b-0 space-y-1.5">
 					{#if payouts.length > 1}
 						<div class="flex items-center justify-between text-xs text-muted-foreground">
 							<span>

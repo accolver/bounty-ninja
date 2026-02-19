@@ -19,16 +19,18 @@
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import ShieldAlertIcon from '@lucide/svelte/icons/shield-alert';
 
-	const {
+	let {
 		bountyAddress,
 		winningSolution,
 		pledges,
-		payouts = []
+		payouts = [],
+		open = $bindable(false)
 	}: {
 		bountyAddress: string;
 		winningSolution: Solution | undefined;
 		pledges: Pledge[];
 		payouts: Payout[];
+		open?: boolean;
 	} = $props();
 
 	let showConfirm = $state(false);
@@ -164,7 +166,15 @@
 		recoveryToken = '';
 		tokenCopied = false;
 		showConfirm = true;
+		open = true;
 	}
+
+	// Allow parent to open the dialog via the bindable `open` prop
+	$effect(() => {
+		if (open && !showConfirm && canRelease) {
+			openDialog();
+		}
+	});
 
 	async function copyRecoveryToken() {
 		try {
@@ -280,7 +290,7 @@
 
 <!-- Release progress (visible to everyone when payouts exist) -->
 {#if payouts.length > 0}
-	<div class="rounded-md border border-border bg-card p-3 text-sm text-muted-foreground">
+	<div class="space-y-2 text-sm text-muted-foreground">
 		<p>
 			{releasedPledgers} of {uniquePledgers} pledger{uniquePledgers === 1 ? '' : 's'} released ({releasePercent}%
 			of funds)
@@ -296,42 +306,23 @@
 
 <!-- Already released confirmation -->
 {#if hasReleased}
-	<div
-		class="rounded-lg border border-success/50 bg-success/10 p-3 text-sm"
-		role="status"
-		aria-label="Funds released"
-	>
-		<p class="font-medium text-success">
+	<div role="status" aria-label="Funds released">
+		<p class="text-success font-medium text-sm">
 			You have released your funds ({myTotalPledged.toLocaleString()} sats).
 		</p>
 	</div>
 {/if}
 
-<!-- Release button for pledgers who haven't released -->
+<!-- Release dialog for pledgers who haven't released -->
 {#if canRelease}
 	<div class="space-y-2">
-		{#if !connectivity.online}
-			<p class="text-center text-xs text-warning" role="alert">Offline — cannot release funds</p>
-		{/if}
-		<Button
-			variant="default"
-			class="w-full bg-success text-background hover:bg-success/90 hover:cursor-pointer transition-colors"
-			onclick={openDialog}
-			disabled={processing || isRateLimited}
-		>
-			{#if isRateLimited}
-				Wait {rateLimitRemaining}s
-			{:else}
-				Release Funds to Solver
-			{/if}
-		</Button>
-
 		<!-- Multi-step release dialog -->
 		<Dialog.Root
 			bind:open={showConfirm}
-			onOpenChange={(open) => {
-				if (!open && dialogLocked) return;
-				showConfirm = open;
+			onOpenChange={(isOpen) => {
+				if (!isOpen && dialogLocked) return;
+				showConfirm = isOpen;
+				open = isOpen;
 			}}
 		>
 			<Dialog.Content
@@ -383,7 +374,7 @@
 							{#if solverNpub}
 								<a
 									href="/profile/{solverNpub}"
-									class="font-medium text-primary transition-colors hover:underline hover:cursor-pointer focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+									class="font-medium text-foreground hover:text-primary transition-colors hover:underline hover:cursor-pointer focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
 								>
 									{formattedSolverNpub}
 								</a>
@@ -559,12 +550,5 @@
 				{/if}
 			</Dialog.Content>
 		</Dialog.Root>
-	</div>
-{/if}
-
-<!-- Read-only status for non-pledgers -->
-{#if !isPledger && !hasReleased && winningSolution && payouts.length === 0}
-	<div class="rounded-lg border border-border bg-card p-4 text-center">
-		<p class="text-sm text-muted-foreground">Awaiting fund releases from pledgers.</p>
 	</div>
 {/if}

@@ -14,13 +14,15 @@
 		payouts = [],
 		taskAddress = '',
 		hasSolutions = false,
-		isRetracted = false
+		isRetracted = false,
+		isReleasePhase = false
 	}: {
 		pledge: Pledge;
 		payouts?: Payout[];
 		taskAddress?: string;
 		hasSolutions?: boolean;
 		isRetracted?: boolean;
+		isReleasePhase?: boolean;
 	} = $props();
 
 	const isPledgeAuthor = $derived(accountState.pubkey === pledge.pubkey);
@@ -43,30 +45,30 @@
 	// Badge styling per status
 	const badgeConfig = $derived.by(() => {
 		switch (verificationStatus) {
-		case 'verified':
-			return {
-				label: 'Verified',
-				classes: 'bg-success/15 text-success border-success/30',
-				ariaLabel: 'Token verified'
-			};
-		case 'unverified':
-			return {
-				label: 'Unverified',
-				classes: 'bg-warning/15 text-warning border-warning/30',
-				ariaLabel: 'Token unverified'
-			};
-		case 'invalid':
-			return {
-				label: 'Invalid',
-				classes: 'bg-destructive/15 text-destructive border-destructive/30',
-				ariaLabel: 'Token invalid'
-			};
-		case 'expired':
-			return {
-				label: 'Expired',
-				classes: 'bg-destructive/15 text-destructive border-destructive/30',
-				ariaLabel: 'Token expired'
-			};
+			case 'verified':
+				return {
+					label: 'Verified',
+					classes: 'border border-success text-success bg-transparent',
+					ariaLabel: 'Token verified'
+				};
+			case 'unverified':
+				return {
+					label: 'Unverified',
+					classes: 'border border-warning text-warning bg-transparent',
+					ariaLabel: 'Token unverified'
+				};
+			case 'invalid':
+				return {
+					label: 'Invalid',
+					classes: 'border border-destructive text-destructive bg-transparent',
+					ariaLabel: 'Token invalid'
+				};
+			case 'expired':
+				return {
+					label: 'Expired',
+					classes: 'border border-destructive text-destructive bg-transparent',
+					ariaLabel: 'Token expired'
+				};
 			case 'pending':
 			default:
 				return {
@@ -78,13 +80,13 @@
 	});
 </script>
 
-<li class="flex flex-col gap-1 rounded-md border border-border bg-card p-3">
+<li class="flex flex-col gap-1 py-3 border-b border-border last:border-b-0">
 	<div class="flex items-center justify-between gap-2">
 		<ProfileLink pubkey={pledge.pubkey} />
 		<div class="flex items-center gap-2">
 			{#if isRetracted}
 				<span
-					class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium leading-tight bg-destructive/15 text-destructive border-destructive/30"
+					class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium leading-tight border-destructive text-destructive bg-transparent"
 					aria-label="Pledge retracted"
 					role="status"
 				>
@@ -92,11 +94,19 @@
 				</span>
 			{:else if hasReleased}
 				<span
-					class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium leading-tight bg-success/15 text-success border-success/30"
+					class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium leading-tight border-success text-success bg-transparent"
 					aria-label="Funds released to solver"
 					role="status"
 				>
 					Released
+				</span>
+			{:else if isReleasePhase}
+				<span
+					class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium leading-tight border-warning text-warning bg-transparent"
+					aria-label="Awaiting fund release"
+					role="status"
+				>
+					Pending Release
 				</span>
 			{/if}
 			<span
@@ -118,11 +128,7 @@
 		{/if}
 		<div class="flex items-center gap-2">
 			{#if isPledgeAuthor && !isRetracted && !hasReleased && taskAddress}
-				<RetractPledgeButton
-					{taskAddress}
-					pledgeEventId={pledge.id}
-					{hasSolutions}
-				/>
+				<RetractPledgeButton {taskAddress} pledgeEventId={pledge.id} {hasSolutions} />
 			{/if}
 			<TimeAgo timestamp={pledge.createdAt} />
 		</div>

@@ -28,7 +28,7 @@
 	);
 </script>
 
-<div class="rounded-lg border border-primary/30 bg-primary/5 p-4" aria-label="Bounty results">
+<div class="border-t border-border pt-4 space-y-2" aria-label="Bounty results">
 	{#if tally?.isTied}
 		<div class="space-y-3">
 			<div class="flex items-center gap-2">
@@ -73,7 +73,7 @@
 				Solved by
 				<a
 					href="/profile/{solverNpub}"
-					class="font-medium text-primary transition-colors hover:underline hover:cursor-pointer focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+					class="font-medium text-foreground hover:text-primary transition-colors hover:underline hover:cursor-pointer focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
 				>
 					{formatNpub(solverNpub)}
 				</a>
