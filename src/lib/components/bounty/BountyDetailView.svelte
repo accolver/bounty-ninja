@@ -25,7 +25,9 @@
 	import PayoutTrigger from '$lib/components/voting/PayoutTrigger.svelte';
 	import SolverClaim from '$lib/components/voting/SolverClaim.svelte';
 	import RetractButton from '$lib/components/bounty/RetractButton.svelte';
+	import { connectivity } from '$lib/stores/connectivity.svelte';
 	import type { Retraction } from '$lib/bounty/types';
+	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
 
 	const {
 		detail,
@@ -71,7 +73,29 @@
 		detail.status === 'consensus_reached' || detail.status === 'releasing'
 	);
 
+	/** Whether the current user is a pledger who still needs to release funds */
+	const needsRelease = $derived.by(() => {
+		if (!accountState.isLoggedIn || !accountState.pubkey) return false;
+		if (!winningSolution) return false;
+		if (!isReleasePhase && detail.payouts.length === 0) return false;
+		const isPledger = detail.pledges.some((p) => p.pubkey === accountState.pubkey);
+		if (!isPledger) return false;
+		const hasReleased = detail.payouts.some((p) => p.pubkey === accountState.pubkey);
+		return !hasReleased;
+	});
+
+	/** Amount the current user has pledged */
+	const myPledgeTotal = $derived(
+		detail.pledges
+			.filter((p) => p.pubkey === accountState.pubkey)
+			.reduce((sum, p) => sum + p.amount, 0)
+	);
+
 	let pledgeFormOpen = $state(false);
+
+	function scrollToPayout() {
+		document.getElementById('payout-section')?.scrollIntoView({ behavior: 'smooth' });
+	}
 </script>
 
 <article class="mx-auto max-w-5xl space-y-6">
@@ -91,22 +115,47 @@
 				<ProfileLink pubkey={detail.pubkey} />
 			</span>
 			{#if isCreator && detail.status !== 'completed' && detail.status !== 'cancelled'}
-				<RetractButton
-					taskAddress={bountyAddress}
-					hasSolutions={detail.solutions.length > 0}
-				/>
+				<RetractButton taskAddress={bountyAddress} hasSolutions={detail.solutions.length > 0} />
 			{/if}
 		</div>
 	</header>
 
+	<!-- Sticky release banner for pledgers who need to act -->
+	{#if needsRelease}
+		<div
+			class="sticky top-0 z-30 -mx-4 sm:-mx-0"
+			role="alert"
+			aria-label="Action required: release funds"
+		>
+			<button
+				onclick={scrollToPayout}
+				disabled={!connectivity.online}
+				class="flex w-full items-center justify-between gap-3 border-b border-success/30 bg-success/15 px-4 py-3 text-left backdrop-blur-sm transition-colors hover:bg-success/25 hover:cursor-pointer sm:rounded-lg sm:border"
+			>
+				<div class="min-w-0">
+					<p class="text-sm font-semibold text-success">Action Required: Release Your Funds</p>
+					<p class="text-xs text-muted-foreground">
+						You pledged {myPledgeTotal.toLocaleString()} sats — release them to the winning solver.
+					</p>
+				</div>
+				<ArrowDownIcon class="size-4 shrink-0 text-success" />
+			</button>
+		</div>
+	{/if}
+
 	<!-- Retraction history -->
 	{#if retractions.length > 0}
-		<section class="rounded-lg border border-destructive/30 bg-destructive/5 p-4 space-y-2" aria-label="Retraction history">
+		<section
+			class="rounded-lg border border-destructive/30 bg-destructive/5 p-4 space-y-2"
+			aria-label="Retraction history"
+		>
 			<h2 class="text-sm font-semibold text-destructive">Retraction History</h2>
 			<ul class="space-y-1">
 				{#each retractions as retraction (retraction.id)}
 					<li class="text-xs text-muted-foreground">
-						<span class="font-medium">{retraction.type === 'bounty' ? 'Bounty cancelled' : 'Pledge retracted'}</span>
+						<span class="font-medium"
+							>{retraction.type === 'bounty' ? 'Bounty cancelled' : 'Pledge retracted'}</span
+						>
 						{#if retraction.reason}
 							— {retraction.reason}
 						{/if}
@@ -303,7 +352,11 @@
 	<ErrorBoundary>
 		<!-- Release trigger for pledgers when consensus reached or releasing -->
 		{#if winningSolution && (isReleasePhase || detail.payouts.length > 0)}
-			<section class="space-y-4 rounded-lg border border-border bg-card p-5" aria-label="Payout">
+			<section
+				id="payout-section"
+				class="scroll-mt-16 space-y-4 rounded-lg border border-border bg-card p-5"
+				aria-label="Payout"
+			>
 				<h2 class="text-lg font-semibold text-foreground">Payout</h2>
 				<div class="space-y-3">
 					<PayoutTrigger
