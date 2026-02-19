@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Solution, Pledge, Payout } from '$lib/bounty/types';
-	import { nip19 } from 'nostr-tools';
+	import { nip19, getPublicKey } from 'nostr-tools';
 	import { accountState } from '$lib/nostr/account.svelte';
 	import { publishEvent } from '$lib/nostr/signer.svelte';
 	import { payoutBlueprint } from '$lib/bounty/blueprints';
@@ -119,6 +119,21 @@
 		return '';
 	});
 
+	/** Derive pubkey from the entered private key and validate it matches the logged-in account */
+	let derivedPubkeyMatch = $derived.by(() => {
+		if (!privkeyHex || !accountState.pubkey) return false;
+		try {
+			// getPublicKey expects Uint8Array — convert hex to bytes
+			const privBytes = new Uint8Array(
+				privkeyHex.match(/.{2}/g)!.map((b) => parseInt(b, 16))
+			);
+			const derived = getPublicKey(privBytes);
+			return derived === accountState.pubkey;
+		} catch {
+			return false;
+		}
+	});
+
 	$effect(() => {
 		const trimmed = nsecInput.trim();
 		if (!trimmed) {
@@ -127,12 +142,14 @@
 		}
 		if (!privkeyHex) {
 			nsecError = 'Invalid key — enter an nsec1... or 64-char hex private key';
+		} else if (!derivedPubkeyMatch) {
+			nsecError = 'This key does not match your logged-in account';
 		} else {
 			nsecError = '';
 		}
 	});
 
-	const isKeyValid = $derived(privkeyHex.length === 64);
+	const isKeyValid = $derived(privkeyHex.length === 64 && derivedPubkeyMatch);
 
 	function openDialog() {
 		step = 'confirm';
@@ -301,7 +318,15 @@
 
 		<!-- Multi-step release dialog -->
 		<Dialog.Root bind:open={showConfirm}>
-			<Dialog.Content>
+			<Dialog.Content
+				showCloseButton={step !== 'processing' && step !== 'broadcast-failure'}
+				onInteractOutside={(e: Event) => {
+					if (step === 'processing' || step === 'broadcast-failure') e.preventDefault();
+				}}
+				onEscapeKeydown={(e: KeyboardEvent) => {
+					if (step === 'processing' || step === 'broadcast-failure') e.preventDefault();
+				}}
+			>
 				<Dialog.Header>
 					<Dialog.Title>
 						{#if step === 'confirm'}Release Funds
