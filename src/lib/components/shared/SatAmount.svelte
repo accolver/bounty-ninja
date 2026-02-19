@@ -29,7 +29,7 @@
 <button
 	type="button"
 	onclick={() => currencyStore.toggle()}
-	class="inline-flex cursor-pointer items-center gap-1 font-medium text-accent transition-colors hover:text-accent/80"
+	class="inline-flex cursor-pointer items-center gap-1 font-medium text-foreground transition-colors hover:text-foreground/80"
 	aria-label={ariaLabel}
 	title="Click to toggle between USD and sats"
 >

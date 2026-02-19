@@ -131,6 +131,32 @@
 	--color-popover-foreground: #1c2520;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Design System — "Flat Sections" Minimalism
+ *
+ * Guiding principle: color = action the user needs to take.
+ * Informational content stays neutral (foreground/muted-foreground).
+ *
+ * Layout:
+ *   - No cards on cards. Sections separated by border-t border-border dividers.
+ *   - Only dropdowns, popovers, dialogs, and header/footer chrome use bg-card.
+ *   - Stats are inline flex rows, not boxed grid cells.
+ *
+ * Color restraint:
+ *   - Filled bg-primary / bg-success: ONLY for action CTAs (buttons, banners).
+ *   - Badges: outline only (border border-{color} text-{color} bg-transparent).
+ *   - Links: text-foreground at rest, hover:text-primary on hover.
+ *   - Monetary values / stats: text-foreground (neutral).
+ *   - Vote approve/reject: dimmed (text-success/70, text-destructive/70).
+ *   - Cancel/destructive buttons: outline (border border-destructive text-destructive).
+ *   - Consensus / state-transition messages: text-primary (allowed).
+ *   - Closed/unavailable states: text-destructive/70.
+ *
+ * Payout CTA:
+ *   - Full-width strip at bottom: bg-primary text-primary-foreground.
+ *   - Label + subtitle left, arrow right. Not a card with a button inside.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
 	*,

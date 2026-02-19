@@ -36,12 +36,9 @@
 		aria-label="Approve: {formattedApprove} sats, Reject: {formattedReject} sats"
 	>
 		{#if totalWeight > 0}
+			<div class="bg-success/70 transition-all duration-300" style="width: {approvePercent}%"></div>
 			<div
-				class="bg-success transition-all duration-300"
-				style="width: {approvePercent}%"
-			></div>
-			<div
-				class="bg-destructive transition-all duration-300"
+				class="bg-destructive/70 transition-all duration-300"
 				style="width: {rejectPercent}%"
 			></div>
 		{/if}
@@ -49,10 +46,10 @@
 
 	<!-- Weight numbers -->
 	<div class="flex items-center justify-between text-xs">
-		<span class="text-success" aria-label="Approve weight: {formattedApprove} sats">
+		<span class="text-success/70" aria-label="Approve weight: {formattedApprove} sats">
 			{formattedApprove} sats approve
 		</span>
-		<span class="text-destructive" aria-label="Reject weight: {formattedReject} sats">
+		<span class="text-destructive/70" aria-label="Reject weight: {formattedReject} sats">
 			{formattedReject} sats reject
 		</span>
 	</div>

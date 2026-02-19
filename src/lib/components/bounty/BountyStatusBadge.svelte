@@ -5,24 +5,24 @@
 	const { status }: { status: BountyStatus } = $props();
 
 	const statusConfig: Record<BountyStatus, { label: string; classes: string }> = {
-		open: { label: 'Open', classes: 'bg-success/15 text-success border-success/30' },
-		in_review: { label: 'In Review', classes: 'bg-warning/15 text-warning border-warning/30' },
+		open: { label: 'Open', classes: 'border border-success text-success bg-transparent' },
+		in_review: { label: 'In Review', classes: 'border border-warning text-warning bg-transparent' },
 		consensus_reached: {
 			label: 'Consensus Reached',
-			classes: 'bg-info/15 text-info border-info/30'
+			classes: 'border border-info text-info bg-transparent'
 		},
 		releasing: {
 			label: 'Releasing Funds',
-			classes: 'bg-warning/15 text-warning border-warning/30'
+			classes: 'border border-warning text-warning bg-transparent'
 		},
-		completed: { label: 'Completed', classes: 'bg-primary/15 text-primary border-primary/30' },
+		completed: { label: 'Completed', classes: 'border border-primary text-primary bg-transparent' },
 		expired: {
 			label: 'Expired',
-			classes: 'bg-destructive/15 text-destructive border-destructive/30'
+			classes: 'border border-destructive text-destructive bg-transparent'
 		},
 		cancelled: {
 			label: 'Cancelled',
-			classes: 'bg-destructive/15 text-destructive border-destructive/30'
+			classes: 'border border-destructive text-destructive bg-transparent'
 		}
 	};
 

@@ -99,8 +99,13 @@
 		</div>
 	</div>
 {:else}
-	<Button variant="outline" size="sm" onclick={handleRetract} class="gap-1.5 text-destructive hover:text-destructive hover:cursor-pointer transition-colors">
-		<XCircle class="size-4" />
+	<Button
+		variant="ghost"
+		size="sm"
+		onclick={handleRetract}
+		class="gap-1.5 text-destructive opacity-80 hover:!bg-destructive hover:!text-destructive-foreground hover:opacity-100 hover:cursor-pointer"
+	>
+		<XCircle class="size-3.5" />
 		Cancel Bounty
 	</Button>
 {/if}

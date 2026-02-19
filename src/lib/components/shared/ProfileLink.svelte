@@ -60,7 +60,7 @@
 
 <a
 	href="/profile/{npub}"
-	class="inline-flex items-center gap-1.5 font-medium text-primary transition-colors hover:underline hover:cursor-pointer focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+	class="inline-flex items-center gap-1.5 font-medium text-foreground hover:text-primary transition-colors hover:underline hover:cursor-pointer focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
 	aria-label="Profile: {label}"
 >
 	{#if showAvatar}

@@ -191,6 +191,62 @@ All published events must include the tag `["client", "bounty.ninja"]`.
 - Target **WCAG 2.1 AA**: 4.5:1 contrast ratio, keyboard navigation, screen
   reader support, `prefers-reduced-motion`.
 
+### Design System — "Flat Sections" Minimalism
+
+The UI follows a **flat, card-free layout** with restrained color usage. The
+guiding principle: **color = action the user needs to take.** Informational
+content stays neutral.
+
+#### Layout Rules
+
+- **No cards on cards.** Never nest a bordered container inside another bordered
+  container. Sections are separated by thin `border-border` horizontal rules and
+  whitespace — not by wrapping in `bg-card rounded-lg border` boxes.
+- **Flat sections over card wrappers.** Content sections (description, pledges,
+  solutions, stats) use `border-t border-border` dividers and `space-y` spacing
+  instead of card containers. The only acceptable card-like wrappers are
+  dropdowns/popovers, dialogs, and the header/footer chrome.
+- **Stats use inline layout.** Stat rows (asking, funded, solutions) display as
+  `flex gap` with just label + value — no individual bordered stat cells.
+
+#### Color Restraint Rules
+
+- **Filled `bg-primary` / `bg-success`** is reserved exclusively for **action
+  elements the user must interact with**: CTA buttons (e.g. "Release Funds"),
+  action banners (e.g. "Action Required: Release Your Funds"), and primary
+  submit buttons. Never use filled primary on passive/informational elements.
+- **Badges use outline style**, not filled. Status badges:
+  `border border-{color} text-{color} bg-transparent`. Tag badges:
+  `border border-muted-foreground text-muted-foreground bg-transparent`.
+  Verification badges: `border border-warning text-warning bg-transparent`.
+- **Links use `text-foreground`** at rest, with `hover:text-primary` on hover.
+  Never `text-primary` at rest for regular navigation links. Exception:
+  deliberate "learn more" or external resource links in prose content may use
+  `text-primary`.
+- **Monetary values and stat numbers** use `text-foreground` (neutral), not
+  `text-primary` or `text-accent`. The `SatAmount` component uses
+  `text-foreground` for values.
+- **Vote approve/reject text** uses dimmed semantic colors (`text-success/70`
+  and `text-destructive/70`) instead of full-saturation `text-success` /
+  `text-destructive`. The progress bar fill uses `bg-success/70` for approve and
+  `bg-destructive/70` for reject.
+- **Consensus / confirmation messages** may use `text-primary` since they
+  indicate a successful state transition the user cares about.
+- **"No longer accepting" / closed states** use `text-destructive/70` to
+  indicate unavailability without screaming.
+- **Cancel / destructive buttons** use outline style:
+  `border border-destructive text-destructive bg-transparent opacity-80
+hover:opacity-100`.
+  Never filled `bg-destructive` for inline actions.
+
+#### Payout Section
+
+- The payout CTA renders as a **full-width strip** at the bottom of the bounty
+  detail, not as a card with a button inside. It uses
+  `bg-primary
+text-primary-foreground` and spans the full content width with
+  label + subtitle on the left and an arrow on the right.
+
 ### Naming
 
 - This is **Bounty.ninja**, not "Tasks.fyi". All user-facing strings say
