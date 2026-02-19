@@ -66,7 +66,7 @@
 	{#if showAvatar}
 		<ProfileAvatar {pubkey} {size} />
 	{/if}
-	<span class="truncate">{label}</span>
+	<span>{label}</span>
 	{#if showReputation}
 		<CredibilityBadge {pubkey} />
 	{/if}
