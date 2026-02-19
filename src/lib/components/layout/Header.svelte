@@ -22,7 +22,7 @@
 				class="flex items-center gap-1.5 text-foreground transition-colors hover:text-foreground/90"
 				aria-label="{config.app.nameCaps} home"
 			>
-				<img src={config.app.logo} alt="" class="h-7 w-7" aria-hidden="true" />
+				<img src={config.app.logo} alt="" class="h-9 w-9" aria-hidden="true" />
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					viewBox="0 0 220 40"
