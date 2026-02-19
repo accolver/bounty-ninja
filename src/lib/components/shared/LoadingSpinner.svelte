@@ -1,5 +1,6 @@
 <script lang="ts">
-	const { size = 'md' }: { size?: 'sm' | 'md' | 'lg' } = $props();
+	const { size = 'md', class: className = '' }: { size?: 'sm' | 'md' | 'lg'; class?: string } =
+		$props();
 
 	const sizeClasses: Record<string, string> = {
 		sm: 'h-4 w-4 border-2',
@@ -9,7 +10,7 @@
 </script>
 
 <span
-	class="loading-spinner inline-block rounded-full border-primary border-t-transparent {sizeClasses[size]}"
+	class="loading-spinner inline-block rounded-full border-current border-t-transparent {sizeClasses[size]} {className}"
 	role="status"
 	aria-label="Loading"
 >

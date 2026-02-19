@@ -285,7 +285,7 @@
 								type="checkbox"
 								bind:checked={acknowledged}
 								disabled={submitting}
-								class="mt-0.5 size-4 shrink-0 rounded border-border accent-primary"
+								class="pledge-checkbox mt-0.5 size-4 shrink-0"
 								aria-describedby="acknowledge-desc"
 							/>
 							<span id="acknowledge-desc" class="text-xs text-foreground/80">
@@ -323,3 +323,23 @@
 		</form>
 	</Dialog.Content>
 </Dialog.Root>
+
+<style>
+	.pledge-checkbox {
+		appearance: none;
+		border-radius: 0.25rem;
+		border: 1.5px solid var(--color-border);
+		background: var(--color-input);
+		cursor: pointer;
+		transition: all 0.15s ease;
+	}
+	.pledge-checkbox:checked {
+		background: var(--color-primary);
+		border-color: var(--color-primary);
+		background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3E%3C/svg%3E");
+	}
+	.pledge-checkbox:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+</style>
