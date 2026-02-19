@@ -1,6 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { Proof, Wallet, P2PKOptions } from '@cashu/cashu-ts';
-import { createP2PKLock, createP2PKLockFromParams, lockProofsToKey } from '$lib/cashu/p2pk';
+import {
+	createP2PKLock,
+	createP2PKLockFromParams,
+	lockProofsToKey,
+	toCompressedPubkey
+} from '$lib/cashu/p2pk';
 import type { P2PKLockParams } from '$lib/cashu/types';
 
 function mockProof(amount: number, id = 'proof-id'): Proof {
@@ -24,30 +29,66 @@ function mockWallet(overrides: Partial<Wallet> = {}): Wallet {
 }
 
 const VALID_PUBKEY = 'a'.repeat(64);
+const COMPRESSED_PUBKEY = `02${'a'.repeat(64)}`;
 const OTHER_PUBKEY = 'b'.repeat(64);
+const COMPRESSED_OTHER = `02${'b'.repeat(64)}`;
+
+// ── toCompressedPubkey ──────────────────────────────────────────────────────
+
+describe('toCompressedPubkey', () => {
+	it('prepends 02 to x-only (64-char) pubkey', () => {
+		expect(toCompressedPubkey(VALID_PUBKEY)).toBe(COMPRESSED_PUBKEY);
+	});
+
+	it('passes through already-compressed 02-prefixed key', () => {
+		const key = `02${'c'.repeat(64)}`;
+		expect(toCompressedPubkey(key)).toBe(key);
+	});
+
+	it('passes through 03-prefixed key', () => {
+		const key = `03${'d'.repeat(64)}`;
+		expect(toCompressedPubkey(key)).toBe(key);
+	});
+
+	it('lowercases the key', () => {
+		const upper = 'A'.repeat(64);
+		expect(toCompressedPubkey(upper)).toBe(`02${'a'.repeat(64)}`);
+	});
+
+	it('throws for invalid key length', () => {
+		expect(() => toCompressedPubkey('abcd')).toThrow('Invalid pubkey');
+		expect(() => toCompressedPubkey('a'.repeat(60))).toThrow('Invalid pubkey');
+		expect(() => toCompressedPubkey('a'.repeat(70))).toThrow('Invalid pubkey');
+	});
+});
 
 // ── createP2PKLock ──────────────────────────────────────────────────────────
 
 describe('createP2PKLock', () => {
-	it('creates lock with pubkey only', () => {
+	it('normalizes x-only pubkey to compressed format', () => {
 		const options = createP2PKLock(VALID_PUBKEY);
-		expect(options.pubkey).toBe(VALID_PUBKEY);
+		expect(options.pubkey).toBe(COMPRESSED_PUBKEY);
 		expect(options.locktime).toBeUndefined();
 		expect(options.refundKeys).toBeUndefined();
+	});
+
+	it('passes through already-compressed pubkey', () => {
+		const options = createP2PKLock(COMPRESSED_PUBKEY);
+		expect(options.pubkey).toBe(COMPRESSED_PUBKEY);
 	});
 
 	it('creates lock with locktime', () => {
 		const locktime = Math.floor(Date.now() / 1000) + 3600;
 		const options = createP2PKLock(VALID_PUBKEY, locktime);
-		expect(options.pubkey).toBe(VALID_PUBKEY);
+		expect(options.pubkey).toBe(COMPRESSED_PUBKEY);
 		expect(options.locktime).toBe(locktime);
 	});
 
-	it('creates lock with refund keys', () => {
+	it('normalizes refund keys to compressed format', () => {
 		const refundKeys = [OTHER_PUBKEY];
 		const options = createP2PKLock(VALID_PUBKEY, undefined, refundKeys);
-		expect(options.pubkey).toBe(VALID_PUBKEY);
-		expect(options.refundKeys).toEqual(refundKeys);
+		expect(options.pubkey).toBe(COMPRESSED_PUBKEY);
+		expect(options.refundKeys).toEqual([COMPRESSED_OTHER]);
 		expect(options.locktime).toBeUndefined();
 	});
 
@@ -55,9 +96,9 @@ describe('createP2PKLock', () => {
 		const locktime = Math.floor(Date.now() / 1000) + 7200;
 		const refundKeys = [OTHER_PUBKEY];
 		const options = createP2PKLock(VALID_PUBKEY, locktime, refundKeys);
-		expect(options.pubkey).toBe(VALID_PUBKEY);
+		expect(options.pubkey).toBe(COMPRESSED_PUBKEY);
 		expect(options.locktime).toBe(locktime);
-		expect(options.refundKeys).toEqual(refundKeys);
+		expect(options.refundKeys).toEqual([COMPRESSED_OTHER]);
 	});
 
 	it('ignores empty refund keys array', () => {
@@ -69,16 +110,16 @@ describe('createP2PKLock', () => {
 // ── createP2PKLockFromParams ────────────────────────────────────────────────
 
 describe('createP2PKLockFromParams', () => {
-	it('converts P2PKLockParams to P2PKOptions', () => {
+	it('converts P2PKLockParams to P2PKOptions with compressed keys', () => {
 		const params: P2PKLockParams = {
 			pubkeyHex: VALID_PUBKEY,
 			refundLocktimeUnix: 1800000000,
 			refundKeys: [OTHER_PUBKEY]
 		};
 		const options = createP2PKLockFromParams(params);
-		expect(options.pubkey).toBe(VALID_PUBKEY);
+		expect(options.pubkey).toBe(COMPRESSED_PUBKEY);
 		expect(options.locktime).toBe(1800000000);
-		expect(options.refundKeys).toEqual([OTHER_PUBKEY]);
+		expect(options.refundKeys).toEqual([COMPRESSED_OTHER]);
 	});
 
 	it('handles params with no optional fields', () => {
@@ -86,7 +127,7 @@ describe('createP2PKLockFromParams', () => {
 			pubkeyHex: VALID_PUBKEY
 		};
 		const options = createP2PKLockFromParams(params);
-		expect(options.pubkey).toBe(VALID_PUBKEY);
+		expect(options.pubkey).toBe(COMPRESSED_PUBKEY);
 		expect(options.locktime).toBeUndefined();
 		expect(options.refundKeys).toBeUndefined();
 	});
@@ -108,7 +149,7 @@ describe('lockProofsToKey', () => {
 		expect(wallet.send).toHaveBeenCalledOnce();
 	});
 
-	it('passes P2PK options to wallet.send', async () => {
+	it('passes P2PK options with compressed pubkey to wallet.send', async () => {
 		const proofs = [mockProof(200)];
 		const sendMock = vi.fn(async () => ({
 			keep: [],
@@ -121,7 +162,7 @@ describe('lockProofsToKey', () => {
 		expect(sendMock).toHaveBeenCalledWith(200, proofs, undefined, {
 			send: {
 				type: 'p2pk',
-				options: expect.objectContaining({ pubkey: VALID_PUBKEY })
+				options: expect.objectContaining({ pubkey: COMPRESSED_PUBKEY })
 			}
 		});
 	});
@@ -141,7 +182,7 @@ describe('lockProofsToKey', () => {
 			send: {
 				type: 'p2pk',
 				options: expect.objectContaining({
-					pubkey: VALID_PUBKEY,
+					pubkey: COMPRESSED_PUBKEY,
 					locktime
 				})
 			}

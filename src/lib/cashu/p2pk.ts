@@ -15,10 +15,36 @@ import type { Proof, P2PKOptions, Wallet } from '@cashu/cashu-ts';
 import type { P2PKLockParams, SwapResult } from './types';
 
 /**
+ * Normalize a public key to compressed SEC1 format (02-prefixed) as required by NUT-11.
+ *
+ * Nostr uses x-only (32-byte / 64 hex char) public keys, but NUT-11 P2PK secrets
+ * require compressed SEC1 format (33-byte / 66 hex char with 02 or 03 prefix).
+ * For x-only keys, we prepend 02 because BIP-340 x-only keys always correspond
+ * to the even-y point.
+ *
+ * @param pubkeyHex - Hex-encoded public key (x-only 64 chars or compressed 66 chars).
+ * @returns Compressed public key in hex (66 chars with 02/03 prefix).
+ * @throws If the key length is neither 64 nor 66 characters.
+ */
+export function toCompressedPubkey(pubkeyHex: string): string {
+	const key = pubkeyHex.toLowerCase();
+	if (key.length === 66 && (key.startsWith('02') || key.startsWith('03'))) {
+		return key;
+	}
+	if (key.length === 64) {
+		return `02${key}`;
+	}
+	throw new Error(
+		`Invalid pubkey: expected 32-byte x-only (64 hex) or 33-byte compressed (66 hex), got ${pubkeyHex.length} chars`
+	);
+}
+
+/**
  * Create P2PK spending condition options for @cashu/cashu-ts.
  *
  * Translates our domain P2PKLockParams into the library's P2PKOptions format.
  * The resulting options can be used with `wallet.send()` or `OutputType`.
+ * Pubkeys are normalized to compressed SEC1 format per NUT-11.
  *
  * @param pubkeyHex - Hex-encoded public key to lock to (x-only 32-byte or compressed 33-byte).
  * @param refundLocktimeUnix - Optional Unix timestamp after which refund keys can spend.
@@ -31,7 +57,7 @@ export function createP2PKLock(
 	refundKeys?: string[]
 ): P2PKOptions {
 	const options: P2PKOptions = {
-		pubkey: pubkeyHex
+		pubkey: toCompressedPubkey(pubkeyHex)
 	};
 
 	if (refundLocktimeUnix !== undefined) {
@@ -39,7 +65,7 @@ export function createP2PKLock(
 	}
 
 	if (refundKeys && refundKeys.length > 0) {
-		options.refundKeys = refundKeys;
+		options.refundKeys = refundKeys.map(toCompressedPubkey);
 	}
 
 	return options;
