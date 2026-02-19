@@ -33,10 +33,13 @@
 
 	let showConfirm = $state(false);
 	let processing = $state(false);
-	let step = $state<'confirm' | 'key-entry' | 'processing' | 'broadcast-failure'>('confirm');
+	let step = $state<'confirm' | 'key-entry' | 'processing' | 'error' | 'broadcast-failure'>(
+		'confirm'
+	);
 	let nsecInput = $state('');
 	let nsecError = $state('');
 	let statusMessage = $state('');
+	let releaseError = $state('');
 
 	// ── Broadcast failure recovery state ────────────────────────
 	let recoveryToken = $state('');
@@ -157,6 +160,7 @@
 		nsecInput = '';
 		nsecError = '';
 		statusMessage = '';
+		releaseError = '';
 		recoveryToken = '';
 		tokenCopied = false;
 		showConfirm = true;
@@ -201,7 +205,8 @@
 			const decoded = await collectPledgeTokens(pledgeEvents);
 
 			if (decoded.length === 0) {
-				toastStore.error('No valid pledge tokens found');
+				releaseError = 'No valid pledge tokens found in your pledge events.';
+				step = 'error';
 				return;
 			}
 
@@ -217,7 +222,8 @@
 				const result = await releasePledgeToSolver(pledge, pledgerPrivkey, winningSolution.pubkey);
 
 				if (!result.success) {
-					toastStore.error(result.error ?? 'Failed to release pledge');
+					releaseError = result.error ?? 'Failed to release pledge';
+					step = 'error';
 					return;
 				}
 
@@ -256,12 +262,15 @@
 			showConfirm = false;
 		} catch (err) {
 			if (err instanceof DoubleSpendError) {
-				toastStore.error('These tokens have already been spent');
+				releaseError =
+					'These tokens have already been spent. They may have been released previously.';
 			} else if (err instanceof MintConnectionError) {
-				toastStore.error('Could not connect to the Cashu mint. Please try again.');
+				releaseError =
+					'Could not connect to the Cashu mint. The mint may be temporarily down — please try again later.';
 			} else {
-				toastStore.error(err instanceof Error ? err.message : 'Release failed');
+				releaseError = err instanceof Error ? err.message : 'Release failed';
 			}
+			step = 'error';
 		} finally {
 			processing = false;
 			statusMessage = '';
@@ -334,6 +343,7 @@
 					<Dialog.Title>
 						{#if step === 'confirm'}Release Funds
 						{:else if step === 'key-entry'}Enter Private Key
+						{:else if step === 'error'}Release Failed
 						{:else if step === 'broadcast-failure'}Broadcast Failed — Recovery Required
 						{:else}Releasing Funds{/if}
 					</Dialog.Title>
@@ -343,6 +353,8 @@
 						{:else if step === 'key-entry'}
 							Your private key is needed to unlock your pledge tokens and re-lock them to the
 							solver.
+						{:else if step === 'error'}
+							Something went wrong during the release process.
 						{:else if step === 'broadcast-failure'}
 							The payout token was created but could not be published to relays.
 						{:else}
@@ -407,51 +419,60 @@
 
 					<!-- Step 2: Key entry -->
 				{:else if step === 'key-entry'}
-					<div class="space-y-4 py-2">
-						<div
-							class="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3"
-							role="alert"
-						>
-							<ShieldAlertIcon class="mt-0.5 size-4 shrink-0 text-destructive" />
-							<div class="space-y-1">
-								<p class="text-xs font-medium text-destructive">Private key required</p>
-								<p class="text-xs text-foreground/80">
-									Your private key is used to sign your P2PK-locked pledge tokens and re-lock them
-									to the solver. It is held in memory only for the swap operation and immediately
-									cleared. It is never stored or transmitted.
-								</p>
+					<form
+						onsubmit={(e) => {
+							e.preventDefault();
+							if (isKeyValid) handleRelease();
+						}}
+					>
+						<div class="space-y-4 py-2">
+							<div
+								class="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3"
+								role="alert"
+							>
+								<ShieldAlertIcon class="mt-0.5 size-4 shrink-0 text-destructive" />
+								<div class="space-y-1">
+									<p class="text-xs font-medium text-destructive">Private key required</p>
+									<p class="text-xs text-foreground/80">
+										Your private key is used to sign your P2PK-locked pledge tokens and re-lock them
+										to the solver. It is held in memory only for the swap operation and immediately
+										cleared. It is never stored or transmitted.
+									</p>
+								</div>
+							</div>
+
+							<div class="space-y-2">
+								<label for="release-nsec" class="text-sm font-medium text-foreground">
+									Private Key
+								</label>
+								<input
+									id="release-nsec"
+									type="password"
+									bind:value={nsecInput}
+									autocomplete="off"
+									spellcheck={false}
+									placeholder="nsec1... or hex private key"
+									class="font-mono text-xs border-border bg-input dark:bg-input/30 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-full rounded-md border px-3 py-2 shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]"
+								/>
+								{#if nsecError}
+									<p class="text-xs text-destructive" role="alert">{nsecError}</p>
+								{/if}
 							</div>
 						</div>
 
-						<div class="space-y-2">
-							<label for="release-nsec" class="text-sm font-medium text-foreground">
-								Private Key
-							</label>
-							<input
-								id="release-nsec"
-								type="password"
-								bind:value={nsecInput}
-								autocomplete="off"
-								spellcheck={false}
-								placeholder="nsec1... or hex private key"
-								class="font-mono text-xs border-border bg-input dark:bg-input/30 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-full rounded-md border px-3 py-2 shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]"
-							/>
-							{#if nsecError}
-								<p class="text-xs text-destructive" role="alert">{nsecError}</p>
-							{/if}
-						</div>
-					</div>
-
-					<Dialog.Footer>
-						<Button variant="outline" onclick={() => (step = 'confirm')}>Back</Button>
-						<Button
-							class="bg-success text-background hover:bg-success/90 hover:cursor-pointer transition-colors"
-							onclick={handleRelease}
-							disabled={!isKeyValid}
-						>
-							Sign & Release Funds
-						</Button>
-					</Dialog.Footer>
+						<Dialog.Footer>
+							<Button variant="outline" type="button" onclick={() => (step = 'confirm')}
+								>Back</Button
+							>
+							<Button
+								type="submit"
+								class="bg-success text-background hover:bg-success/90 hover:cursor-pointer transition-colors"
+								disabled={!isKeyValid}
+							>
+								Sign & Release Funds
+							</Button>
+						</Dialog.Footer>
+					</form>
 
 					<!-- Step 3: Broadcast failure recovery -->
 				{:else if step === 'broadcast-failure'}
@@ -504,7 +525,32 @@
 						</Button>
 					</Dialog.Footer>
 
-					<!-- Step 4: Processing -->
+					<!-- Step 4: Error -->
+				{:else if step === 'error'}
+					<div class="space-y-4 py-2">
+						<div
+							class="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3"
+							role="alert"
+						>
+							<TriangleAlertIcon class="mt-0.5 size-4 shrink-0 text-destructive" />
+							<div class="space-y-1">
+								<p class="text-xs font-medium text-destructive">Release Failed</p>
+								<p class="text-xs text-foreground/80">{releaseError}</p>
+							</div>
+						</div>
+					</div>
+
+					<Dialog.Footer>
+						<Button variant="outline" onclick={() => (showConfirm = false)}>Close</Button>
+						<Button
+							class="bg-success text-background hover:bg-success/90 hover:cursor-pointer transition-colors"
+							onclick={openDialog}
+						>
+							Try Again
+						</Button>
+					</Dialog.Footer>
+
+					<!-- Step 5: Processing -->
 				{:else}
 					<div class="flex flex-col items-center gap-3 py-6">
 						<LoadingSpinner size="lg" />
