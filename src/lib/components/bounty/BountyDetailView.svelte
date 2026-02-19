@@ -173,22 +173,24 @@
 	<!-- Sticky release banner for pledgers who need to act -->
 	{#if needsRelease}
 		<div
-			class="sticky top-0 z-30 -mx-4 sm:-mx-0"
+			class="sticky top-0 z-30 -mx-4 pt-2 sm:-mx-0"
 			role="alert"
 			aria-label="Action required: release funds"
 		>
 			<button
 				onclick={scrollToPayout}
 				disabled={!connectivity.online}
-				class="flex w-full items-center justify-between gap-3 border-b border-success/30 bg-success/15 px-4 py-3 text-left backdrop-blur-sm transition-colors hover:bg-success/25 hover:cursor-pointer sm:rounded-lg sm:border"
+				class="flex w-full items-center justify-between gap-3 border-b border-success/40 bg-success/90 px-4 py-3 text-left transition-colors hover:bg-success hover:cursor-pointer sm:rounded-lg sm:border"
 			>
 				<div class="min-w-0">
-					<p class="text-sm font-semibold text-success">Action Required: Release Your Funds</p>
-					<p class="text-xs text-muted-foreground">
+					<p class="text-sm font-semibold text-success-foreground">
+						Action Required: Release Your Funds
+					</p>
+					<p class="text-xs text-success-foreground/80">
 						You pledged {myPledgeTotal.toLocaleString()} sats — release them to the winning solver.
 					</p>
 				</div>
-				<ArrowDownIcon class="size-4 shrink-0 text-success" />
+				<ArrowDownIcon class="size-4 shrink-0 text-success-foreground" />
 			</button>
 		</div>
 	{/if}
