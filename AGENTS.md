@@ -246,8 +246,7 @@ Cloudflare project: `bounty-ninja`.
 - Client-side caching fully implemented (SWR, LRU eviction, prefetching, quota
   monitoring)
 - Logo: Hooded Figure (green hood, gold eyes) — `static/logo-icon.svg`
-- DNS for `bounty.ninja` pending CNAME propagation (works via
-  `bounty-ninja.pages.dev`)
+- `bounty.ninja` is live (also accessible via `bounty-ninja.pages.dev`)
 
 ## What's Next
 
