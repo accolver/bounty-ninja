@@ -32,19 +32,27 @@ Side transitions: `expired`, `cancelled`
 2. **NIP-07 extension** in each (e.g. Alby, nos2x, Nostr Connect). Each needs a
    different keypair.
 3. **A Cashu wallet** that can produce tokens —
-   [Minibits](https://www.minibits.cash/), [eNuts](https://www.enuts.cash/), or
-   [Nutstash](https://nutstash.com/).
+   [Cashu.me](https://wallet.cashu.me/) (web),
+   [Minibits](https://www.minibits.cash/) (mobile), or
+   [Nutstash](https://wallet.nutstash.app/) (web).
 4. **Test sats** — use the testnut mint below, or fund from any Lightning wallet
    to a real mint.
 
 ### Testnet Mint
 
 Use `https://testnut.cashu.space` for testing. It's a free testnet mint — tokens
-have no real value.
+have no real value. There is also a fee-less variant at
+`https://nofee.testnut.cashu.space`.
+
+> **Note:** The mint URL returns a 404 if you open it in a browser — that's
+> expected. Cashu mints are API servers, not websites. Your wallet calls the API
+> endpoints (e.g. `/v1/info`) under the hood. You can verify the mint is online
+> by visiting `https://testnut.cashu.space/v1/info`.
 
 To get test tokens:
 
-1. Open [Nutstash](https://nutstash.com/) or Minibits
+1. Open [Cashu.me](https://wallet.cashu.me/),
+   [Nutstash](https://wallet.nutstash.app/), or Minibits
 2. Add mint: `https://testnut.cashu.space`
 3. Use the mint's faucet or Lightning to mint test tokens
 4. Copy the cashuA.../cashuB... token string
@@ -181,8 +189,8 @@ funds.
    - Shows aggregate total: "Total: X sats from Y pledgers".
    - Lists each pledger's release with their npub and amount.
    - Each release has a copyable Cashu token string.
-4. **Copy each token** and import it into your Cashu wallet (Minibits / eNuts /
-   Nutstash).
+4. **Copy each token** and import it into your Cashu wallet (Cashu.me / Minibits
+   / Nutstash).
 5. **Verify**: Wallet shows the received sats (minus mint fees from the swap).
 
 ### Differences from Old Model

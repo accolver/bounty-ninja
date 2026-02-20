@@ -15,10 +15,10 @@ import { getDefaultMint } from '$lib/utils/env';
 import { MintConnectionError } from './types';
 
 /** Maximum number of connection retries. */
-const MAX_RETRIES = 3;
+const MAX_RETRIES = 2;
 
 /** Delay between retries in milliseconds. */
-const RETRY_DELAY_MS = 2000;
+const RETRY_DELAY_MS = 3000;
 
 /**
  * Cache of initialized wallets keyed by mint URL.
@@ -102,7 +102,7 @@ async function initializeWallet(wallet: Wallet, mintUrl: string): Promise<void> 
  *
  * - Creates and caches Mint + Wallet instances per URL.
  * - Lazy-loads @cashu/cashu-ts on first call.
- * - Calls `wallet.loadMint()` with 3-retry, 2-second delay on failure.
+ * - Calls `wallet.loadMint()` with 2-retry, 3-second delay on failure.
  * - Returns the cached wallet on subsequent calls for the same URL.
  *
  * @param mintUrl - Optional mint URL. Defaults to the configured default mint.

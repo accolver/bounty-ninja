@@ -25,11 +25,15 @@ interface TokenVerificationEntry {
 /** Cache TTL in milliseconds (5 minutes). */
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
-/** Maximum retry attempts for mint verification (future use). */
-const MAX_RETRIES = 3;
+/**
+ * Maximum retry attempts for mint verification.
+ * Kept low because getWallet() already retries internally and caches failures
+ * for 5 minutes — additional retries here just compound the request volume.
+ */
+const MAX_RETRIES = 1;
 
-/** Delay between retries in milliseconds. */
-const RETRY_DELAY_MS = 2000;
+/** Delay between retries in milliseconds (unused when MAX_RETRIES = 1). */
+const RETRY_DELAY_MS = 3000;
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
