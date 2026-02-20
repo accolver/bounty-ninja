@@ -213,6 +213,13 @@
 				Nostr
 			</li>
 		</ul>
+		<a
+			href="https://github.com/accolver/bounty-ninja"
+			target="_blank"
+			rel="noopener noreferrer"
+			class="text-sm text-primary underline transition-colors hover:text-primary/80"
+			>GitHub — View source code</a
+		>
 	</section>
 
 	<div class="border-t border-border pt-6 text-center">
