@@ -86,7 +86,6 @@
 <style>
 	.nav-logo-hidden {
 		opacity: 0;
-		transition: opacity 0.3s ease-out;
 	}
 	.nav-logo-visible {
 		opacity: 1;
