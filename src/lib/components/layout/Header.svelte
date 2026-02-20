@@ -21,11 +21,16 @@
 			<a
 				href="/"
 				class="flex items-center gap-1.5 text-foreground transition-colors hover:text-foreground/90"
-				class:nav-logo-hidden={!pageLoading.navLogoVisible}
-				class:nav-logo-visible={pageLoading.navLogoVisible}
 				aria-label="{config.app.nameCaps} home"
 			>
-				<img src={config.app.logo} alt="" class="h-9 w-9" aria-hidden="true" />
+				<img
+					src={config.app.logo}
+					alt=""
+					class="h-9 w-9"
+					class:nav-logo-hidden={!pageLoading.navLogoVisible}
+					class:nav-logo-visible={pageLoading.navLogoVisible}
+					aria-hidden="true"
+				/>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					viewBox="0 0 220 40"
