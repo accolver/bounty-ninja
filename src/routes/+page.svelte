@@ -207,7 +207,7 @@
 <ErrorBoundary>
 	<div class="relative">
 		{#if showOverlay}
-			<div out:fade={{ duration: 300 }}>
+			<div out:fade={{ duration: 300 }} onoutroend={() => pageLoading.showNavLogo(1000)}>
 				<LoadingLogo />
 			</div>
 		{/if}

@@ -7,6 +7,7 @@
 	import { accountState } from '$lib/nostr/account.svelte';
 	import { searchDialog } from '$lib/stores/search-dialog.svelte';
 	import { config } from '$lib/config';
+	import { pageLoading } from '$lib/stores/page-loading.svelte';
 	import SearchIcon from '@lucide/svelte/icons/search';
 </script>
 
@@ -20,6 +21,8 @@
 			<a
 				href="/"
 				class="flex items-center gap-1.5 text-foreground transition-colors hover:text-foreground/90"
+				class:nav-logo-hidden={!pageLoading.navLogoVisible}
+				class:nav-logo-visible={pageLoading.navLogoVisible}
 				aria-label="{config.app.nameCaps} home"
 			>
 				<img src={config.app.logo} alt="" class="h-9 w-9" aria-hidden="true" />
@@ -74,3 +77,18 @@
 </header>
 
 <SearchDialog />
+
+<style>
+	.nav-logo-hidden {
+		opacity: 0;
+	}
+	.nav-logo-visible {
+		opacity: 1;
+		transition: opacity 1s ease-in-out;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.nav-logo-visible {
+			transition: none;
+		}
+	}
+</style>
