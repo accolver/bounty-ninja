@@ -3,7 +3,7 @@
 </script>
 
 <div
-	class="absolute inset-0 z-10 flex justify-center bg-background pt-[20vh]"
+	class="absolute inset-0 z-40 flex justify-center bg-background pt-[20vh]"
 	role="status"
 	aria-label="Loading"
 >
