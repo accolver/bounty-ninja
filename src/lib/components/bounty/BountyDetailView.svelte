@@ -125,7 +125,7 @@
 					Posted by
 					<ProfileLink pubkey={detail.pubkey} />
 				</span>
-				{#if isCreator && detail.status !== 'completed' && detail.status !== 'cancelled'}
+				{#if isCreator && detail.status !== 'completed' && detail.status !== 'cancelled' && !winningSolution && !isReleasePhase}
 					<RetractButton taskAddress={bountyAddress} hasSolutions={detail.solutions.length > 0} />
 				{/if}
 				{#if detail.tags.length > 0}
