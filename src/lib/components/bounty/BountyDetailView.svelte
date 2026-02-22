@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { BountyDetail } from '$lib/bounty/types';
+	import { fade } from 'svelte/transition';
 	import { tallyVotes } from '$lib/bounty/voting';
 	import { BOUNTY_KIND } from '$lib/bounty/kinds';
 	import { accountState } from '$lib/nostr/account.svelte';
@@ -193,6 +194,7 @@
 			class="sticky top-0 z-30 -mx-4 pt-2 sm:-mx-0"
 			role="alert"
 			aria-label="Action required: release funds"
+			in:fade={{ duration: 500, delay: 200 }}
 		>
 			<button
 				onclick={() => (releaseDialogOpen = true)}
