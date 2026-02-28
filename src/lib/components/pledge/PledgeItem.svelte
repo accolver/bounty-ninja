@@ -12,14 +12,14 @@
 	const {
 		pledge,
 		payouts = [],
-		taskAddress = '',
+		bountyAddress = '',
 		hasSolutions = false,
 		isRetracted = false,
 		isReleasePhase = false
 	}: {
 		pledge: Pledge;
 		payouts?: Payout[];
-		taskAddress?: string;
+		bountyAddress?: string;
 		hasSolutions?: boolean;
 		isRetracted?: boolean;
 		isReleasePhase?: boolean;
@@ -127,8 +127,8 @@
 			<span></span>
 		{/if}
 		<div class="flex items-center gap-2">
-			{#if isPledgeAuthor && !isRetracted && !hasReleased && taskAddress}
-				<RetractPledgeButton {taskAddress} pledgeEventId={pledge.id} {hasSolutions} />
+			{#if isPledgeAuthor && !isRetracted && !hasReleased && bountyAddress}
+				<RetractPledgeButton {bountyAddress} pledgeEventId={pledge.id} {hasSolutions} />
 			{/if}
 			<TimeAgo timestamp={pledge.createdAt} />
 		</div>

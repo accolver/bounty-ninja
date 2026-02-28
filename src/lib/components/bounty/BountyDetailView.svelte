@@ -126,13 +126,13 @@
 					<ProfileLink pubkey={detail.pubkey} />
 				</span>
 				{#if isCreator && detail.status !== 'completed' && detail.status !== 'cancelled' && !winningSolution && !isReleasePhase}
-					<RetractButton taskAddress={bountyAddress} hasSolutions={detail.solutions.length > 0} />
+					<RetractButton {bountyAddress} hasSolutions={detail.solutions.length > 0} />
 				{/if}
 				{#if detail.tags.length > 0}
 					<div class="flex items-center gap-1.5" aria-label="Bounty tags">
 						{#each detail.tags as tag (tag)}
 							<span
-								class="inline-block rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+								class="inline-block rounded-full border border-muted-foreground/40 bg-transparent px-2 py-0.5 text-xs text-muted-foreground"
 							>
 								{tag}
 							</span>
@@ -253,7 +253,7 @@
 					<h2 class="text-base font-semibold text-foreground">
 						Pledges ({detail.pledges.length})
 					</h2>
-					<PledgeButton taskStatus={detail.status} onPledge={() => (pledgeFormOpen = true)} />
+					<PledgeButton bountyStatus={detail.status} onPledge={() => (pledgeFormOpen = true)} />
 				</div>
 				{#if (isReleasePhase || detail.payouts.length > 0) && uniquePledgers > 0}
 					<div class="flex items-center gap-2 text-xs text-muted-foreground">
@@ -373,7 +373,7 @@
 				<SolutionForm
 					{bountyAddress}
 					creatorPubkey={detail.pubkey}
-					taskStatus={detail.status}
+					bountyStatus={detail.status}
 					requiredFee={detail.submissionFee}
 				/>
 			</section>

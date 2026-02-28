@@ -6,12 +6,12 @@
 	import XCircle from '@lucide/svelte/icons/x-circle';
 
 	const {
-		taskAddress,
+		bountyAddress,
 		pledgeEventId,
 		hasSolutions
 	}: {
 		/** NIP-33 bounty address */
-		taskAddress: string;
+		bountyAddress: string;
 		/** Event ID of the pledge to retract */
 		pledgeEventId: string;
 		/** Whether solutions have been submitted */
@@ -30,7 +30,7 @@
 		publishing = true;
 		try {
 			const template = retractionBlueprint({
-				taskAddress,
+				taskAddress: bountyAddress,
 				type: 'pledge',
 				pledgeEventId,
 				creatorPubkey: accountState.pubkey!
@@ -42,7 +42,7 @@
 			if (hasSolutions) {
 				const repTemplate = reputationBlueprint({
 					offenderPubkey: accountState.pubkey!,
-					taskAddress,
+					taskAddress: bountyAddress,
 					type: 'pledge_retraction',
 					retractionEventId: signed.id,
 					description: 'Retracted pledge after solutions were submitted'
@@ -78,9 +78,7 @@
 			<Button variant="destructive" size="sm" disabled={publishing} onclick={handleRetract}>
 				{publishing ? 'Retracting…' : 'Confirm'}
 			</Button>
-			<Button variant="outline" size="sm" onclick={cancel} disabled={publishing}>
-				Cancel
-			</Button>
+			<Button variant="outline" size="sm" onclick={cancel} disabled={publishing}>Cancel</Button>
 		</div>
 	</div>
 {:else}

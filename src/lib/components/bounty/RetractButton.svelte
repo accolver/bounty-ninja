@@ -6,11 +6,11 @@
 	import XCircle from '@lucide/svelte/icons/x-circle';
 
 	const {
-		taskAddress,
+		bountyAddress,
 		hasSolutions
 	}: {
 		/** NIP-33 bounty address (kind:pubkey:d-tag) */
-		taskAddress: string;
+		bountyAddress: string;
 		/** Whether solutions have been submitted */
 		hasSolutions: boolean;
 	} = $props();
@@ -28,7 +28,7 @@
 		publishing = true;
 		try {
 			const template = retractionBlueprint({
-				taskAddress,
+				taskAddress: bountyAddress,
 				type: 'bounty',
 				creatorPubkey: accountState.pubkey!,
 				reason
@@ -40,7 +40,7 @@
 			if (hasSolutions) {
 				const repTemplate = reputationBlueprint({
 					offenderPubkey: accountState.pubkey!,
-					taskAddress,
+					taskAddress: bountyAddress,
 					type: 'bounty_retraction',
 					retractionEventId: signed.id,
 					description: `Cancelled bounty after solutions were submitted`

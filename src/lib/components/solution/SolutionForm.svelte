@@ -26,12 +26,12 @@
 	const {
 		bountyAddress,
 		creatorPubkey,
-		taskStatus,
+		bountyStatus,
 		requiredFee
 	}: {
 		bountyAddress: string;
 		creatorPubkey: string;
-		taskStatus: BountyStatus;
+		bountyStatus: BountyStatus;
 		requiredFee: number;
 	} = $props();
 
@@ -119,10 +119,10 @@
 	}
 
 	const canSubmit = $derived(
-		(taskStatus === 'open' || taskStatus === 'in_review') && accountState.isLoggedIn
+		(bountyStatus === 'open' || bountyStatus === 'in_review') && accountState.isLoggedIn
 	);
 
-	const isVisible = $derived(taskStatus === 'open' || taskStatus === 'in_review');
+	const isVisible = $derived(bountyStatus === 'open' || bountyStatus === 'in_review');
 
 	const isUrlValid = $derived.by(() => {
 		if (!deliverableUrl.trim()) return true; // optional field
