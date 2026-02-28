@@ -124,8 +124,8 @@ src/
 | Kind  | Type                      | Purpose                         |
 | ----- | ------------------------- | ------------------------------- |
 | 37300 | Parameterized Replaceable | Bounty definition               |
-| 73001 | Regular                   | Pledge (Cashu ecash attachment) |
-| 73002 | Regular                   | Solution submission             |
+| 73001 | Regular                   | Solution submission             |
+| 73002 | Regular                   | Pledge (Cashu ecash attachment) |
 | 1018  | Regular                   | Consensus vote                  |
 | 73004 | Regular                   | Payout record                   |
 | 73005 | Regular                   | Retraction (cancel/withdraw)    |
