@@ -67,6 +67,7 @@ export const config = {
 
 	// External links
 	links: {
+		github: 'https://github.com/accolver/bounty-ninja',
 		nostr: 'https://nostr.com',
 		nostrGuide: 'https://nostr.how',
 		cashu: 'https://cashu.space',
