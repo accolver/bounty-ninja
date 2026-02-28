@@ -1,28 +1,18 @@
 import type { NostrEvent } from 'nostr-tools';
-import type { BountySummary, Pledge, Solution, Vote, Payout, BountyDetail, Retraction, ReputationEvent } from './types';
+import type {
+	BountySummary,
+	Pledge,
+	Solution,
+	Vote,
+	Payout,
+	BountyDetail,
+	Retraction,
+	ReputationEvent
+} from './types';
 import { deriveBountyStatus } from './state-machine';
 import { tallyVotes } from './voting';
 import { validateEventTags } from '$lib/nostr/tag-validator';
-
-/**
- * Extract the first value for a given tag name from a Nostr event.
- * Returns undefined if the tag is not found.
- */
-function getTagValue(event: NostrEvent, tagName: string): string | undefined {
-	const tag = event.tags.find((t) => t[0] === tagName);
-	return tag?.[1];
-}
-
-/**
- * Extract all values for a given tag name from a Nostr event.
- * Returns an array of the second element from each matching tag.
- */
-function getTagValues(event: NostrEvent, tagName: string): string[] {
-	return event.tags
-		.filter((t) => t[0] === tagName)
-		.map((t) => t[1])
-		.filter(Boolean);
-}
+import { getTagValue, getTagValues } from '$lib/nostr/nostr-tags';
 
 /**
  * Extract a title from a bounty event using the fallback chain:
@@ -275,7 +265,8 @@ export function parseBountyDetail(
 	solutionEvents: NostrEvent[],
 	voteEvents: NostrEvent[],
 	payoutEvents: NostrEvent[],
-	deleteEvents: NostrEvent[]
+	deleteEvents: NostrEvent[],
+	retractionEvents: NostrEvent[] = []
 ): BountyDetail | null {
 	const summary = parseBountySummary(event);
 	if (!summary) return null;
@@ -326,7 +317,8 @@ export function parseBountyDetail(
 		payoutEvents,
 		deleteEvents,
 		undefined,
-		hasConsensus
+		hasConsensus,
+		retractionEvents
 	);
 
 	// Extract additional bounty fields
