@@ -27,6 +27,14 @@
 	import type { Retraction } from '$lib/bounty/types';
 	import UnlockIcon from '@lucide/svelte/icons/unlock';
 	import CrownIcon from '@lucide/svelte/icons/crown';
+	import {
+		Accordion,
+		AccordionItem,
+		AccordionTrigger,
+		AccordionContent
+	} from '$lib/components/ui/accordion/index.js';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import FileTextIcon from '@lucide/svelte/icons/file-text';
 
 	const {
 		detail,
@@ -72,13 +80,54 @@
 		detail.status === 'consensus_reached' || detail.status === 'releasing'
 	);
 
-	/** Solutions sorted with winning solution first */
-	const sortedSolutions = $derived.by(() => {
-		if (!winningSolution) return detail.solutions;
-		const winner = detail.solutions.find((s) => s.id === winningSolution.id);
-		const rest = detail.solutions.filter((s) => s.id !== winningSolution.id);
-		return winner ? [winner, ...rest] : detail.solutions;
+	/** Tally cache: solution ID → VoteTally */
+	const tallyBySolution = $derived.by(() => {
+		const map = new Map<string, ReturnType<typeof tallyVotes>>();
+		for (const solution of detail.solutions) {
+			const votes = detail.votesBySolution.get(solution.id) ?? [];
+			map.set(solution.id, tallyVotes(votes, pledgesByPubkey, detail.totalPledged));
+		}
+		return map;
 	});
+
+	/** Approval percent for a solution (% of total vote weight that is approve) */
+	function getApprovalPercent(solutionId: string): number {
+		const tally = tallyBySolution.get(solutionId);
+		if (!tally) return 0;
+		const total = tally.approveWeight + tally.rejectWeight;
+		return total > 0 ? (tally.approveWeight / total) * 100 : 0;
+	}
+
+	/** Solutions sorted: winning first, then by % approval desc, then oldest first */
+	const sortedSolutions = $derived.by(() => {
+		const sorted = [...detail.solutions].sort((a, b) => {
+			// Winning solution always first
+			const aWin = winningSolution?.id === a.id ? 1 : 0;
+			const bWin = winningSolution?.id === b.id ? 1 : 0;
+			if (aWin !== bWin) return bWin - aWin;
+
+			// Then by approval % descending
+			const aApproval = getApprovalPercent(a.id);
+			const bApproval = getApprovalPercent(b.id);
+			if (aApproval !== bApproval) return bApproval - aApproval;
+
+			// Then oldest first (ascending createdAt)
+			return a.createdAt - b.createdAt;
+		});
+		return sorted;
+	});
+
+	/** Whether the current user is a pledger (for showing/hiding vote controls) */
+	const currentUserIsPledger = $derived(
+		accountState.isLoggedIn && accountState.pubkey
+			? (pledgesByPubkey.get(accountState.pubkey) ?? 0) > 0
+			: false
+	);
+
+	/** Whether the bounty can accept new solutions */
+	const canSubmitSolution = $derived(detail.status === 'open' || detail.status === 'in_review');
+
+	let solutionFormRef: HTMLElement | undefined = $state(undefined);
 
 	/** Release progress stats for pledges header */
 	const uniquePledgers = $derived(new Set(detail.pledges.map((p) => p.pubkey)).size);
@@ -284,98 +333,135 @@
 		<!-- Solutions section -->
 		<ErrorBoundary>
 			<section class="order-1 md:order-2 space-y-3" aria-label="Solutions">
-				<h2 class="text-base font-semibold text-foreground">
-					Solutions ({detail.solutions.length})
-				</h2>
+				<!-- Header: title + submit button -->
+				<div class="flex items-center justify-between">
+					<h2 class="text-base font-semibold text-foreground">
+						Solutions ({detail.solutions.length})
+					</h2>
+					{#if canSubmitSolution && accountState.isLoggedIn}
+						<Button
+							variant="default"
+							size="sm"
+							onclick={() =>
+								solutionFormRef?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+						>
+							<FileTextIcon class="size-4" />
+							Submit a solution
+						</Button>
+					{/if}
+				</div>
 
-				<!-- Existing solutions with voting controls -->
+				<!-- Solutions list (accordion) -->
 				{#if detail.solutions.length === 0}
 					<div class="py-4 text-center">
 						<p class="text-sm text-muted-foreground">No solutions submitted yet.</p>
 					</div>
 				{:else}
-					<ul class="space-y-3" aria-label="Solution list">
+					<Accordion type="multiple">
 						{#each sortedSolutions as solution (solution.id)}
+							{@const tally = tallyBySolution.get(solution.id)}
 							{@const votes = detail.votesBySolution.get(solution.id) ?? []}
-							{@const tally = tallyVotes(votes, pledgesByPubkey, detail.totalPledged)}
 							{@const isWinner = winningSolution?.id === solution.id}
-							<li
-								class="py-3 border-b border-border last:border-b-0 space-y-2 {isWinner
-									? 'bg-primary/5 -mx-3 px-3 rounded-md'
-									: ''}"
+							{@const approvalPct = getApprovalPercent(solution.id)}
+							<AccordionItem
+								value={solution.id}
+								class={isWinner ? 'bg-primary/5 -mx-3 px-3 rounded-md' : ''}
 							>
-								<!-- Solution content -->
-								<div class="flex items-center justify-between gap-2">
-									<div class="flex items-center gap-2">
+								<AccordionTrigger>
+									<div class="flex min-w-0 flex-1 items-center gap-2">
 										{#if isWinner}
-											<CrownIcon class="size-4 text-warning" aria-label="Winning solution" />
+											<CrownIcon
+												class="size-4 shrink-0 text-warning"
+												aria-label="Winning solution"
+											/>
 										{/if}
 										<ProfileLink pubkey={solution.pubkey} />
+										{#if votes.length > 0}
+											<span class="shrink-0 text-xs text-muted-foreground">
+												{Math.round(approvalPct)}% approval
+											</span>
+										{/if}
 									</div>
-									<TimeAgo timestamp={solution.createdAt} />
-								</div>
+								</AccordionTrigger>
+								<AccordionContent>
+									<div class="space-y-2">
+										<!-- Date -->
+										<div class="text-xs text-muted-foreground">
+											<TimeAgo timestamp={solution.createdAt} />
+										</div>
 
-								<MarkdownViewer content={solution.description} />
+										<!-- Description -->
+										<MarkdownViewer content={solution.description} />
 
-								{#if solution.deliverableUrl}
-									<div class="text-sm">
-										<span class="text-muted-foreground">Deliverable: </span>
-										<a
-											href={solution.deliverableUrl}
-											target="_blank"
-											rel="noopener noreferrer"
-											class="font-medium text-foreground underline underline-offset-2 hover:text-primary transition-colors hover:cursor-pointer focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-										>
-											{solution.deliverableUrl}
-										</a>
-									</div>
-								{/if}
+										{#if solution.deliverableUrl}
+											<div class="text-sm">
+												<span class="text-muted-foreground">Deliverable: </span>
+												<a
+													href={solution.deliverableUrl}
+													target="_blank"
+													rel="noopener noreferrer"
+													class="font-medium text-foreground underline underline-offset-2 hover:text-primary transition-colors hover:cursor-pointer focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+												>
+													{solution.deliverableUrl}
+												</a>
+											</div>
+										{/if}
 
-								<!-- Vote progress bar -->
-								{#if votes.length > 0}
-									<div class="border-t border-border pt-2">
-										<VoteProgress {tally} />
-									</div>
-								{/if}
+										<!-- Vote progress bar -->
+										{#if tally && votes.length > 0}
+											<div class="border-t border-border pt-2">
+												<VoteProgress {tally} />
+											</div>
+										{/if}
 
-								<!-- Vote buttons (only when bounty is in_review or open) -->
-								{#if detail.status === 'in_review' || detail.status === 'open'}
-									<div class="border-t border-border pt-2">
-										<VoteButton
-											{bountyAddress}
-											{solution}
-											pledges={detail.pledges}
-											existingVotes={votes}
-										/>
-									</div>
-								{/if}
-
-								<!-- Consensus message -->
-								{#if tally.isApproved}
-									<div class="mt-2 text-center">
-										<p class="text-sm font-medium text-primary">
-											{#if isReleasePhase}
-												Solution approved! Pledgers are releasing funds to the solver.
-											{:else if detail.payouts.length > 0}
-												Solution approved! Funds have been released.
+										<!-- Vote controls: only for pledgers when bounty allows voting -->
+										{#if detail.status === 'in_review' || detail.status === 'open'}
+											{#if currentUserIsPledger}
+												<div class="border-t border-border pt-2">
+													<VoteButton
+														{bountyAddress}
+														{solution}
+														pledges={detail.pledges}
+														existingVotes={votes}
+													/>
+												</div>
 											{:else}
-												Solution approved! Awaiting fund releases from pledgers.
+												<p class="pt-1 text-xs text-muted-foreground">
+													Only pledgers can vote on solutions.
+												</p>
 											{/if}
-										</p>
+										{/if}
+
+										<!-- Consensus message -->
+										{#if tally?.isApproved}
+											<div class="mt-2 text-center">
+												<p class="text-sm font-medium text-primary">
+													{#if isReleasePhase}
+														Solution approved! Pledgers are releasing funds to the solver.
+													{:else if detail.payouts.length > 0}
+														Solution approved! Funds have been released.
+													{:else}
+														Solution approved! Awaiting fund releases from pledgers.
+													{/if}
+												</p>
+											</div>
+										{/if}
 									</div>
-								{/if}
-							</li>
+								</AccordionContent>
+							</AccordionItem>
 						{/each}
-					</ul>
+					</Accordion>
 				{/if}
 
 				<!-- Solution submission form -->
-				<SolutionForm
-					{bountyAddress}
-					creatorPubkey={detail.pubkey}
-					bountyStatus={detail.status}
-					requiredFee={detail.submissionFee}
-				/>
+				<div bind:this={solutionFormRef}>
+					<SolutionForm
+						{bountyAddress}
+						creatorPubkey={detail.pubkey}
+						bountyStatus={detail.status}
+						requiredFee={detail.submissionFee}
+					/>
+				</div>
 			</section>
 		</ErrorBoundary>
 	</div>
