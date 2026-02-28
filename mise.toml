@@ -126,7 +126,7 @@ bun run build
 
 echo ""
 echo "🚀 Deploying to Cloudflare Pages..."
-npx wrangler pages deploy build --project-name bounty-ninja --branch main --commit-dirty=true
+bunx wrangler pages deploy build --project-name bounty-ninja --branch main --commit-dirty=true
 
 echo ""
 echo "✅ Deployed to https://bounty.ninja"
@@ -141,7 +141,7 @@ bun run build
 
 echo ""
 echo "🚀 Deploying preview branch: $BRANCH"
-npx wrangler pages deploy build --project-name bounty-ninja --branch "$BRANCH" --commit-dirty=true
+bunx wrangler pages deploy build --project-name bounty-ninja --branch "$BRANCH" --commit-dirty=true
 """
 
 [tasks.clean]
