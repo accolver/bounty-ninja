@@ -16,6 +16,7 @@
 	import TagAutoSuggest from './TagAutoSuggest.svelte';
 	import Tooltip from '$lib/components/shared/Tooltip.svelte';
 	import MarkdownEditor from '$lib/components/shared/MarkdownEditor.svelte';
+	import { config } from '$lib/config';
 
 	// Advanced settings toggle
 	let showAdvanced = $state(false);
@@ -465,7 +466,7 @@
 					{#each tags as tag (tag)}
 						<li>
 							<span
-								class="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground"
+								class="inline-flex items-center gap-1 rounded-full border border-muted-foreground/40 bg-transparent px-2.5 py-0.5 text-xs text-muted-foreground"
 							>
 								{tag}
 								<button
@@ -617,7 +618,7 @@
 					id="bounty-mint"
 					type="url"
 					bind:value={mintUrl}
-					placeholder="https://mint.minibits.cash/Bitcoin"
+					placeholder={config.payments.defaultMint}
 					class="w-full rounded-md border border-border bg-input dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
 				/>
 				<p class="text-xs text-muted-foreground">Leave blank to use the default mint.</p>

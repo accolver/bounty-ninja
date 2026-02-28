@@ -115,7 +115,7 @@
 				focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none
 				disabled:pointer-events-none disabled:opacity-50
 				{existingVote === 'approve'
-				? 'bg-success text-background shadow-sm'
+				? 'border border-success bg-success/15 text-success shadow-sm'
 				: 'border border-success/40 text-success/70 hover:bg-success/10'}"
 			disabled={isDisabled || submitting}
 			title={disabledReason ??
@@ -151,7 +151,7 @@
 				focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none
 				disabled:pointer-events-none disabled:opacity-50
 				{existingVote === 'reject'
-				? 'bg-destructive text-destructive-foreground shadow-sm'
+				? 'border border-destructive bg-destructive/15 text-destructive shadow-sm'
 				: 'border border-destructive/40 text-destructive/70 hover:bg-destructive/10'}"
 			disabled={isDisabled || submitting}
 			title={disabledReason ??

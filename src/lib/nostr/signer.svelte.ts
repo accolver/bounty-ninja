@@ -63,9 +63,6 @@ export function setBunkerSigner(signer: NostrConnectSigner): void {
 }
 
 /**
- * Clear and close the bunker signer.
- */
-/**
  * Clear the bunker signer.
  * @param disconnect - If true, close the WebSocket connection AND null the reference.
  *                     If false, keep the signer instance alive for re-login.

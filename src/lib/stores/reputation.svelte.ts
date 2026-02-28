@@ -13,7 +13,7 @@ import { deriveReputation, type ReputationScore } from '$lib/reputation/score';
  * Lazily fetches Kind 73006, 73004, and 73002 events on first access.
  */
 export class ReputationStore {
-	#cache: Map<string, ReputationScore> = new Map();
+	#cache = $state<Map<string, ReputationScore>>(new Map());
 	#loading: Set<string> = new Set();
 	#subs: Map<string, Array<Subscription | { unsubscribe(): void }>> = new Map();
 
@@ -69,7 +69,9 @@ export class ReputationStore {
 					repEvents,
 					pledgeEvents
 				);
-				this.#cache.set(pubkey, score);
+				const updated = new Map(this.#cache);
+				updated.set(pubkey, score);
+				this.#cache = updated;
 			}
 		});
 		subs.push(combinedSub);
@@ -109,7 +111,7 @@ export class ReputationStore {
 			}
 		}
 		this.#subs.clear();
-		this.#cache.clear();
+		this.#cache = new Map();
 		this.#loading.clear();
 	}
 }

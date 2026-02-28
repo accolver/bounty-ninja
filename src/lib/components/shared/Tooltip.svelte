@@ -1,5 +1,7 @@
 <script lang="ts">
-	const { text, children }: { text: string; children: any } = $props();
+	import type { Snippet } from 'svelte';
+
+	const { text, children }: { text: string; children: Snippet } = $props();
 
 	let open = $state(false);
 

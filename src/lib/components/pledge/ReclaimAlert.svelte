@@ -7,6 +7,7 @@
 	import { DoubleSpendError } from '$lib/cashu/types';
 	import { nip19 } from 'nostr-tools';
 	import SatAmount from '$lib/components/shared/SatAmount.svelte';
+	import { config } from '$lib/config';
 
 	const { detail }: { detail: BountyDetail } = $props();
 
@@ -125,7 +126,7 @@
 				const encoded = await encodeToken(
 					entry.proofs,
 					entry.mint,
-					'Reclaimed bounty.ninja pledge'
+					`Reclaimed ${config.app.name} pledge`
 				);
 				tokenStrings.push(encoded);
 			}
