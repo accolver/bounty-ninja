@@ -339,7 +339,7 @@
 						Solutions ({detail.solutions.length})
 					</h2>
 					{#if canSubmitSolution && accountState.isLoggedIn}
-						<Button variant="default" size="sm" onclick={() => (solutionFormOpen = true)}>
+						<Button onclick={() => (solutionFormOpen = true)}>
 							<FileTextIcon class="size-4" />
 							Submit a solution
 						</Button>

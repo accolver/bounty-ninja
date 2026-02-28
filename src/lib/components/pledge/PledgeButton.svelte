@@ -44,7 +44,7 @@
 	</div>
 {:else}
 	<!-- Ready to pledge -->
-	<Button onclick={onPledge} variant="default" size="sm">
+	<Button onclick={onPledge}>
 		<CoinsIcon class="size-4" />
 		Fund this bounty
 	</Button>
