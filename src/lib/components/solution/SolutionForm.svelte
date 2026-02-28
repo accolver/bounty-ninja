@@ -7,32 +7,34 @@
 	import { rateLimiter } from '$lib/nostr/rate-limiter';
 	import { decodeToken } from '$lib/cashu/token';
 	import type { TokenInfo } from '$lib/cashu/types';
+	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import LoginButton from '$lib/components/auth/LoginButton.svelte';
 	import LoadingSpinner from '$lib/components/shared/LoadingSpinner.svelte';
 	import SatAmount from '$lib/components/shared/SatAmount.svelte';
 	import MarkdownEditor from '$lib/components/shared/MarkdownEditor.svelte';
 	import type { BountyStatus } from '$lib/bounty/types';
 	import SendIcon from '@lucide/svelte/icons/send';
 	import LinkIcon from '@lucide/svelte/icons/link';
-	import FileTextIcon from '@lucide/svelte/icons/file-text';
 	import CoinsIcon from '@lucide/svelte/icons/coins';
+	import XIcon from '@lucide/svelte/icons/x';
 	import { connectivity } from '$lib/stores/connectivity.svelte';
 
 	// ── Constants ────────────────────────────────────────────────
 	const DESCRIPTION_MAX = 100_000;
 
-	const {
+	let {
 		bountyAddress,
 		creatorPubkey,
 		bountyStatus,
-		requiredFee
+		requiredFee,
+		open = $bindable(false)
 	}: {
 		bountyAddress: string;
 		creatorPubkey: string;
 		bountyStatus: BountyStatus;
 		requiredFee: number;
+		open: boolean;
 	} = $props();
 
 	let description = $state('');
@@ -60,7 +62,13 @@
 
 	const isRateLimited = $derived(rateLimitRemaining > 0);
 
-	// Fee is always set by the bounty creator and immutable for solvers
+	// ── Dirty state detection ───────────────────────────────────
+	const isDirty = $derived(
+		description.trim().length > 0 ||
+			deliverableUrl.trim().length > 0 ||
+			feeTokens.length > 0 ||
+			feeTokenInput.trim().length > 0
+	);
 
 	// ── Fee token management ─────────────────────────────────────
 
@@ -121,8 +129,6 @@
 	const canSubmit = $derived(
 		(bountyStatus === 'open' || bountyStatus === 'in_review') && accountState.isLoggedIn
 	);
-
-	const isVisible = $derived(bountyStatus === 'open' || bountyStatus === 'in_review');
 
 	const isUrlValid = $derived.by(() => {
 		if (!deliverableUrl.trim()) return true; // optional field
@@ -187,6 +193,7 @@
 
 			toastStore.success('Solution submitted successfully!');
 			resetForm();
+			open = false;
 		} catch (err) {
 			toastStore.error(err instanceof Error ? err.message : 'Failed to submit solution');
 		} finally {
@@ -201,25 +208,50 @@
 		feeTokens = [];
 		feeDecodeError = '';
 	}
+
+	/** Attempt to close the dialog — confirm if form has unsaved data */
+	function requestClose() {
+		if (submitting) return;
+		if (isDirty) {
+			const confirmed = confirm('You have unsaved changes. Are you sure you want to close?');
+			if (!confirmed) return;
+		}
+		resetForm();
+		open = false;
+	}
 </script>
 
-{#if !isVisible}
-	<!-- Hidden entirely for completed/expired/cancelled -->
-{:else if !accountState.isLoggedIn}
-	<!-- Unauthenticated prompt -->
-	<section class="border-t border-border pt-4" aria-label="Submit a solution">
-		<div class="flex flex-col items-center gap-3 text-center">
-			<FileTextIcon class="size-8 text-muted-foreground" />
-			<p class="text-sm text-muted-foreground">
-				Sign in with a Nostr extension to submit a solution
-			</p>
-			<LoginButton />
-		</div>
-	</section>
-{:else}
-	<!-- Solution submission form -->
-	<section class="border-t border-border pt-4" aria-label="Submit a solution">
-		<h3 class="mb-4 text-lg font-semibold text-foreground">Submit a solution</h3>
+<Dialog.Root
+	bind:open
+	onOpenChange={(isOpen) => {
+		if (isOpen) return;
+		// Closing is handled exclusively by requestClose — block all other close attempts
+		requestClose();
+	}}
+>
+	<Dialog.Content
+		showCloseButton={false}
+		interactOutsideBehavior="ignore"
+		escapeKeydownBehavior="ignore"
+		class="sm:max-w-2xl max-h-[90vh] overflow-y-auto"
+	>
+		<!-- Custom close button with confirm-before-discard -->
+		<button
+			type="button"
+			onclick={requestClose}
+			disabled={submitting}
+			class="ring-offset-background focus:ring-ring absolute end-4 top-4 rounded-md p-1.5 opacity-70 transition-all hover:opacity-100 hover:bg-muted hover:cursor-pointer focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+			aria-label="Close"
+		>
+			<XIcon />
+		</button>
+
+		<Dialog.Header>
+			<Dialog.Title>Submit a solution</Dialog.Title>
+			<Dialog.Description>
+				Describe your solution in detail and provide a link to your deliverable.
+			</Dialog.Description>
+		</Dialog.Header>
 
 		<form
 			onsubmit={(e) => {
@@ -384,8 +416,11 @@
 				</div>
 			{/if}
 
-			<!-- Submit button -->
-			<div class="flex items-center justify-end gap-3 border-t border-border pt-4">
+			<!-- Actions -->
+			<Dialog.Footer>
+				<Button type="button" variant="outline" onclick={requestClose} disabled={submitting}>
+					Cancel
+				</Button>
 				{#if !connectivity.online}
 					<p class="text-xs text-warning" role="alert">Offline — cannot publish</p>
 				{:else if isRateLimited}
@@ -404,7 +439,7 @@
 						Submit solution
 					{/if}
 				</Button>
-			</div>
+			</Dialog.Footer>
 		</form>
-	</section>
-{/if}
+	</Dialog.Content>
+</Dialog.Root>

@@ -127,7 +127,7 @@
 	/** Whether the bounty can accept new solutions */
 	const canSubmitSolution = $derived(detail.status === 'open' || detail.status === 'in_review');
 
-	let solutionFormRef: HTMLElement | undefined = $state(undefined);
+	let solutionFormOpen = $state(false);
 
 	/** Release progress stats for pledges header */
 	const uniquePledgers = $derived(new Set(detail.pledges.map((p) => p.pubkey)).size);
@@ -339,12 +339,7 @@
 						Solutions ({detail.solutions.length})
 					</h2>
 					{#if canSubmitSolution && accountState.isLoggedIn}
-						<Button
-							variant="default"
-							size="sm"
-							onclick={() =>
-								solutionFormRef?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-						>
+						<Button variant="default" size="sm" onclick={() => (solutionFormOpen = true)}>
 							<FileTextIcon class="size-4" />
 							Submit a solution
 						</Button>
@@ -453,15 +448,14 @@
 					</Accordion>
 				{/if}
 
-				<!-- Solution submission form -->
-				<div bind:this={solutionFormRef}>
-					<SolutionForm
-						{bountyAddress}
-						creatorPubkey={detail.pubkey}
-						bountyStatus={detail.status}
-						requiredFee={detail.submissionFee}
-					/>
-				</div>
+				<!-- Solution submission dialog -->
+				<SolutionForm
+					{bountyAddress}
+					creatorPubkey={detail.pubkey}
+					bountyStatus={detail.status}
+					requiredFee={detail.submissionFee}
+					bind:open={solutionFormOpen}
+				/>
 			</section>
 		</ErrorBoundary>
 	</div>
