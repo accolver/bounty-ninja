@@ -5,6 +5,10 @@
 	const { status }: { status: BountyStatus } = $props();
 
 	const statusConfig: Record<BountyStatus, { label: string; classes: string }> = {
+		draft: {
+			label: 'Draft',
+			classes: 'border border-muted-foreground text-muted-foreground bg-transparent'
+		},
 		open: { label: 'Open', classes: 'border border-success text-success bg-transparent' },
 		in_review: { label: 'In Review', classes: 'border border-warning text-warning bg-transparent' },
 		consensus_reached: {

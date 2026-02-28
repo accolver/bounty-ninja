@@ -1,6 +1,7 @@
 import type { NostrEvent } from 'nostr-tools';
 
 export type BountyStatus =
+	| 'draft'
 	| 'open'
 	| 'in_review'
 	| 'consensus_reached'

@@ -511,7 +511,7 @@ describe('parseBountyDetail', () => {
 		expect(detail.solutions).toEqual([]);
 		expect(detail.votesBySolution.size).toBe(0);
 		expect(detail.payouts).toEqual([]);
-		expect(detail.status).toBe('open');
+		expect(detail.status).toBe('draft');
 	});
 
 	it('sets status to completed when payouts exist', () => {

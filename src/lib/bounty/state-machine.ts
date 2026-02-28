@@ -80,6 +80,11 @@ export function deriveBountyStatus(
 		return 'in_review';
 	}
 
-	// 7. Open — published bounty (with or without pledges)
-	return 'open';
+	// 7. Open — has at least one pledge, accepting solutions
+	if (pledges.length > 0) {
+		return 'open';
+	}
+
+	// 8. Draft — published bounty with no pledges yet
+	return 'draft';
 }

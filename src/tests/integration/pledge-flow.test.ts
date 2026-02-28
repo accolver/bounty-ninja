@@ -166,9 +166,9 @@ describe('Bounty status transitions on pledge', () => {
 		const bountyAddress = `${BOUNTY_KIND}:${CREATOR_PUBKEY}:${dTag}`;
 		const bountyEvent = makeBountyEvent(dTag);
 
-		// No pledges = open (published bounty)
+		// No pledges = draft (published bounty, awaiting first pledge)
 		const unfundedDetail = parseBountyDetail(bountyEvent, [], [], [], [], [])!;
-		expect(unfundedDetail.status).toBe('open');
+		expect(unfundedDetail.status).toBe('draft');
 
 		// Add first pledge
 		const pledgeTemplate = pledgeBlueprint({

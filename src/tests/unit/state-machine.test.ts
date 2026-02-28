@@ -18,9 +18,9 @@ function mockEvent(overrides: Partial<NostrEvent> = {}): NostrEvent {
 const NOW = 1700000000;
 
 describe('deriveBountyStatus', () => {
-	it('returns "open" when there are no related events', () => {
+	it('returns "draft" when there are no related events', () => {
 		const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
-		expect(deriveBountyStatus(taskEvt, [], [], [], [], NOW, false)).toBe('open');
+		expect(deriveBountyStatus(taskEvt, [], [], [], [], NOW, false)).toBe('draft');
 	});
 
 	it('returns "open" when there are pledges but no solutions', () => {
@@ -234,9 +234,9 @@ describe('deriveBountyStatus', () => {
 					['type', 'bounty']
 				]
 			});
-			expect(
-				deriveBountyStatus(taskEvt, [], [], [], [], NOW, false, [retraction])
-			).toBe('cancelled');
+			expect(deriveBountyStatus(taskEvt, [], [], [], [], NOW, false, [retraction])).toBe(
+				'cancelled'
+			);
 		});
 
 		it('does NOT return "cancelled" for Kind 73005 type=pledge retraction', () => {
@@ -249,9 +249,8 @@ describe('deriveBountyStatus', () => {
 					['e', '1'.repeat(64)]
 				]
 			});
-			expect(
-				deriveBountyStatus(taskEvt, [], [], [], [], NOW, false, [retraction])
-			).toBe('open');
+			// No pledges → draft; the pledge retraction does not trigger cancelled
+			expect(deriveBountyStatus(taskEvt, [], [], [], [], NOW, false, [retraction])).toBe('draft');
 		});
 
 		it('Kind 73005 bounty retraction overrides other states', () => {
@@ -282,7 +281,8 @@ describe('deriveBountyStatus', () => {
 	describe('edge cases', () => {
 		it('handles missing expiration tag gracefully', () => {
 			const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
-			expect(deriveBountyStatus(taskEvt, [], [], [], [], NOW, false)).toBe('open');
+			// No pledges → draft
+			expect(deriveBountyStatus(taskEvt, [], [], [], [], NOW, false)).toBe('draft');
 		});
 
 		it('handles malformed expiration tag', () => {
@@ -293,8 +293,8 @@ describe('deriveBountyStatus', () => {
 					['expiration', 'not-a-number']
 				]
 			});
-			// Malformed expiration should be treated as no expiration
-			expect(deriveBountyStatus(taskEvt, [], [], [], [], NOW, false)).toBe('open');
+			// Malformed expiration should be treated as no expiration; no pledges → draft
+			expect(deriveBountyStatus(taskEvt, [], [], [], [], NOW, false)).toBe('draft');
 		});
 
 		it('handles empty expiration tag value', () => {
@@ -302,7 +302,8 @@ describe('deriveBountyStatus', () => {
 				kind: 37300,
 				tags: [['expiration']]
 			});
-			expect(deriveBountyStatus(taskEvt, [], [], [], [], NOW, false)).toBe('open');
+			// No pledges → draft
+			expect(deriveBountyStatus(taskEvt, [], [], [], [], NOW, false)).toBe('draft');
 		});
 
 		it('uses current time when now is not provided', () => {
@@ -314,8 +315,8 @@ describe('deriveBountyStatus', () => {
 					['expiration', String(farFuture)]
 				]
 			});
-			// Should not be expired since expiration is far in the future
-			expect(deriveBountyStatus(taskEvt, [], [], [], [])).toBe('open');
+			// Should not be expired since expiration is far in the future; no pledges → draft
+			expect(deriveBountyStatus(taskEvt, [], [], [], [])).toBe('draft');
 		});
 
 		it('returns "in_review" with solutions but no pledges', () => {

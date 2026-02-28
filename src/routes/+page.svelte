@@ -17,7 +17,6 @@
 	import Target from '@lucide/svelte/icons/target';
 	import { fade, fly } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
-	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import type { BountySummary, BountyStatus } from '$lib/bounty/types';
@@ -188,7 +187,9 @@
 	const recentCount = $derived(bountyList.items.filter((b) => b.createdAt >= now24h).length);
 
 	const openBounties = $derived(
-		bountyList.items.filter((b) => b.status === 'open' || b.status === 'in_review')
+		bountyList.items.filter(
+			(b) => b.status === 'draft' || b.status === 'open' || b.status === 'in_review'
+		)
 	);
 
 	const totalSatsAvailable = $derived(openBounties.reduce((sum, b) => sum + b.totalPledged, 0));

@@ -100,10 +100,10 @@ function canShowCancelButton(opts: {
 }
 
 describe('Cancel Bounty button visibility', () => {
-	it('shows for creator on open bounty', () => {
+	it('shows for creator on draft bounty (no pledges)', () => {
 		const bounty = makeBounty();
 		const status = deriveBountyStatus(bounty, [], [], [], [], NOW, false);
-		expect(status).toBe('open');
+		expect(status).toBe('draft');
 		expect(canShowCancelButton({ isCreator: true, status, hasWinningSolution: false })).toBe(true);
 	});
 
@@ -118,7 +118,9 @@ describe('Cancel Bounty button visibility', () => {
 	it('hides for non-creator', () => {
 		const bounty = makeBounty();
 		const status = deriveBountyStatus(bounty, [], [], [], [], NOW, false);
-		expect(canShowCancelButton({ isCreator: false, status, hasWinningSolution: false })).toBe(false);
+		expect(canShowCancelButton({ isCreator: false, status, hasWinningSolution: false })).toBe(
+			false
+		);
 	});
 
 	it('hides when bounty is cancelled', () => {

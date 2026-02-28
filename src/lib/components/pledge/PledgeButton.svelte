@@ -6,14 +6,16 @@
 	import CoinsIcon from '@lucide/svelte/icons/coins';
 
 	const {
-		taskStatus,
+		bountyStatus,
 		onPledge
 	}: {
-		taskStatus: BountyStatus;
+		bountyStatus: BountyStatus;
 		onPledge: () => void;
 	} = $props();
 
-	const canPledge = $derived(taskStatus === 'open' || taskStatus === 'in_review');
+	const canPledge = $derived(
+		bountyStatus === 'draft' || bountyStatus === 'open' || bountyStatus === 'in_review'
+	);
 
 	const disabledReason = $derived(
 		!canPledge
