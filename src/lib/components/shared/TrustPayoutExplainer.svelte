@@ -41,10 +41,12 @@
 		</p>
 	</div>
 
-	<ol class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+	<ol class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-0">
 		{#each steps as step, index (step.title)}
 			{@const Icon = step.icon}
-			<li class="space-y-2 border-l border-border pl-3">
+			<li
+				class="space-y-2 lg:px-6 lg:[&:not(:first-child)]:border-l lg:[&:not(:first-child)]:border-border"
+			>
 				<div class="flex items-center gap-2 text-sm font-medium text-foreground">
 					<span
 						class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-primary/40 text-xs text-primary"
