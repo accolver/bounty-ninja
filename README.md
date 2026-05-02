@@ -17,7 +17,8 @@ automatic payouts — all client-side, zero backend.
 5. **Payout** — consensus triggers automatic release to the winner
 
 No accounts, no intermediaries, no rug-pulls. Identity is your Nostr keypair
-(NIP-07 browser extension).
+via a browser signer (NIP-07), remote signer (NIP-46), or memory-only advanced
+signer flow.
 
 ## Tech Stack
 
@@ -111,10 +112,12 @@ src/
 | Kind  | Purpose                                       |
 | ----- | --------------------------------------------- |
 | 37300 | Bounty definition (parameterized replaceable) |
-| 73001 | Solution submission                           |
-| 73002 | Pledge (Cashu ecash attachment)               |
+| 7301  | Solution submission                           |
+| 7302  | Pledge (Cashu ecash attachment)               |
 | 1018  | Consensus vote                                |
-| 73004 | Payout record                                 |
+| 7304  | Payout record                                 |
+| 7305  | Bounty or pledge retraction                   |
+| 7306  | Reputation attestation                        |
 
 ## Bounty Lifecycle
 
