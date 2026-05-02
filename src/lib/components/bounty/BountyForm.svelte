@@ -17,6 +17,7 @@
 	import Tooltip from '$lib/components/shared/Tooltip.svelte';
 	import MarkdownEditor from '$lib/components/shared/MarkdownEditor.svelte';
 	import { config } from '$lib/config';
+	import { bountyTemplates, type BountyTemplate } from '$lib/bounty/templates';
 
 	// Advanced settings toggle
 	let showAdvanced = $state(false);
@@ -101,6 +102,18 @@
 	let mintUrl = $state('');
 	let submissionFee = $state(100);
 	let submitting = $state(false);
+	let selectedTemplateId = $state('');
+	let editorResetKey = $state(0);
+
+	function applyTemplate(template: BountyTemplate) {
+		selectedTemplateId = template.id;
+		title = template.title;
+		description = template.body;
+		tags = [...template.tags];
+		dismissedSuggestions = new Set();
+		// Milkdown reads defaultValue only on mount, so remount after template changes.
+		editorResetKey += 1;
+	}
 
 	// ── Rate limit state ────────────────────────────────────────
 	let rateLimitRemaining = $state(0);
@@ -291,6 +304,38 @@
 	class="bounty-form space-y-6"
 	aria-label="Create bounty form"
 >
+	<!-- Starter templates -->
+	<section class="space-y-3 rounded-lg border border-border p-4" aria-labelledby="bounty-templates">
+		<div class="space-y-1">
+			<p class="text-xs font-medium uppercase tracking-wide text-primary">Starter templates</p>
+			<h2 id="bounty-templates" class="text-base font-semibold text-foreground">
+				Create a clearer bounty faster
+			</h2>
+			<p class="text-sm text-muted-foreground">
+				Pick a template to prefill the title, description, and tags. Replace every bracketed
+				placeholder like <span class="font-mono text-foreground">[this]</span> with your own details,
+				then delete anything that does not apply before publishing.
+			</p>
+		</div>
+		<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+			{#each bountyTemplates as template (template.id)}
+				<button
+					type="button"
+					onclick={() => applyTemplate(template)}
+					class="cursor-pointer rounded-md border p-3 text-left transition-colors hover:border-primary/50 hover:bg-accent/40 {selectedTemplateId ===
+					template.id
+						? 'border-primary bg-accent/40'
+						: 'border-border bg-background'}"
+				>
+					<span class="block text-sm font-medium text-foreground">{template.name}</span>
+					<span class="mt-1 block text-xs leading-relaxed text-muted-foreground">
+						{template.description}
+					</span>
+				</button>
+			{/each}
+		</div>
+	</section>
+
 	<!-- Title -->
 	<div class="space-y-3">
 		<div class="flex flex-col gap-1.5">
@@ -337,13 +382,15 @@
 				Description <span class="text-destructive" aria-hidden="true">*</span>
 				<span class="ml-1 text-xs font-normal text-muted-foreground">Markdown</span>
 			</label>
-			<MarkdownEditor
-				id="bounty-description"
-				value={description}
-				placeholder="What do you need built? Include clear requirements, technical details, and examples of success."
-				maxlength={DESCRIPTION_MAX}
-				onchange={(md) => (description = md)}
-			/>
+			{#key editorResetKey}
+				<MarkdownEditor
+					id="bounty-description"
+					value={description}
+					placeholder="What do you need built? Include clear requirements, technical details, and examples of success."
+					maxlength={DESCRIPTION_MAX}
+					onchange={(md) => (description = md)}
+				/>
+			{/key}
 			<div class="flex items-center justify-between">
 				{#if !descriptionLengthValid}
 					<p class="text-xs text-destructive" role="alert">

@@ -1,5 +1,5 @@
 import type { NostrEvent } from 'nostr-tools';
-import { PAYOUT_KIND, PLEDGE_KIND, REPUTATION_KIND } from '$lib/bounty/kinds';
+import { REPUTATION_KIND } from '$lib/bounty/kinds';
 import { getTagValue } from '$lib/nostr/nostr-tags';
 
 export type ReputationTier = 'new' | 'emerging' | 'established' | 'trusted' | 'flagged';
@@ -12,6 +12,9 @@ export interface ReputationScore {
 	solutionsAccepted: number;
 	bountyRetractions: number;
 	pledgeRetractions: number;
+	satsEarned: number;
+	satsReleased: number;
+	recentActivityAt: number | null;
 	tier: ReputationTier;
 }
 
@@ -45,8 +48,25 @@ export function deriveReputation(
 	// Release rate
 	const releaseRate = totalPledges > 0 ? pledgesReleased / totalPledges : 1;
 
+	const amountFromEvent = (event: NostrEvent): number => {
+		const raw = getTagValue(event, 'amount');
+		const amount = raw ? parseInt(raw, 10) : 0;
+		return Number.isNaN(amount) ? 0 : amount;
+	};
+
 	// Solutions accepted: payouts where this pubkey is the solver (p tag)
-	const solutionsAccepted = payoutEvents.filter((e) => getTagValue(e, 'p') === pubkey).length;
+	const acceptedPayouts = payoutEvents.filter((e) => getTagValue(e, 'p') === pubkey);
+	const solutionsAccepted = acceptedPayouts.length;
+	const satsEarned = acceptedPayouts.reduce((sum, event) => sum + amountFromEvent(event), 0);
+	const satsReleased = payoutEvents
+		.filter((e) => e.pubkey === pubkey)
+		.reduce((sum, event) => sum + amountFromEvent(event), 0);
+	const recentActivityAt =
+		Math.max(
+			0,
+			...payoutEvents.map((e) => e.created_at),
+			...pledgeEvents.map((e) => e.created_at)
+		) || null;
 
 	// Count retractions from Kind 7306 events targeting this pubkey
 	const targetingEvents = reputationEvents.filter(
@@ -84,6 +104,9 @@ export function deriveReputation(
 		solutionsAccepted,
 		bountyRetractions,
 		pledgeRetractions,
+		satsEarned,
+		satsReleased,
+		recentActivityAt,
 		tier
 	};
 }

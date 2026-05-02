@@ -113,6 +113,15 @@
 	const about = $derived(profile?.about || '');
 	const isOwnProfile = $derived(accountState.pubkey === data.pubkey);
 	const reputation = $derived(reputationStore.getReputation(data.pubkey));
+	const satsRequested = $derived(bounties.reduce((sum, bounty) => sum + bounty.rewardAmount, 0));
+	const postedBountyCount = $derived(bounties.length);
+	const totalSolutionsOnBounties = $derived(
+		bounties.reduce((sum, bounty) => sum + bounty.solutionCount, 0)
+	);
+
+	function formatSats(n: number): string {
+		return new Intl.NumberFormat().format(n);
+	}
 </script>
 
 <svelte:head>
@@ -142,6 +151,45 @@
 			{#if about}
 				<p class="text-sm text-muted-foreground">{about}</p>
 			{/if}
+
+			<!-- Activity section -->
+			<section class="border-t border-border pt-5 space-y-4" aria-label="Activity signals">
+				<div class="space-y-1">
+					<h2 class="text-lg font-semibold text-foreground">Activity</h2>
+					<p class="text-sm text-muted-foreground">
+						Public stats derived from synced relay events. Counts may be incomplete while relays
+						load.
+					</p>
+				</div>
+				<div class="flex flex-wrap gap-x-8 gap-y-4">
+					<div>
+						<p class="text-xs uppercase text-muted-foreground">Bounties Posted</p>
+						<p class="text-lg font-semibold text-foreground">{postedBountyCount}</p>
+					</div>
+					<div>
+						<p class="text-xs uppercase text-muted-foreground">Sats Requested</p>
+						<p class="text-lg font-semibold text-foreground">{formatSats(satsRequested)}</p>
+					</div>
+					<div>
+						<p class="text-xs uppercase text-muted-foreground">Solutions on Bounties</p>
+						<p class="text-lg font-semibold text-foreground">{totalSolutionsOnBounties}</p>
+					</div>
+					{#if reputation}
+						<div>
+							<p class="text-xs uppercase text-muted-foreground">Sats Earned</p>
+							<p class="text-lg font-semibold text-foreground">
+								{formatSats(reputation.satsEarned)}
+							</p>
+						</div>
+						<div>
+							<p class="text-xs uppercase text-muted-foreground">Sats Released</p>
+							<p class="text-lg font-semibold text-foreground">
+								{formatSats(reputation.satsReleased)}
+							</p>
+						</div>
+					{/if}
+				</div>
+			</section>
 
 			<!-- Reputation section -->
 			{#if reputation}

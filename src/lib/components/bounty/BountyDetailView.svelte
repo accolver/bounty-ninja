@@ -35,6 +35,7 @@
 	} from '$lib/components/ui/accordion/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import FileTextIcon from '@lucide/svelte/icons/file-text';
+	import TrustPayoutExplainer from '$lib/components/shared/TrustPayoutExplainer.svelte';
 
 	const {
 		detail,
@@ -236,6 +237,8 @@
 			</div>
 		</section>
 	</div>
+
+	<TrustPayoutExplainer />
 
 	<!-- Sticky release banner for pledgers who need to act -->
 	{#if needsRelease}

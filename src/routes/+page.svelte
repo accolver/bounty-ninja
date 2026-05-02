@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { bountyList } from '$lib/stores/bounties.svelte';
 	import BountyListItem from '$lib/components/bounty/BountyListItem.svelte';
+	import FeaturedBountyGroups from '$lib/components/bounty/FeaturedBountyGroups.svelte';
 	import LoadingLogo from '$lib/components/shared/LoadingLogo.svelte';
 	import EmptyState from '$lib/components/shared/EmptyState.svelte';
 	import ErrorBoundary from '$lib/components/shared/ErrorBoundary.svelte';
@@ -17,11 +18,11 @@
 	import Target from '@lucide/svelte/icons/target';
 	import { fade, fly } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
-	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import type { BountySummary, BountyStatus } from '$lib/bounty/types';
 	import { config } from '$lib/config';
 	import { pageLoading } from '$lib/stores/page-loading.svelte';
+	import { getFeaturedBountyGroups, hasFeaturedBountyGroups } from '$lib/bounty/featured';
 
 	// --- Read initial query params ---
 	const initialParams = browser
@@ -193,6 +194,8 @@
 	);
 
 	const totalSatsAvailable = $derived(openBounties.reduce((sum, b) => sum + b.totalPledged, 0));
+	const featuredGroups = $derived(getFeaturedBountyGroups(bountyList.items, 2));
+	const showFeaturedGroups = $derived(hasFeaturedBountyGroups(featuredGroups));
 
 	function formatSats(n: number): string {
 		if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -216,6 +219,45 @@
 			<Sidebar bind:selectedTag />
 
 			<section class="min-w-0 flex-1">
+				<!-- Hero/value prop -->
+				<section class="space-y-5 px-4 pb-6" aria-labelledby="home-hero-title">
+					<div class="max-w-3xl space-y-3">
+						<p class="text-xs font-medium uppercase tracking-wide text-primary">
+							Bitcoin-native work
+						</p>
+						<h1
+							id="home-hero-title"
+							class="text-3xl font-bold tracking-tight text-foreground sm:text-4xl"
+						>
+							Post Bitcoin bounties. Fund them with ecash. Reward work without a custodian.
+						</h1>
+						<p class="text-base leading-7 text-muted-foreground">
+							{config.app.name} is a zero-backend bounty marketplace built on Nostr and Cashu: publish
+							public work, pledge sats, and release payouts directly to solvers.
+						</p>
+					</div>
+					<div class="grid gap-3 sm:grid-cols-3">
+						<div class="rounded-lg border border-border p-3">
+							<p class="text-sm font-medium text-foreground">No account required</p>
+							<p class="mt-1 text-xs text-muted-foreground">
+								Browse bounties before connecting a Nostr signer.
+							</p>
+						</div>
+						<div class="rounded-lg border border-border p-3">
+							<p class="text-sm font-medium text-foreground">No platform custody</p>
+							<p class="mt-1 text-xs text-muted-foreground">
+								Pledges stay controlled by pledgers, not a server wallet.
+							</p>
+						</div>
+						<div class="rounded-lg border border-border p-3">
+							<p class="text-sm font-medium text-foreground">Cashu + Nostr payouts</p>
+							<p class="mt-1 text-xs text-muted-foreground">
+								Public events coordinate private ecash redemption.
+							</p>
+						</div>
+					</div>
+				</section>
+
 				<!-- How it works — shown for first-time visitors until dismissed -->
 				<div class="mb-4 px-4">
 					<HowItWorks />
@@ -258,6 +300,10 @@
 							Post a Bounty
 						</a>
 					</div>
+				{/if}
+
+				{#if showFeaturedGroups}
+					<FeaturedBountyGroups groups={featuredGroups} />
 				{/if}
 
 				<!-- List header with filters -->

@@ -8,9 +8,6 @@ const PUBKEY_B = 'b'.repeat(64);
 const SIG = 'c'.repeat(128);
 /** Task address where PUBKEY_B is the bounty creator (NOT PUBKEY_A) */
 const TASK_ADDR_BY_B = `37300:${PUBKEY_B}:bounty-123`;
-/** Task address where PUBKEY_A is the bounty creator */
-const TASK_ADDR_BY_A = `37300:${PUBKEY_A}:bounty-456`;
-
 function mockEvent(overrides: Partial<NostrEvent> = {}): NostrEvent {
 	return {
 		id: 'e'.repeat(64),
@@ -24,14 +21,17 @@ function mockEvent(overrides: Partial<NostrEvent> = {}): NostrEvent {
 	};
 }
 
-function makePayout(opts: { pubkey?: string; solverPubkey?: string; taskAddr?: string } = {}): NostrEvent {
+function makePayout(
+	opts: { pubkey?: string; solverPubkey?: string; taskAddr?: string; amount?: number } = {}
+): NostrEvent {
 	return mockEvent({
 		kind: PAYOUT_KIND,
 		pubkey: opts.pubkey ?? PUBKEY_B,
 		tags: [
 			['a', opts.taskAddr ?? TASK_ADDR_BY_B],
 			['p', opts.solverPubkey ?? PUBKEY_B],
-			['e', '1'.repeat(64)]
+			['e', '1'.repeat(64)],
+			['amount', String(opts.amount ?? 1000)]
 		]
 	});
 }
@@ -65,18 +65,14 @@ describe('deriveReputation', () => {
 
 	it('returns "emerging" for user with 5 completions and 0 retractions', () => {
 		// 5 payouts where PUBKEY_A is the solver
-		const payouts = Array.from({ length: 5 }, () =>
-			makePayout({ solverPubkey: PUBKEY_A })
-		);
+		const payouts = Array.from({ length: 5 }, () => makePayout({ solverPubkey: PUBKEY_A }));
 		const score = deriveReputation(PUBKEY_A, payouts, [], []);
 		expect(score.tier).toBe('emerging');
 		expect(score.solutionsAccepted).toBe(5);
 	});
 
 	it('returns "established" for user with 15 completions', () => {
-		const payouts = Array.from({ length: 15 }, () =>
-			makePayout({ solverPubkey: PUBKEY_A })
-		);
+		const payouts = Array.from({ length: 15 }, () => makePayout({ solverPubkey: PUBKEY_A }));
 		const score = deriveReputation(PUBKEY_A, payouts, [], []);
 		expect(score.tier).toBe('established');
 	});
@@ -110,12 +106,8 @@ describe('deriveReputation', () => {
 	});
 
 	it('does not flag user when completions exceed retractions', () => {
-		const payouts = Array.from({ length: 10 }, () =>
-			makePayout({ solverPubkey: PUBKEY_A })
-		);
-		const repEvents = [
-			makeRepEvent({ targetPubkey: PUBKEY_A, type: 'bounty_retraction' })
-		];
+		const payouts = Array.from({ length: 10 }, () => makePayout({ solverPubkey: PUBKEY_A }));
+		const repEvents = [makeRepEvent({ targetPubkey: PUBKEY_A, type: 'bounty_retraction' })];
 		const score = deriveReputation(PUBKEY_A, payouts, repEvents, []);
 		// 10 completions, 1 retraction — not flagged, but retraction blocks "emerging" (needs 0 retractions)
 		// 11 total interactions >= 10 and releaseRate > 0.9 → established
@@ -123,9 +115,7 @@ describe('deriveReputation', () => {
 	});
 
 	it('counts pledge retractions separately', () => {
-		const repEvents = [
-			makeRepEvent({ targetPubkey: PUBKEY_A, type: 'pledge_retraction' })
-		];
+		const repEvents = [makeRepEvent({ targetPubkey: PUBKEY_A, type: 'pledge_retraction' })];
 		const score = deriveReputation(PUBKEY_A, [], repEvents, []);
 		expect(score.pledgeRetractions).toBe(1);
 		expect(score.bountyRetractions).toBe(0);
@@ -133,12 +123,21 @@ describe('deriveReputation', () => {
 
 	it('computes correct release rate', () => {
 		const pledges = Array.from({ length: 10 }, () => makePledge(PUBKEY_A));
-		const payouts = Array.from({ length: 8 }, () =>
-			makePayout({ pubkey: PUBKEY_A })
-		);
+		const payouts = Array.from({ length: 8 }, () => makePayout({ pubkey: PUBKEY_A }));
 		const score = deriveReputation(PUBKEY_A, payouts, [], pledges);
 		expect(score.totalPledges).toBe(10);
 		expect(score.pledgesReleased).toBe(8);
 		expect(score.releaseRate).toBeCloseTo(0.8);
+	});
+
+	it('derives sats earned, sats released, and recent activity from public events', () => {
+		const payouts = [
+			makePayout({ solverPubkey: PUBKEY_A, amount: 2100, pubkey: PUBKEY_B }),
+			makePayout({ pubkey: PUBKEY_A, amount: 900 })
+		];
+		const score = deriveReputation(PUBKEY_A, payouts, [], [makePledge(PUBKEY_A)]);
+		expect(score.satsEarned).toBe(2100);
+		expect(score.satsReleased).toBe(900);
+		expect(score.recentActivityAt).toBeTypeOf('number');
 	});
 });
