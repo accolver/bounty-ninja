@@ -30,7 +30,12 @@
 >
 	<!-- Header: Creator + Time -->
 	<div class="flex items-center justify-between px-4 pt-4 pb-2">
-		<span class="text-xs text-muted-foreground" onclick={(e) => e.preventDefault()}>
+		<span
+			class="text-xs text-muted-foreground"
+			role="presentation"
+			onkeydown={(e) => e.stopPropagation()}
+			onclick={(e) => e.preventDefault()}
+		>
 			<ProfileLink pubkey={bounty.pubkey} size="sm" showAvatar={false} />
 		</span>
 		<TimeAgo timestamp={bounty.createdAt} />

@@ -33,11 +33,13 @@
 		};
 	});
 
-	if (!minTimeElapsed) {
-		setTimeout(() => {
+	$effect(() => {
+		if (minTimeElapsed) return;
+		const timer = setTimeout(() => {
 			minTimeElapsed = true;
 		}, 1000);
-	}
+		return () => clearTimeout(timer);
+	});
 
 	const dataReady = $derived(!!store.bounty || store.error || !store.loading);
 	const showOverlay = $derived(needsOverlay && (!dataReady || !minTimeElapsed));
