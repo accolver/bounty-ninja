@@ -14,6 +14,14 @@ import type { PublishResult } from '$lib/nostr/signer.svelte';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────
 
+vi.mock('nostr-tools', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('nostr-tools')>();
+	return {
+		...actual,
+		verifyEvent: vi.fn(() => true)
+	};
+});
+
 // Mock the event store
 vi.mock('$lib/nostr/event-store', () => ({
 	eventStore: {

@@ -2,7 +2,7 @@
  * Integration test: Pledge creation flow.
  *
  * Tests the pledge creation pipeline:
- * 1. Blueprint produces correct Kind 73002 event structure
+ * 1. Blueprint produces correct Kind 7302 event structure
  * 2. Event inserted into EventStore is retrievable
  * 3. Parsed pledge has correct fields
  * 4. Bounty stays open with or without pledges
@@ -64,7 +64,7 @@ function makeBountyEvent(dTag: string): NostrEvent {
 describe('Pledge blueprint produces correct event structure', () => {
 	const bountyAddress = `${BOUNTY_KIND}:${CREATOR_PUBKEY}:test-bounty`;
 
-	it('creates Kind 73002 event template', () => {
+	it('creates Kind 7302 event template', () => {
 		const template = pledgeBlueprint({
 			bountyAddress,
 			creatorPubkey: CREATOR_PUBKEY,

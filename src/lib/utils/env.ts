@@ -1,7 +1,17 @@
 import { env } from '$env/dynamic/public';
 import { config, storageKey } from '$lib/config';
+import { isValidRelayUrl } from '$lib/utils/relay-validation';
 
 const SETTINGS_KEY = storageKey('settings');
+
+function normalizeRelayList(relays: string[]): string[] {
+	const normalized: string[] = [];
+	for (const url of relays) {
+		const result = isValidRelayUrl(url);
+		if (result.valid && result.normalized) normalized.push(result.normalized);
+	}
+	return [...new Set(normalized)];
+}
 
 /**
  * Returns all relay WebSocket URLs the app should connect to.
@@ -16,7 +26,10 @@ export function getDefaultRelays(): string[] {
 			if (raw) {
 				const parsed = JSON.parse(raw);
 				if (Array.isArray(parsed.relays) && parsed.relays.length > 0) {
-					return parsed.relays;
+					const validRelays = normalizeRelayList(
+						parsed.relays.filter((url: unknown): url is string => typeof url === 'string')
+					);
+					if (validRelays.length > 0) return validRelays;
 				}
 			}
 		}
@@ -26,10 +39,12 @@ export function getDefaultRelays(): string[] {
 
 	// Fall back to env defaults
 	const raw = env.PUBLIC_DEFAULT_RELAYS ?? config.nostr.defaultRelays.join(',');
-	const relays = raw
-		.split(',')
-		.map((url) => url.trim())
-		.filter(Boolean);
+	const relays = normalizeRelayList(
+		raw
+			.split(',')
+			.map((url) => url.trim())
+			.filter(Boolean)
+	);
 
 	// Include local dev relay if configured (e.g., ws://localhost:10547)
 	const local = env.PUBLIC_LOCAL_RELAY;

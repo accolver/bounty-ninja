@@ -1,5 +1,13 @@
 import type { EventTemplate } from 'nostr-tools';
-import { BOUNTY_KIND, PLEDGE_KIND, SOLUTION_KIND, VOTE_KIND, PAYOUT_KIND, RETRACTION_KIND, REPUTATION_KIND } from './kinds';
+import {
+	BOUNTY_KIND,
+	PLEDGE_KIND,
+	SOLUTION_KIND,
+	VOTE_KIND,
+	PAYOUT_KIND,
+	RETRACTION_KIND,
+	REPUTATION_KIND
+} from './kinds';
 import { CLIENT_TAG } from '$lib/utils/constants';
 
 /**
@@ -25,7 +33,7 @@ export interface BountyBlueprintParams {
 }
 
 /**
- * Blueprint parameters for creating a pledge event (kind 73002).
+ * Blueprint parameters for creating a pledge event (kind 7302).
  */
 export interface PledgeBlueprintParams {
 	/** NIP-33 address of the bounty (kind:pubkey:d-tag) */
@@ -43,7 +51,7 @@ export interface PledgeBlueprintParams {
 }
 
 /**
- * Blueprint parameters for creating a solution event (kind 73001).
+ * Blueprint parameters for creating a solution event (kind 7301).
  */
 export interface SolutionBlueprintParams {
 	/** NIP-33 address of the bounty (kind:pubkey:d-tag) */
@@ -73,7 +81,7 @@ export interface VoteBlueprintParams {
 }
 
 /**
- * Blueprint parameters for creating a payout event (kind 73004).
+ * Blueprint parameters for creating a payout event (kind 7304).
  */
 export interface PayoutBlueprintParams {
 	/** NIP-33 address of the bounty (kind:pubkey:d-tag) */
@@ -124,7 +132,7 @@ export function bountyBlueprint(params: BountyBlueprintParams): EventTemplate {
 }
 
 /**
- * Create an EventTemplate for a pledge (kind 73002).
+ * Create an EventTemplate for a pledge (kind 7302).
  * References the bounty via an 'a' tag and includes the locked Cashu token.
  */
 export function pledgeBlueprint(params: PledgeBlueprintParams): EventTemplate {
@@ -146,7 +154,7 @@ export function pledgeBlueprint(params: PledgeBlueprintParams): EventTemplate {
 }
 
 /**
- * Create an EventTemplate for a solution submission (kind 73001).
+ * Create an EventTemplate for a solution submission (kind 7301).
  * References the bounty via an 'a' tag and optionally includes an anti-spam token.
  */
 export function solutionBlueprint(params: SolutionBlueprintParams): EventTemplate {
@@ -195,7 +203,7 @@ export function voteBlueprint(params: VoteBlueprintParams): EventTemplate {
 }
 
 /**
- * Create an EventTemplate for a payout record (kind 73004).
+ * Create an EventTemplate for a payout record (kind 7304).
  * Records the Cashu token transfer to the solver.
  */
 export function payoutBlueprint(params: PayoutBlueprintParams): EventTemplate {
@@ -217,7 +225,7 @@ export function payoutBlueprint(params: PayoutBlueprintParams): EventTemplate {
 }
 
 /**
- * Blueprint parameters for creating a retraction event (kind 73005).
+ * Blueprint parameters for creating a retraction event (kind 7305).
  */
 export interface RetractionBlueprintParams {
 	/** NIP-33 address of the bounty (kind:pubkey:d-tag) */
@@ -233,7 +241,7 @@ export interface RetractionBlueprintParams {
 }
 
 /**
- * Blueprint parameters for creating a reputation event (kind 73006).
+ * Blueprint parameters for creating a reputation event (kind 7306).
  */
 export interface ReputationBlueprintParams {
 	/** Pubkey of the user whose reputation is affected */
@@ -249,7 +257,7 @@ export interface ReputationBlueprintParams {
 }
 
 /**
- * Create an EventTemplate for a retraction event (kind 73005).
+ * Create an EventTemplate for a retraction event (kind 7305).
  * Used for both bounty cancellation and pledge withdrawal.
  */
 export function retractionBlueprint(params: RetractionBlueprintParams): EventTemplate {
@@ -273,7 +281,7 @@ export function retractionBlueprint(params: RetractionBlueprintParams): EventTem
 }
 
 /**
- * Create an EventTemplate for a reputation attestation (kind 73006).
+ * Create an EventTemplate for a reputation attestation (kind 7306).
  * Published automatically when a retraction occurs after solutions exist.
  */
 export function reputationBlueprint(params: ReputationBlueprintParams): EventTemplate {

@@ -88,27 +88,27 @@ around it. Everything else is a strong fit.
 ```typescript
 // src/config.ts (Nosflare)
 export const relayInfo = {
-  name: "Bounty.ninja Relay",
-  description: "Dedicated relay for the Bounty.ninja decentralized task board",
-  supported_nips: [1, 2, 9, 11, 12, 15, 16, 20, 22, 33, 40, 42],
-  software: "https://github.com/Spl0itable/nosflare",
-  version: "1.0.0",
+	name: 'Bounty.ninja Relay',
+	description: 'Dedicated relay for the Bounty.ninja decentralized task board',
+	supported_nips: [1, 2, 9, 11, 12, 15, 16, 20, 22, 33, 40, 42],
+	software: 'https://github.com/Spl0itable/nosflare',
+	version: '1.0.0'
 };
 
 // Allow only bounty-relevant event kinds
 export const allowedEventKinds = [
-  0, // Profile metadata
-  1, // Short text (comments on bounties)
-  5, // Event deletion (legacy — prefer Kind 73005 retraction)
-  7, // Reaction
-  1018, // Consensus vote
-  10002, // Relay list metadata (NIP-65)
-  37300, // Bounty definition (parameterized replaceable)
-  73001, // Solution submission
-  73002, // Pledge (funding)
-  73004, // Payout record
-  73005, // Retraction (bounty cancellation / pledge retraction)
-  73006, // Reputation attestation
+	0, // Profile metadata
+	1, // Short text (comments on bounties)
+	5, // Event deletion (legacy — prefer Kind 7305 retraction)
+	7, // Reaction
+	1018, // Consensus vote
+	10002, // Relay list metadata (NIP-65)
+	37300, // Bounty definition (parameterized replaceable)
+	7301, // Solution submission
+	7302, // Pledge (funding)
+	7304, // Payout record
+	7305, // Retraction (bounty cancellation / pledge retraction)
+	7306 // Reputation attestation
 ];
 
 // Rate limiting
@@ -121,17 +121,14 @@ export const excludedRateLimitKinds = [0, 10002]; // Profile updates + relay lis
 ```typescript
 // src/lib/nostr/relay-pool.ts changes
 
-const DEDICATED_RELAY = "wss://relay.bounty.ninja";
+const DEDICATED_RELAY = 'wss://relay.bounty.ninja';
 
 export function getConfiguredRelays(): string[] {
-  const saved = getSavedRelays();
-  if (saved) return saved;
+	const saved = getSavedRelays();
+	if (saved) return saved;
 
-  // Dedicated relay always first
-  return [
-    DEDICATED_RELAY,
-    ...PUBLIC_FALLBACK_RELAYS,
-  ];
+	// Dedicated relay always first
+	return [DEDICATED_RELAY, ...PUBLIC_FALLBACK_RELAYS];
 }
 
 // For publishing: write to dedicated relay + 2-3 public relays for redundancy

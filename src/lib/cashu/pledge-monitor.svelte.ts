@@ -2,7 +2,7 @@
  * Pledge token spendability monitor.
  *
  * Detects when pledge tokens have been spent at the mint (reclaimed by the
- * pledger outside the app) without a corresponding Kind 73005 retraction event.
+ * pledger outside the app) without a corresponding Kind 7305 retraction event.
  * When detected:
  *   - If the current user is the pledger → auto-publish retraction + reputation events
  *   - For any user → mark the pledge as "reclaimed" in the UI
@@ -57,9 +57,7 @@ export async function detectSpentUnretractedPledges(
 	retractions: Retraction[]
 ): Promise<SpentPledgeId[]> {
 	const retractedIds = new Set(
-		retractions
-			.filter((r) => r.type === 'pledge' && r.pledgeEventId)
-			.map((r) => r.pledgeEventId!)
+		retractions.filter((r) => r.type === 'pledge' && r.pledgeEventId).map((r) => r.pledgeEventId!)
 	);
 
 	const spentUnretracted: SpentPledgeId[] = [];
@@ -115,7 +113,8 @@ export async function autoRetractSpentPledge(
 				taskAddress,
 				type: 'pledge_retraction',
 				retractionEventId: signed.id,
-				description: 'Retracted pledge after solutions were submitted (auto-detected from token reclaim)'
+				description:
+					'Retracted pledge after solutions were submitted (auto-detected from token reclaim)'
 			});
 			await publishEvent(repTemplate);
 		}

@@ -88,15 +88,15 @@ Important implementation anchors:
 
 ## Nostr protocol used here
 
-| Kind  | Purpose                         |
-| ----- | ------------------------------- |
-| 37300 | Bounty definition               |
-| 73001 | Solution submission             |
-| 73002 | Pledge / Cashu funding event    |
-| 1018  | Consensus vote                  |
-| 73004 | Payout record                   |
-| 73005 | Bounty or pledge retraction     |
-| 73006 | Reputation attestation          |
+| Kind  | Purpose                      |
+| ----- | ---------------------------- |
+| 37300 | Bounty definition            |
+| 7301  | Solution submission          |
+| 7302  | Pledge / Cashu funding event |
+| 1018  | Consensus vote               |
+| 7304  | Payout record                |
+| 7305  | Bounty or pledge retraction  |
+| 7306  | Reputation attestation       |
 
 - Published events must include the client tag value from
   `config.nostr.clientTag` / `CLIENT_TAG` (`bounty.ninja`).
@@ -114,7 +114,7 @@ Important implementation anchors:
 - Environment defaults live in `mise.toml` (`PUBLIC_DEFAULT_RELAYS`,
   `PUBLIC_DEFAULT_MINT`, `PUBLIC_SEARCH_RELAY`, `LOCAL_RELAY`, etc.).
 - Local relay tasks use Docker/strfry on `ws://localhost:10547`; `mise run
-  relay:nak` is a lightweight alternative, but note the existing comment that
+relay:nak` is a lightweight alternative, but note the existing comment that
   `nak serve` truncates kinds greater than 65535.
 - Vite currently **does not exclude** `@noble/*` from `optimizeDeps`; the config
   says Vite 7 handles them correctly when prebundled.

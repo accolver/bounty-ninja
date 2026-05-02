@@ -1,5 +1,13 @@
 import type { Filter } from 'nostr-tools';
-import { BOUNTY_KIND, PLEDGE_KIND, SOLUTION_KIND, VOTE_KIND, PAYOUT_KIND, RETRACTION_KIND, REPUTATION_KIND } from './kinds';
+import {
+	BOUNTY_KIND,
+	PLEDGE_KIND,
+	SOLUTION_KIND,
+	VOTE_KIND,
+	PAYOUT_KIND,
+	RETRACTION_KIND,
+	REPUTATION_KIND
+} from './kinds';
 
 /**
  * Filter to fetch a list of bounty events.
@@ -13,7 +21,7 @@ export function bountyListFilter(limit?: number): Filter {
 }
 
 /**
- * Filter to fetch all pledge events (Kind 73002) across all tasks.
+ * Filter to fetch all pledge events (Kind 7302) across all tasks.
  * Used by the home page to aggregate funding totals.
  */
 export function allPledgesFilter(limit?: number): Filter {
@@ -74,7 +82,7 @@ export function bountyByAuthorFilter(pubkey: string): Filter {
 }
 
 /**
- * Filter to fetch all solution events (Kind 73001) across all tasks.
+ * Filter to fetch all solution events (Kind 7301) across all tasks.
  * Used by the home page to derive in_review status.
  */
 export function allSolutionsFilter(limit?: number): Filter {
@@ -85,7 +93,7 @@ export function allSolutionsFilter(limit?: number): Filter {
 }
 
 /**
- * Filter to fetch all payout events (Kind 73004) across all tasks.
+ * Filter to fetch all payout events (Kind 7304) across all tasks.
  * Used by the home page to derive completed status.
  */
 export function allPayoutsFilter(limit?: number): Filter {
@@ -108,7 +116,7 @@ export function searchBountiesFilter(query: string, limit?: number): Filter {
 }
 
 /**
- * Filter to fetch retraction events (Kind 73005) for a specific bounty.
+ * Filter to fetch retraction events (Kind 7305) for a specific bounty.
  */
 export function retractionFilter(taskAddress: string): Filter {
 	return {
@@ -118,7 +126,7 @@ export function retractionFilter(taskAddress: string): Filter {
 }
 
 /**
- * Filter to fetch reputation events (Kind 73006) authored by a specific pubkey.
+ * Filter to fetch reputation events (Kind 7306) authored by a specific pubkey.
  */
 export function reputationFilter(pubkey: string): Filter {
 	return {
@@ -128,7 +136,7 @@ export function reputationFilter(pubkey: string): Filter {
 }
 
 /**
- * Filter to fetch reputation events (Kind 73006) targeting a specific pubkey.
+ * Filter to fetch reputation events (Kind 7306) targeting a specific pubkey.
  */
 export function reputationByTargetFilter(pubkey: string): Filter {
 	return {

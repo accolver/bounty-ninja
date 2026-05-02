@@ -7,6 +7,7 @@ import { eventStore } from '$lib/nostr/event-store';
 import { pool } from '$lib/nostr/relay-pool';
 import { onlyEvents } from 'applesauce-relay';
 import { mapEventsToStore } from 'applesauce-core';
+import { onlyValidEvents } from '$lib/nostr/valid-events';
 import { parseBountySummary } from '$lib/bounty/helpers';
 import { searchBountiesFilter } from '$lib/bounty/filters';
 import { getSearchRelay } from '$lib/utils/env';
@@ -95,9 +96,7 @@ class SearchStore {
 
 					this.#results = summaries.filter((item) => {
 						const titleMatch = item.title.toLowerCase().includes(lowerQuery);
-						const tagMatch = item.tags.some((tag) =>
-							tag.toLowerCase().includes(lowerQuery)
-						);
+						const tagMatch = item.tags.some((tag) => tag.toLowerCase().includes(lowerQuery));
 						return titleMatch || tagMatch;
 					});
 				}
@@ -121,6 +120,7 @@ class SearchStore {
 				.subscription(filter)
 				.pipe(
 					onlyEvents(),
+					onlyValidEvents(),
 					mapEventsToStore(eventStore),
 					timeout(SEARCH_RELAY_TIMEOUT),
 					toArray(),

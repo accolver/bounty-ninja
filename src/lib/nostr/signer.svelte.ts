@@ -1,5 +1,5 @@
 // SECURITY: This file handles private key material. Never persist or log nsec values.
-import type { EventTemplate, NostrEvent } from 'nostr-tools';
+import { verifyEvent, type EventTemplate, type NostrEvent } from 'nostr-tools';
 import { EventFactory } from 'applesauce-core/event-factory';
 import { ExtensionSigner, PrivateKeySigner, NostrConnectSigner } from 'applesauce-signers';
 import {
@@ -171,6 +171,11 @@ export async function publishEvent(template: EventTemplate): Promise<PublishResu
 
 	// Sign with timeout guard
 	const signedEvent = await signWithTimeout(factory, template, SIGNER_TIMEOUT_MS);
+
+	// Trust boundary: NIP-07/NIP-46 signers are external. Re-verify before local persistence.
+	if (!verifyEvent(signedEvent)) {
+		throw new Error('Signer returned an invalid Nostr event');
+	}
 
 	// Optimistic insert — event appears in UI immediately
 	eventStore.add(signedEvent);

@@ -8,13 +8,7 @@ import {
 	bountyByAuthorFilter,
 	searchBountiesFilter
 } from '$lib/bounty/filters';
-import {
-	BOUNTY_KIND,
-	PLEDGE_KIND,
-	SOLUTION_KIND,
-	VOTE_KIND,
-	PAYOUT_KIND
-} from '$lib/bounty/kinds';
+import { BOUNTY_KIND, PLEDGE_KIND, SOLUTION_KIND, VOTE_KIND, PAYOUT_KIND } from '$lib/bounty/kinds';
 
 describe('bountyListFilter', () => {
 	it('returns a filter for bounty events with default limit', () => {
@@ -49,9 +43,9 @@ describe('pledgesForBountyFilter', () => {
 		});
 	});
 
-	it('uses kind 73002', () => {
+	it('uses kind 7302', () => {
 		const filter = pledgesForBountyFilter('test');
-		expect(filter.kinds).toEqual([73002]);
+		expect(filter.kinds).toEqual([7302]);
 	});
 });
 
@@ -65,9 +59,9 @@ describe('solutionsForBountyFilter', () => {
 		});
 	});
 
-	it('uses kind 73001', () => {
+	it('uses kind 7301', () => {
 		const filter = solutionsForBountyFilter('test');
-		expect(filter.kinds).toEqual([73001]);
+		expect(filter.kinds).toEqual([7301]);
 	});
 });
 
@@ -97,9 +91,9 @@ describe('payoutForBountyFilter', () => {
 		});
 	});
 
-	it('uses kind 73004', () => {
+	it('uses kind 7304', () => {
 		const filter = payoutForBountyFilter('test');
-		expect(filter.kinds).toEqual([73004]);
+		expect(filter.kinds).toEqual([7304]);
 	});
 });
 

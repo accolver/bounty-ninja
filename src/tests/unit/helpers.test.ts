@@ -172,7 +172,7 @@ describe('parseBountySummary', () => {
 describe('parsePledge', () => {
 	it('parses a pledge event with all tags', () => {
 		const event = mockEvent({
-			kind: 73002,
+			kind: 7302,
 			tags: [
 				['a', VALID_TASK_ADDR],
 				['amount', '25000'],
@@ -194,7 +194,7 @@ describe('parsePledge', () => {
 	});
 
 	it('returns null when tags are missing (validation failure)', () => {
-		const event = mockEvent({ kind: 73002, tags: [] });
+		const event = mockEvent({ kind: 7302, tags: [] });
 
 		const result = parsePledge(event);
 		expect(result).toBeNull();
@@ -202,7 +202,7 @@ describe('parsePledge', () => {
 
 	it('returns null for malformed amount (validation failure)', () => {
 		const event = mockEvent({
-			kind: 73002,
+			kind: 7302,
 			tags: [
 				['a', VALID_TASK_ADDR],
 				['amount', 'xyz'],
@@ -219,7 +219,7 @@ describe('parsePledge', () => {
 describe('parseSolution', () => {
 	it('parses a solution event with all tags', () => {
 		const event = mockEvent({
-			kind: 73001,
+			kind: 7301,
 			tags: [
 				['a', VALID_TASK_ADDR],
 				['cashu', 'cashuBtoken456'],
@@ -241,7 +241,7 @@ describe('parseSolution', () => {
 
 	it('returns null when content is empty (validation failure)', () => {
 		const event = mockEvent({
-			kind: 73001,
+			kind: 7301,
 			tags: [
 				['a', VALID_TASK_ADDR],
 				['fee', 'feeToken789']
@@ -253,7 +253,7 @@ describe('parseSolution', () => {
 	});
 
 	it('returns null when tags are missing (validation failure)', () => {
-		const event = mockEvent({ kind: 73001, tags: [] });
+		const event = mockEvent({ kind: 7301, tags: [] });
 
 		const result = parseSolution(event);
 		expect(result).toBeNull();
@@ -330,7 +330,7 @@ describe('parseVote', () => {
 describe('parsePayout', () => {
 	it('parses a payout event with all tags', () => {
 		const event = mockEvent({
-			kind: 73004,
+			kind: 7304,
 			tags: [
 				['a', VALID_TASK_ADDR],
 				['e', EVENT_ID_1],
@@ -350,7 +350,7 @@ describe('parsePayout', () => {
 	});
 
 	it('returns null when tags are missing (validation failure)', () => {
-		const event = mockEvent({ kind: 73004, tags: [] });
+		const event = mockEvent({ kind: 7304, tags: [] });
 
 		const result = parsePayout(event);
 		expect(result).toBeNull();
@@ -358,7 +358,7 @@ describe('parsePayout', () => {
 
 	it('returns null when pubkey is not in pledgerPubkeys', () => {
 		const event = mockEvent({
-			kind: 73004,
+			kind: 7304,
 			pubkey: PUBKEY_D,
 			tags: [
 				['a', VALID_TASK_ADDR],
@@ -376,7 +376,7 @@ describe('parsePayout', () => {
 
 	it('succeeds when pubkey is in pledgerPubkeys', () => {
 		const event = mockEvent({
-			kind: 73004,
+			kind: 7304,
 			pubkey: PUBKEY_B,
 			tags: [
 				['a', VALID_TASK_ADDR],
@@ -394,7 +394,7 @@ describe('parsePayout', () => {
 
 	it('skips authorization check when pledgerPubkeys omitted', () => {
 		const event = mockEvent({
-			kind: 73004,
+			kind: 7304,
 			pubkey: PUBKEY_D,
 			tags: [
 				['a', VALID_TASK_ADDR],
@@ -431,7 +431,7 @@ describe('parseBountyDetail', () => {
 		const pledgeEvent = mockEvent({
 			id: EVENT_ID_1,
 			pubkey: PUBKEY_C,
-			kind: 73002,
+			kind: 7302,
 			tags: [
 				['a', taskAddr],
 				['amount', '50000'],
@@ -444,7 +444,7 @@ describe('parseBountyDetail', () => {
 		const solutionEvent = mockEvent({
 			id: EVENT_ID_2,
 			pubkey: PUBKEY_D,
-			kind: 73001,
+			kind: 7301,
 			tags: [
 				['a', taskAddr],
 				['cashu', 'feeToken'],
@@ -528,7 +528,7 @@ describe('parseBountyDetail', () => {
 
 		// Need a pledge event so the payout pubkey passes authorization
 		const pledgeEvent = mockEvent({
-			kind: 73002,
+			kind: 7302,
 			pubkey: PUBKEY_C,
 			tags: [
 				['a', taskAddr],
@@ -539,7 +539,7 @@ describe('parseBountyDetail', () => {
 		});
 
 		const payoutEvent = mockEvent({
-			kind: 73004,
+			kind: 7304,
 			pubkey: PUBKEY_C, // Must match a pledger pubkey
 			tags: [
 				['a', taskAddr],

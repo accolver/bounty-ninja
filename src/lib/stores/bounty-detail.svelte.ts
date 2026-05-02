@@ -16,6 +16,7 @@ import type { Retraction } from '$lib/bounty/types';
 import { pool } from '$lib/nostr/relay-pool';
 import { onlyEvents } from 'applesauce-relay';
 import { mapEventsToStore } from 'applesauce-core';
+import { onlyValidEvents } from '$lib/nostr/valid-events';
 import { getDefaultRelays } from '$lib/utils/env';
 import { createPledgeLoader } from '$lib/nostr/loaders/pledge-loader';
 import { createSolutionLoader } from '$lib/nostr/loaders/solution-loader';
@@ -123,10 +124,17 @@ export class BountyDetailStore {
 				NostrEvent[],
 				NostrEvent[]
 			]) => {
-				// Parse retractions
+				const pledgePubkeysById = new Map(pledgeEvents.map((e) => [e.id, e.pubkey]));
+
+				// Parse and authorize retractions. Invalid retractions must not hide someone else's pledge.
 				const parsedRetractions = retractionEvents
 					.map(parseRetraction)
-					.filter((r): r is Retraction => r !== null);
+					.filter((r): r is Retraction => {
+						if (!r) return false;
+						if (r.type === 'bounty') return bountyEvent ? r.pubkey === bountyEvent.pubkey : false;
+						if (!r.pledgeEventId) return false;
+						return pledgePubkeysById.get(r.pledgeEventId) === r.pubkey;
+					});
 				this.#retractions = parsedRetractions;
 
 				// Track retracted pledge IDs
@@ -148,7 +156,8 @@ export class BountyDetailStore {
 						solutionEvents,
 						voteEvents,
 						payoutEvents,
-						[] // delete events — legacy fallback
+						[], // delete events — legacy fallback
+						retractionEvents
 					);
 
 					// Data arrived — stop loading and cancel the safety timeout
@@ -195,7 +204,7 @@ export class BountyDetailStore {
 				const sub = pool
 					.relay(url)
 					.subscription(filter)
-					.pipe(onlyEvents(), mapEventsToStore(eventStore))
+					.pipe(onlyEvents(), onlyValidEvents(), mapEventsToStore(eventStore))
 					.subscribe();
 				this.#relaySubs.push(sub);
 			} catch {
@@ -213,7 +222,7 @@ export class BountyDetailStore {
 				const sub = pool
 					.relay(url)
 					.subscription(filter)
-					.pipe(onlyEvents(), mapEventsToStore(eventStore))
+					.pipe(onlyEvents(), onlyValidEvents(), mapEventsToStore(eventStore))
 					.subscribe();
 				this.#relaySubs.push(sub);
 			} catch {

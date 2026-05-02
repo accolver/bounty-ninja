@@ -17,24 +17,24 @@ describe('RateLimiter', () => {
 
 	describe('cooldown enforcement', () => {
 		it('allows first publish for any kind', () => {
-			const result = limiter.canPublish(73001);
+			const result = limiter.canPublish(7301);
 			expect(result.allowed).toBe(true);
 			expect(result.remainingMs).toBe(0);
 		});
 
 		it('blocks same kind immediately after publish', () => {
-			limiter.recordPublish(73001); // SOLUTION_KIND — 60s cooldown
+			limiter.recordPublish(7301); // SOLUTION_KIND — 60s cooldown
 
-			const result = limiter.canPublish(73001);
+			const result = limiter.canPublish(7301);
 			expect(result.allowed).toBe(false);
 			expect(result.remainingMs).toBeGreaterThan(0);
 		});
 
 		it('blocks with correct remaining time for SOLUTION_KIND (60s)', () => {
-			limiter.recordPublish(73001);
+			limiter.recordPublish(7301);
 
 			vi.advanceTimersByTime(30_000); // 30s elapsed
-			const result = limiter.canPublish(73001);
+			const result = limiter.canPublish(7301);
 			expect(result.allowed).toBe(false);
 			expect(result.remainingMs).toBe(30_000); // 60s - 30s = 30s remaining
 		});
@@ -49,10 +49,10 @@ describe('RateLimiter', () => {
 		});
 
 		it('blocks with correct remaining time for PLEDGE_KIND (10s)', () => {
-			limiter.recordPublish(73002);
+			limiter.recordPublish(7302);
 
 			vi.advanceTimersByTime(5_000);
-			const result = limiter.canPublish(73002);
+			const result = limiter.canPublish(7302);
 			expect(result.allowed).toBe(false);
 			expect(result.remainingMs).toBe(5_000);
 		});
@@ -62,22 +62,22 @@ describe('RateLimiter', () => {
 
 	describe('kind independence', () => {
 		it('different kinds have independent cooldowns', () => {
-			limiter.recordPublish(73001); // Solution
+			limiter.recordPublish(7301); // Solution
 			limiter.recordPublish(1018); // Vote
 
 			// Solution should be blocked
-			expect(limiter.canPublish(73001).allowed).toBe(false);
+			expect(limiter.canPublish(7301).allowed).toBe(false);
 
 			// Vote should also be blocked
 			expect(limiter.canPublish(1018).allowed).toBe(false);
 
 			// Pledge was never published — should be allowed
-			expect(limiter.canPublish(73002).allowed).toBe(true);
+			expect(limiter.canPublish(7302).allowed).toBe(true);
 		});
 
 		it('expiring one kind does not affect another', () => {
 			limiter.recordPublish(1018); // Vote — 5s cooldown
-			limiter.recordPublish(73001); // Solution — 60s cooldown
+			limiter.recordPublish(7301); // Solution — 60s cooldown
 
 			vi.advanceTimersByTime(5_000); // 5s elapsed
 
@@ -85,7 +85,7 @@ describe('RateLimiter', () => {
 			expect(limiter.canPublish(1018).allowed).toBe(true);
 
 			// Solution still blocked (60s cooldown, only 5s elapsed)
-			expect(limiter.canPublish(73001).allowed).toBe(false);
+			expect(limiter.canPublish(7301).allowed).toBe(false);
 		});
 	});
 
@@ -103,10 +103,10 @@ describe('RateLimiter', () => {
 		});
 
 		it('allows publish after SOLUTION_KIND cooldown (60s) expires', () => {
-			limiter.recordPublish(73001);
+			limiter.recordPublish(7301);
 
 			vi.advanceTimersByTime(60_000);
-			expect(limiter.canPublish(73001).allowed).toBe(true);
+			expect(limiter.canPublish(7301).allowed).toBe(true);
 		});
 
 		it('allows publish after VOTE_KIND cooldown (5s) expires', () => {
@@ -117,17 +117,17 @@ describe('RateLimiter', () => {
 		});
 
 		it('allows publish after PLEDGE_KIND cooldown (10s) expires', () => {
-			limiter.recordPublish(73002);
+			limiter.recordPublish(7302);
 
 			vi.advanceTimersByTime(10_000);
-			expect(limiter.canPublish(73002).allowed).toBe(true);
+			expect(limiter.canPublish(7302).allowed).toBe(true);
 		});
 
 		it('allows publish after PAYOUT_KIND cooldown (60s) expires', () => {
-			limiter.recordPublish(73004);
+			limiter.recordPublish(7304);
 
 			vi.advanceTimersByTime(60_000);
-			expect(limiter.canPublish(73004).allowed).toBe(true);
+			expect(limiter.canPublish(7304).allowed).toBe(true);
 		});
 
 		it('uses default 30s cooldown for unknown kinds', () => {
@@ -198,25 +198,25 @@ describe('RateLimiter', () => {
 		it('new RateLimiter has no cooldowns', () => {
 			const fresh = new RateLimiter();
 			expect(fresh.canPublish(37300).allowed).toBe(true);
-			expect(fresh.canPublish(73001).allowed).toBe(true);
-			expect(fresh.canPublish(73002).allowed).toBe(true);
+			expect(fresh.canPublish(7301).allowed).toBe(true);
+			expect(fresh.canPublish(7302).allowed).toBe(true);
 			expect(fresh.canPublish(1018).allowed).toBe(true);
-			expect(fresh.canPublish(73004).allowed).toBe(true);
+			expect(fresh.canPublish(7304).allowed).toBe(true);
 		});
 
 		it('reset clears all cooldowns', () => {
 			limiter.recordPublish(37300);
-			limiter.recordPublish(73001);
+			limiter.recordPublish(7301);
 			limiter.recordPublish(1018);
 
 			expect(limiter.canPublish(37300).allowed).toBe(false);
-			expect(limiter.canPublish(73001).allowed).toBe(false);
+			expect(limiter.canPublish(7301).allowed).toBe(false);
 			expect(limiter.canPublish(1018).allowed).toBe(false);
 
 			limiter.reset();
 
 			expect(limiter.canPublish(37300).allowed).toBe(true);
-			expect(limiter.canPublish(73001).allowed).toBe(true);
+			expect(limiter.canPublish(7301).allowed).toBe(true);
 			expect(limiter.canPublish(1018).allowed).toBe(true);
 		});
 
@@ -241,15 +241,15 @@ describe('RateLimiter', () => {
 
 	describe('canPublish return value', () => {
 		it('returns remainingMs of 0 when allowed', () => {
-			const result = limiter.canPublish(73001);
+			const result = limiter.canPublish(7301);
 			expect(result.remainingMs).toBe(0);
 		});
 
 		it('returns correct remainingMs when blocked', () => {
-			limiter.recordPublish(73002); // Pledge — 10s cooldown
+			limiter.recordPublish(7302); // Pledge — 10s cooldown
 
 			vi.advanceTimersByTime(3_000);
-			const result = limiter.canPublish(73002);
+			const result = limiter.canPublish(7302);
 			expect(result.allowed).toBe(false);
 			expect(result.remainingMs).toBe(7_000);
 		});

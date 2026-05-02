@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { Crepe, CrepeFeature } from '@milkdown/crepe';
+	import { sanitizeMarkdownInput } from '$lib/utils/sanitize';
 	import '@milkdown/crepe/theme/common/style.css';
 	import '@milkdown/crepe/theme/frame-dark.css';
 
@@ -35,7 +36,7 @@
 
 		const instance = new Crepe({
 			root: viewerRoot,
-			defaultValue: content,
+			defaultValue: sanitizeMarkdownInput(content),
 			features: CREPE_FEATURES
 		});
 

@@ -97,3 +97,15 @@ export function sanitizeHtml(html: string): string {
 	ensureHooksRegistered();
 	return DOMPurify.sanitize(html, SANITIZE_CONFIG);
 }
+
+/**
+ * Sanitize Markdown before passing it to a rich Markdown renderer.
+ * Milkdown renders Markdown itself, so we defensively neutralize raw HTML and
+ * dangerous link/image protocols at the source string boundary.
+ */
+export function sanitizeMarkdownInput(markdown: string): string {
+	return markdown
+		.replace(/<\/?[a-z][^>]*>/gi, (match) => match.replace(/</g, '&lt;').replace(/>/g, '&gt;'))
+		.replace(/\]\(\s*(?:javascript|data|vbscript):[^)]*\)/gi, '](#)')
+		.replace(/!\[[^\]]*\]\(\s*(?:javascript|data|vbscript):[^)]*\)/gi, '');
+}

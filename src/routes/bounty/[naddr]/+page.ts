@@ -1,5 +1,6 @@
 import { error } from '@sveltejs/kit';
 import { nip19 } from 'nostr-tools';
+import { BOUNTY_KIND } from '$lib/bounty/kinds';
 import type { PageLoad } from './$types';
 
 export const ssr = false;
@@ -14,6 +15,10 @@ export const load: PageLoad = ({ params }) => {
 		}
 
 		const { kind, pubkey, identifier, relays } = decoded.data;
+		if (kind !== BOUNTY_KIND) {
+			error(400, `Expected bounty kind ${BOUNTY_KIND}, got ${kind}`);
+		}
+
 		const bountyAddress = `${kind}:${pubkey}:${identifier}`;
 
 		return {

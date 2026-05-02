@@ -2,10 +2,10 @@
  * Integration test: Retraction flow.
  *
  * Tests end-to-end retraction scenarios:
- * (a) Bounty retraction with no solutions → no Kind 73006, status = cancelled
- * (b) Bounty retraction with solutions → Kind 73006, status = cancelled
- * (c) Pledge retraction with no solutions → pledge removed, no Kind 73006
- * (d) Pledge retraction with solutions → Kind 73006, pledge removed
+ * (a) Bounty retraction with no solutions → no Kind 7306, status = cancelled
+ * (b) Bounty retraction with solutions → Kind 7306, status = cancelled
+ * (c) Pledge retraction with no solutions → pledge removed, no Kind 7306
+ * (d) Pledge retraction with solutions → Kind 7306, pledge removed
  */
 import { describe, it, expect, vi } from 'vitest';
 import type { NostrEvent } from 'nostr-tools';
@@ -14,7 +14,13 @@ vi.mock('$lib/utils/env', () => ({
 	getVoteQuorumFraction: () => 0.66
 }));
 
-import { BOUNTY_KIND, SOLUTION_KIND, PLEDGE_KIND, RETRACTION_KIND, REPUTATION_KIND } from '$lib/bounty/kinds';
+import {
+	BOUNTY_KIND,
+	SOLUTION_KIND,
+	PLEDGE_KIND,
+	RETRACTION_KIND,
+	REPUTATION_KIND
+} from '$lib/bounty/kinds';
 import { retractionBlueprint, reputationBlueprint } from '$lib/bounty/blueprints';
 import { parseRetraction } from '$lib/bounty/helpers';
 import { deriveBountyStatus } from '$lib/bounty/state-machine';
@@ -71,7 +77,9 @@ describe('Retraction flow', () => {
 		expect(hasSolutions).toBe(false);
 
 		// Status should be cancelled
-		const status = deriveBountyStatus(bountyEvent, [], [], [], [], undefined, false, [retractionEvent]);
+		const status = deriveBountyStatus(bountyEvent, [], [], [], [], undefined, false, [
+			retractionEvent
+		]);
 		expect(status).toBe('cancelled');
 
 		// Parse the retraction
@@ -110,7 +118,9 @@ describe('Retraction flow', () => {
 		const repEvent = signEvent(repTemplate, CREATOR_PUBKEY);
 		expect(repEvent.kind).toBe(REPUTATION_KIND);
 
-		const status = deriveBountyStatus(bountyEvent, [], [solutionEvent], [], [], undefined, false, [retractionEvent]);
+		const status = deriveBountyStatus(bountyEvent, [], [solutionEvent], [], [], undefined, false, [
+			retractionEvent
+		]);
 		expect(status).toBe('cancelled');
 	});
 
@@ -139,7 +149,9 @@ describe('Retraction flow', () => {
 		expect(parsed!.pledgeEventId).toBe(pledgeEvent.id);
 
 		// Pledge retraction should NOT cancel the bounty
-		const status = deriveBountyStatus(bountyEvent, [pledgeEvent], [], [], [], undefined, false, [retractionEvent]);
+		const status = deriveBountyStatus(bountyEvent, [pledgeEvent], [], [], [], undefined, false, [
+			retractionEvent
+		]);
 		expect(status).toBe('open');
 
 		// Filter out retracted pledges
@@ -188,7 +200,16 @@ describe('Retraction flow', () => {
 		expect(repEvent.kind).toBe(REPUTATION_KIND);
 
 		// Bounty still open (pledge retraction doesn't cancel)
-		const status = deriveBountyStatus(bountyEvent, [pledgeEvent], [solutionEvent], [], [], undefined, false, [retractionEvent]);
+		const status = deriveBountyStatus(
+			bountyEvent,
+			[pledgeEvent],
+			[solutionEvent],
+			[],
+			[],
+			undefined,
+			false,
+			[retractionEvent]
+		);
 		expect(status).toBe('in_review');
 	});
 });

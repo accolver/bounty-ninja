@@ -101,12 +101,12 @@
 	}
 
 	function addRelay() {
-		const url = newRelay.trim();
-		const validation = isValidRelayUrl(url);
-		if (!validation.valid) {
+		const validation = isValidRelayUrl(newRelay);
+		if (!validation.valid || !validation.normalized) {
 			relayError = validation.error ?? 'Invalid relay URL';
 			return;
 		}
+		const url = validation.normalized;
 		if (settings.relays.includes(url)) {
 			relayError = 'This relay is already in your list';
 			return;

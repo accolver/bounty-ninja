@@ -19,9 +19,9 @@ export interface ReputationScore {
  * Derive a reputation score for a pubkey from on-chain events.
  *
  * @param pubkey - The pubkey to compute reputation for
- * @param payoutEvents - Kind 73004 payout events (all relevant)
- * @param reputationEvents - Kind 73006 reputation events targeting this pubkey
- * @param pledgeEvents - Kind 73002 pledge events by this pubkey
+ * @param payoutEvents - Kind 7304 payout events (all relevant)
+ * @param reputationEvents - Kind 7306 reputation events targeting this pubkey
+ * @param pledgeEvents - Kind 7302 pledge events by this pubkey
  */
 export function deriveReputation(
 	pubkey: string,
@@ -48,7 +48,7 @@ export function deriveReputation(
 	// Solutions accepted: payouts where this pubkey is the solver (p tag)
 	const solutionsAccepted = payoutEvents.filter((e) => getTagValue(e, 'p') === pubkey).length;
 
-	// Count retractions from Kind 73006 events targeting this pubkey
+	// Count retractions from Kind 7306 events targeting this pubkey
 	const targetingEvents = reputationEvents.filter(
 		(e) => e.kind === REPUTATION_KIND && getTagValue(e, 'p') === pubkey
 	);

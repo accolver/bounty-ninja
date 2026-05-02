@@ -70,7 +70,7 @@ export function parseBountySummary(event: NostrEvent): BountySummary | null {
 }
 
 /**
- * Parse a pledge event (kind 73002) into a Pledge.
+ * Parse a pledge event (kind 7302) into a Pledge.
  * Returns null if the event fails tag validation.
  */
 export function parsePledge(event: NostrEvent): Pledge | null {
@@ -97,7 +97,7 @@ export function parsePledge(event: NostrEvent): Pledge | null {
 }
 
 /**
- * Parse a solution event (kind 73001) into a Solution.
+ * Parse a solution event (kind 7301) into a Solution.
  * Returns null if the event fails tag validation.
  */
 export function parseSolution(event: NostrEvent): Solution | null {
@@ -157,12 +157,12 @@ export function parseVote(event: NostrEvent): Vote | null {
 }
 
 /**
- * Parse a payout event (kind 73004) into a Payout.
+ * Parse a payout event (kind 7304) into a Payout.
  * Returns null if the event fails tag validation.
  * Validates that the payout event pubkey belongs to a pledger for this bounty.
  *
- * @param event - The Kind 73004 payout event.
- * @param pledgerPubkeys - Optional set of pubkeys from Kind 73002 events. If provided,
+ * @param event - The Kind 7304 payout event.
+ * @param pledgerPubkeys - Optional set of pubkeys from Kind 7302 events. If provided,
  *   the event pubkey must be in this set. If omitted, authorization is skipped (backward compat).
  */
 export function parsePayout(event: NostrEvent, pledgerPubkeys?: string[]): Payout | null {
@@ -198,10 +198,13 @@ export function parsePayout(event: NostrEvent, pledgerPubkeys?: string[]): Payou
 }
 
 /**
- * Parse a retraction event (kind 73005) into a Retraction.
+ * Parse a retraction event (kind 7305) into a Retraction.
  * Returns null if the event is missing required tags.
  */
 export function parseRetraction(event: NostrEvent): Retraction | null {
+	const tagResult = validateEventTags(event);
+	if (!tagResult.valid) return null;
+
 	const taskAddress = getTagValue(event, 'a');
 	if (!taskAddress) return null;
 
@@ -226,7 +229,7 @@ export function parseRetraction(event: NostrEvent): Retraction | null {
 }
 
 /**
- * Parse a reputation event (kind 73006) into a ReputationEvent.
+ * Parse a reputation event (kind 7306) into a ReputationEvent.
  * Returns null if the event is missing required tags.
  */
 export function parseReputationEvent(event: NostrEvent): ReputationEvent | null {
@@ -276,13 +279,23 @@ export function parseBountyDetail(
 	const solutions = solutionEvents.map(parseSolution).filter((s): s is Solution => s !== null);
 	const votes = voteEvents.map(parseVote).filter((v): v is Vote => v !== null);
 
-	// Extract pledger pubkeys for payout authorization
+	// Extract pledger pubkeys for payout/retraction authorization
 	const pledgerPubkeys = pledges.map((p) => p.pubkey);
+	const pledgePubkeysById = new Map(pledges.map((p) => [p.id, p.pubkey]));
 
 	// Validate payouts — pubkey must be a pledger for this bounty
 	const payouts = payoutEvents
 		.map((e) => parsePayout(e, pledgerPubkeys))
 		.filter((p): p is Payout => p !== null);
+
+	// Validate retractions — bounty creator cancels bounty; pledger withdraws own pledge
+	const authorizedRetractionEvents = retractionEvents.filter((retractionEvent) => {
+		const retraction = parseRetraction(retractionEvent);
+		if (!retraction) return false;
+		if (retraction.type === 'bounty') return retraction.pubkey === event.pubkey;
+		if (!retraction.pledgeEventId) return false;
+		return pledgePubkeysById.get(retraction.pledgeEventId) === retraction.pubkey;
+	});
 
 	const totalPledged = pledges.reduce((sum, p) => sum + p.amount, 0);
 
@@ -318,7 +331,7 @@ export function parseBountyDetail(
 		deleteEvents,
 		undefined,
 		hasConsensus,
-		retractionEvents
+		authorizedRetractionEvents
 	);
 
 	// Extract additional bounty fields

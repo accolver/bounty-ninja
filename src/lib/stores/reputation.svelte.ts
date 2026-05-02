@@ -10,7 +10,7 @@ import { deriveReputation, type ReputationScore } from '$lib/reputation/score';
 
 /**
  * Reactive store that caches reputation scores per pubkey.
- * Lazily fetches Kind 73006, 73004, and 73002 events on first access.
+ * Lazily fetches Kind 7306, 7304, and 7302 events on first access.
  */
 export class ReputationStore {
 	#cache = $state<Map<string, ReputationScore>>(new Map());

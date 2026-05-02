@@ -73,7 +73,7 @@
 	/** Whether the current user is a pledger */
 	const isPledger = $derived(myPledges.length > 0);
 
-	/** Whether the current user has already released (has a Kind 73004 event) */
+	/** Whether the current user has already released (has a Kind 7304 event) */
 	const hasReleased = $derived(
 		accountState.pubkey ? payouts.some((p) => p.pubkey === accountState.pubkey) : false
 	);
@@ -246,7 +246,7 @@
 				releaseMint = pledge.mint;
 			}
 
-			// Step 3: Encode and publish Kind 73004 payout event
+			// Step 3: Encode and publish Kind 7304 payout event
 			statusMessage = 'Publishing release event...';
 			const payoutTokenStr = await encodePayoutToken(allSolverProofs, releaseMint);
 

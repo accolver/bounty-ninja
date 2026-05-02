@@ -5,7 +5,7 @@
  * 1. Pledger creates P2PK-locked tokens to their OWN pubkey (self-custody)
  * 2. After vote consensus (66%), each pledger releases their portion
  *    by swapping self-locked proofs for solver-locked proofs
- * 3. Each pledger publishes a Kind 73004 payout event with solver-locked tokens
+ * 3. Each pledger publishes a Kind 7304 payout event with solver-locked tokens
  * 4. Pledger can reclaim at any time (they hold the primary P2PK key)
  *
  * The bounty creator NEVER controls pledge funds.
@@ -79,13 +79,13 @@ export async function createPledgeToken(
 }
 
 /**
- * Extract and decode Cashu tokens from Kind 73002 pledge events.
+ * Extract and decode Cashu tokens from Kind 7302 pledge events.
  *
  * Parses the `cashu` tag from each pledge event, decodes the token,
  * and returns structured DecodedPledge objects. Invalid tokens are
  * skipped with a warning.
  *
- * @param pledgeEvents - Array of Kind 73002 Nostr events.
+ * @param pledgeEvents - Array of Kind 7302 Nostr events.
  * @returns Array of successfully decoded pledges.
  */
 export async function collectPledgeTokens(pledgeEvents: NostrEvent[]): Promise<DecodedPledge[]> {
@@ -298,7 +298,7 @@ export async function reclaimPledge(
 
 /**
  * Encode payout proofs as a Cashu token string for inclusion in a
- * Kind 73004 payout Nostr event.
+ * Kind 7304 payout Nostr event.
  *
  * @param proofs - The P2PK-locked payout proofs.
  * @param mintUrl - The mint URL these proofs belong to.

@@ -106,27 +106,30 @@ class AccountState {
 			});
 
 			// Open connection asynchronously — don't block session restore
-			signer.open().then(async () => {
-				// Ping to verify the connection is still alive
-				try {
-					await Promise.race([
-						signer.ping(),
-						new Promise<never>((_, reject) =>
-							setTimeout(() => reject(new Error('timeout')), 5000)
-						)
-					]);
-					setBunkerSigner(signer);
-					resetEventFactory();
-					this.loginMethod = 'bunker';
-				} catch {
-					// Remote signer not responding — user will need to re-login
-					console.warn('[account] Bunker session restore failed — signer not responding');
+			signer
+				.open()
+				.then(async () => {
+					// Ping to verify the connection is still alive
+					try {
+						await Promise.race([
+							signer.ping(),
+							new Promise<never>((_, reject) =>
+								setTimeout(() => reject(new Error('timeout')), 5000)
+							)
+						]);
+						setBunkerSigner(signer);
+						resetEventFactory();
+						this.loginMethod = 'bunker';
+					} catch {
+						// Remote signer not responding — user will need to re-login
+						console.warn('[account] Bunker session restore failed — signer not responding');
+						this.clearBunkerInfo();
+					}
+				})
+				.catch(() => {
+					console.warn('[account] Bunker session restore failed — could not open connection');
 					this.clearBunkerInfo();
-				}
-			}).catch(() => {
-				console.warn('[account] Bunker session restore failed — could not open connection');
-				this.clearBunkerInfo();
-			});
+				});
 		} catch {
 			// Invalid stored data — clear it
 			this.clearBunkerInfo();
@@ -293,7 +296,7 @@ class AccountState {
 
 			const signer = await NostrConnectSigner.fromBunkerURI(bunkerUri, {
 				permissions: NostrConnectSigner.buildSigningPermissions([
-					37300, 73001, 73002, 1018, 73004, 73005, 73006
+					37300, 7301, 7302, 1018, 7304, 7305, 7306
 				])
 			});
 

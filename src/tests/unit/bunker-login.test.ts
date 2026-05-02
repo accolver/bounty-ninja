@@ -19,7 +19,11 @@ vi.mock('$lib/nostr/event-store', () => ({
 
 vi.mock('$lib/nostr/publish', () => ({
 	broadcastEvent: vi.fn().mockResolvedValue({
-		success: true, acceptedCount: 1, rejectedCount: 0, results: [], failures: []
+		success: true,
+		acceptedCount: 1,
+		rejectedCount: 0,
+		results: [],
+		failures: []
 	})
 }));
 
@@ -65,9 +69,15 @@ const localStorageMock = (() => {
 	let store: Record<string, string> = {};
 	return {
 		getItem: vi.fn((key: string) => store[key] ?? null),
-		setItem: vi.fn((key: string, value: string) => { store[key] = value; }),
-		removeItem: vi.fn((key: string) => { delete store[key]; }),
-		clear: () => { store = {}; }
+		setItem: vi.fn((key: string, value: string) => {
+			store[key] = value;
+		}),
+		removeItem: vi.fn((key: string) => {
+			delete store[key];
+		}),
+		clear: () => {
+			store = {};
+		}
 	};
 })();
 Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock, writable: true });
@@ -97,7 +107,13 @@ describe('NIP-46 bunker login', () => {
 
 	describe('URI validation', () => {
 		it('rejects non-bunker URIs', () => {
-			const invalid = ['https://example.com', 'nostrconnect://abc', 'nsec1abc', '', 'bunker:missing'];
+			const invalid = [
+				'https://example.com',
+				'nostrconnect://abc',
+				'nsec1abc',
+				'',
+				'bunker:missing'
+			];
 			for (const uri of invalid) {
 				expect(uri.startsWith('bunker://')).toBe(false);
 			}
@@ -122,12 +138,12 @@ describe('NIP-46 bunker login', () => {
 
 	describe('buildSigningPermissions', () => {
 		it('builds permissions for all bounty event kinds', () => {
-			const kinds = [37300, 73001, 73002, 1018, 73004, 73005, 73006];
+			const kinds = [37300, 7301, 7302, 1018, 7304, 7305, 7306];
 			const perms = NostrConnectSigner.buildSigningPermissions(kinds);
 			expect(perms).toHaveLength(7);
 			expect(perms).toContain('sign_event:37300');
-			expect(perms).toContain('sign_event:73005');
-			expect(perms).toContain('sign_event:73006');
+			expect(perms).toContain('sign_event:7305');
+			expect(perms).toContain('sign_event:7306');
 		});
 	});
 
@@ -164,9 +180,7 @@ describe('NIP-46 bunker login', () => {
 			await expect(
 				Promise.race([
 					signer.connect('secret'),
-					new Promise<never>((_, reject) =>
-						setTimeout(() => reject(new Error('timeout')), 50)
-					)
+					new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 50))
 				])
 			).rejects.toThrow('timeout');
 		});

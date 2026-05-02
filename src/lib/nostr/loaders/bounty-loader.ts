@@ -3,12 +3,13 @@ import { pool } from '$lib/nostr/relay-pool';
 import { eventStore } from '$lib/nostr/event-store';
 import { onlyEvents } from 'applesauce-relay';
 import { mapEventsToStore } from 'applesauce-core';
+import { onlyValidEvents } from '../valid-events';
 import { getDefaultRelays } from '$lib/utils/env';
 import { bountyListFilter, bountyByAuthorFilter } from '$lib/bounty/filters';
 
 /**
  * Create a loader that subscribes to bounty events (Kind 37300) from all
- * configured relays (including local dev relay) and pipes them into the
+ * configured relays (including local dev relay) and pipes valid events into the
  * singleton EventStore.
  *
  * Returns a composite unsubscribable — calling unsubscribe() cleans up
@@ -24,7 +25,7 @@ export function createBountyListLoader(limit?: number): { unsubscribe(): void } 
 			const sub = pool
 				.relay(url)
 				.subscription(filter)
-				.pipe(onlyEvents(), mapEventsToStore(eventStore))
+				.pipe(onlyEvents(), onlyValidEvents(), mapEventsToStore(eventStore))
 				.subscribe();
 			subscriptions.push(sub);
 		} catch (e) {
@@ -43,7 +44,7 @@ export function createBountyListLoader(limit?: number): { unsubscribe(): void } 
 
 /**
  * Create a loader that subscribes to bounty events by a specific author
- * from all default relays and pipes them into the singleton EventStore.
+ * from all default relays and pipes valid events into the singleton EventStore.
  */
 export function createBountyByAuthorLoader(pubkey: string): { unsubscribe(): void } {
 	const filter = bountyByAuthorFilter(pubkey);
@@ -55,7 +56,7 @@ export function createBountyByAuthorLoader(pubkey: string): { unsubscribe(): voi
 			const sub = pool
 				.relay(url)
 				.subscription(filter)
-				.pipe(onlyEvents(), mapEventsToStore(eventStore))
+				.pipe(onlyEvents(), onlyValidEvents(), mapEventsToStore(eventStore))
 				.subscribe();
 			subscriptions.push(sub);
 		} catch (e) {

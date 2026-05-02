@@ -23,6 +23,8 @@ class BountyListStore {
 	#bounties = $state<BountySummary[]>([]);
 	/** Pledge totals keyed by bounty address (e.g. "37300:<pubkey>:<d-tag>") */
 	#pledgeTotals = $state<Map<string, number>>(new Map());
+	/** Pledger pubkeys keyed by bounty address, used to authorize payout events */
+	#pledgerPubkeys = $state<Map<string, string[]>>(new Map());
 	/** Solution counts keyed by bounty address */
 	#solutionCounts = $state<Map<string, number>>(new Map());
 	/** Set of bounty addresses that have payout events */
@@ -85,6 +87,7 @@ class BountyListStore {
 		this.#pledgeSub = eventStore.timeline({ kinds: [PLEDGE_KIND] }).subscribe({
 			next: (events: NostrEvent[]) => {
 				const totals = new Map<string, number>();
+				const pledgerSets = new Map<string, Set<string>>();
 				for (const event of events) {
 					const pledge = parsePledge(event);
 					if (pledge && pledge.bountyAddress) {
@@ -92,9 +95,15 @@ class BountyListStore {
 							pledge.bountyAddress,
 							(totals.get(pledge.bountyAddress) ?? 0) + pledge.amount
 						);
+						const set = pledgerSets.get(pledge.bountyAddress) ?? new Set<string>();
+						set.add(pledge.pubkey);
+						pledgerSets.set(pledge.bountyAddress, set);
 					}
 				}
 				this.#pledgeTotals = totals;
+				this.#pledgerPubkeys = new Map(
+					[...pledgerSets.entries()].map(([address, pubkeys]) => [address, [...pubkeys]])
+				);
 			}
 		});
 
@@ -117,7 +126,11 @@ class BountyListStore {
 			next: (events: NostrEvent[]) => {
 				const completed = new Set<string>();
 				for (const event of events) {
-					const payout = parsePayout(event);
+					const bountyAddress = event.tags.find((tag) => tag[0] === 'a')?.[1];
+					const payout = parsePayout(
+						event,
+						bountyAddress ? (this.#pledgerPubkeys.get(bountyAddress) ?? []) : []
+					);
 					if (payout && payout.bountyAddress) {
 						completed.add(payout.bountyAddress);
 					}

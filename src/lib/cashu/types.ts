@@ -95,7 +95,7 @@ export interface SwapResult {
 // ── Decoded Pledge ──────────────────────────────────────────────────────────
 
 /**
- * A decoded pledge extracted from a Kind 73002 Nostr event.
+ * A decoded pledge extracted from a Kind 7302 Nostr event.
  * Contains the parsed Cashu token and metadata needed for escrow operations.
  */
 export interface DecodedPledge {

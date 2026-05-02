@@ -39,7 +39,7 @@ export function deriveBountyStatus(
 ): BountyStatus {
 	const currentTime = now ?? Math.floor(Date.now() / 1000);
 
-	// 1a. Cancelled — Kind 73005 bounty retraction exists
+	// 1a. Cancelled — Kind 7305 bounty retraction exists
 	const hasBountyRetraction = retractions.some((e) => {
 		if (e.kind !== RETRACTION_KIND) return false;
 		const typeTag = e.tags.find((t) => t[0] === 'type');
