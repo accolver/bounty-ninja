@@ -6,9 +6,17 @@ import {
 	votesForBountyFilter,
 	payoutForBountyFilter,
 	bountyByAuthorFilter,
-	searchBountiesFilter
+	searchBountiesFilter,
+	allRetractionsFilter
 } from '$lib/bounty/filters';
-import { BOUNTY_KIND, PLEDGE_KIND, SOLUTION_KIND, VOTE_KIND, PAYOUT_KIND } from '$lib/bounty/kinds';
+import {
+	BOUNTY_KIND,
+	PLEDGE_KIND,
+	SOLUTION_KIND,
+	VOTE_KIND,
+	PAYOUT_KIND,
+	RETRACTION_KIND
+} from '$lib/bounty/kinds';
 
 describe('bountyListFilter', () => {
 	it('returns a filter for bounty events with default limit', () => {
@@ -94,6 +102,24 @@ describe('payoutForBountyFilter', () => {
 	it('uses kind 7304', () => {
 		const filter = payoutForBountyFilter('test');
 		expect(filter.kinds).toEqual([7304]);
+	});
+});
+
+describe('allRetractionsFilter', () => {
+	it('returns a filter for all retraction events with default limit', () => {
+		const filter = allRetractionsFilter();
+		expect(filter).toEqual({
+			kinds: [RETRACTION_KIND],
+			limit: 200
+		});
+	});
+
+	it('accepts a custom limit', () => {
+		const filter = allRetractionsFilter(50);
+		expect(filter).toEqual({
+			kinds: [RETRACTION_KIND],
+			limit: 50
+		});
 	});
 });
 

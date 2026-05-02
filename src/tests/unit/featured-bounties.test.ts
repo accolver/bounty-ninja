@@ -38,6 +38,21 @@ describe('getFeaturedBountyGroups', () => {
 		expect(hasFeaturedBountyGroups(groups)).toBe(true);
 	});
 
+	it('excludes cancelled bounties from featured groups including newest', () => {
+		const groups = getFeaturedBountyGroups(
+			[
+				bounty({ id: 'cancelled', status: 'cancelled', totalPledged: 1000, createdAt: 30 }),
+				bounty({ id: 'open', status: 'open', totalPledged: 100, createdAt: 20 })
+			],
+			2,
+			100
+		);
+
+		expect(groups.mostFunded.map((b) => b.id)).toEqual(['open']);
+		expect(groups.newest.map((b) => b.id)).toEqual(['open']);
+		expect(groups.needsSolutions.map((b) => b.id)).toEqual(['open']);
+	});
+
 	it('reports empty groups when there is nothing to feature', () => {
 		const groups = getFeaturedBountyGroups([], 2, 100);
 		expect(hasFeaturedBountyGroups(groups)).toBe(false);

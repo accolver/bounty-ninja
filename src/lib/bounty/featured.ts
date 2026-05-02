@@ -15,7 +15,7 @@ export function getFeaturedBountyGroups(
 	const active = bounties.filter(
 		(bounty) => bounty.status === 'open' || bounty.status === 'in_review'
 	);
-	const open = bounties.filter((bounty) => bounty.status === 'open');
+	const open = active.filter((bounty) => bounty.status === 'open');
 
 	return {
 		mostFunded: [...active]
@@ -26,7 +26,7 @@ export function getFeaturedBountyGroups(
 			.filter((bounty) => bounty.deadline !== null && bounty.deadline > now)
 			.sort((a, b) => (a.deadline ?? 0) - (b.deadline ?? 0))
 			.slice(0, limit),
-		newest: [...bounties].sort((a, b) => b.createdAt - a.createdAt).slice(0, limit),
+		newest: [...active].sort((a, b) => b.createdAt - a.createdAt).slice(0, limit),
 		needsSolutions: [...open]
 			.filter((bounty) => bounty.solutionCount === 0)
 			.sort((a, b) => b.totalPledged - a.totalPledged || b.createdAt - a.createdAt)

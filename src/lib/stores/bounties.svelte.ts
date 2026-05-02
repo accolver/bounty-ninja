@@ -2,20 +2,33 @@ import type { Subscription } from 'rxjs';
 import type { NostrEvent } from 'nostr-tools';
 import type { BountySummary, BountyStatus } from '$lib/bounty/types';
 import { eventStore } from '$lib/nostr/event-store';
-import { parseBountySummary, parsePledge, parseSolution, parsePayout } from '$lib/bounty/helpers';
-import { BOUNTY_KIND, PLEDGE_KIND, SOLUTION_KIND, PAYOUT_KIND } from '$lib/bounty/kinds';
+import {
+	parseBountySummary,
+	parsePledge,
+	parseSolution,
+	parsePayout,
+	parseRetraction
+} from '$lib/bounty/helpers';
+import {
+	BOUNTY_KIND,
+	PLEDGE_KIND,
+	SOLUTION_KIND,
+	PAYOUT_KIND,
+	RETRACTION_KIND
+} from '$lib/bounty/kinds';
 import { createBountyListLoader } from '$lib/nostr/loaders/bounty-loader';
 import {
 	createAllPledgesLoader,
 	createAllSolutionsLoader,
-	createAllPayoutsLoader
+	createAllPayoutsLoader,
+	createAllRetractionsLoader
 } from '$lib/nostr/loaders/pledge-loader';
 
 /**
  * Reactive store for the bounty list.
  * Bridges EventStore timeline Observable to Svelte 5 runes.
  *
- * Subscribes to bounty, pledge, solution, and payout events so that
+ * Subscribes to bounty, pledge, solution, payout, and retraction events so that
  * bounty summaries are enriched with real totalPledged, solutionCount,
  * and derived status values.
  */
@@ -29,16 +42,20 @@ class BountyListStore {
 	#solutionCounts = $state<Map<string, number>>(new Map());
 	/** Set of bounty addresses that have payout events */
 	#completedBounties = $state<Set<string>>(new Set());
+	/** Bounty cancellation retraction author pubkeys keyed by bounty address */
+	#bountyRetractions = $state<Map<string, Set<string>>>(new Map());
 	#loading = $state(true);
 	#error = $state<string | null>(null);
 	#bountySub: Subscription | null = null;
 	#pledgeSub: Subscription | null = null;
 	#solutionSub: Subscription | null = null;
 	#payoutSub: Subscription | null = null;
+	#retractionSub: Subscription | null = null;
 	#bountyLoader: { unsubscribe(): void } | null = null;
 	#pledgeLoader: { unsubscribe(): void } | null = null;
 	#solutionLoader: { unsubscribe(): void } | null = null;
 	#payoutLoader: { unsubscribe(): void } | null = null;
+	#retractionLoader: { unsubscribe(): void } | null = null;
 	#loadingTimer: ReturnType<typeof setTimeout> | null = null;
 	#initialized = false;
 
@@ -139,11 +156,28 @@ class BountyListStore {
 			}
 		});
 
+		// Subscribe to EventStore timeline for retraction events
+		this.#retractionSub = eventStore.timeline({ kinds: [RETRACTION_KIND] }).subscribe({
+			next: (events: NostrEvent[]) => {
+				const retractions = new Map<string, Set<string>>();
+				for (const event of events) {
+					const retraction = parseRetraction(event);
+					if (!retraction || retraction.type !== 'bounty') continue;
+
+					const authors = retractions.get(retraction.taskAddress) ?? new Set<string>();
+					authors.add(retraction.pubkey);
+					retractions.set(retraction.taskAddress, authors);
+				}
+				this.#bountyRetractions = retractions;
+			}
+		});
+
 		// Start relay loaders to feed events into EventStore
 		this.#bountyLoader = createBountyListLoader();
 		this.#pledgeLoader = createAllPledgesLoader();
 		this.#solutionLoader = createAllSolutionsLoader();
 		this.#payoutLoader = createAllPayoutsLoader();
+		this.#retractionLoader = createAllRetractionsLoader();
 	}
 
 	/** Derive status from available lifecycle data */
@@ -154,6 +188,10 @@ class BountyListStore {
 		solutionCount: number
 	): BountyStatus {
 		const now = Math.floor(Date.now() / 1000);
+
+		// Cancelled — bounty creator published a Kind 7305 bounty retraction.
+		// Ignore third-party retractions so they cannot hide someone else's bounty.
+		if (this.#bountyRetractions.get(address)?.has(bounty.pubkey)) return 'cancelled';
 
 		// Completed — payout events exist (list view doesn't compute consensus,
 		// so we treat any payout as completed for simplicity)
@@ -218,6 +256,8 @@ class BountyListStore {
 		this.#solutionSub = null;
 		this.#payoutSub?.unsubscribe();
 		this.#payoutSub = null;
+		this.#retractionSub?.unsubscribe();
+		this.#retractionSub = null;
 		this.#bountyLoader?.unsubscribe();
 		this.#bountyLoader = null;
 		this.#pledgeLoader?.unsubscribe();
@@ -226,6 +266,8 @@ class BountyListStore {
 		this.#solutionLoader = null;
 		this.#payoutLoader?.unsubscribe();
 		this.#payoutLoader = null;
+		this.#retractionLoader?.unsubscribe();
+		this.#retractionLoader = null;
 		if (this.#loadingTimer) {
 			clearTimeout(this.#loadingTimer);
 			this.#loadingTimer = null;

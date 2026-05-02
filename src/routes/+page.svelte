@@ -185,7 +185,9 @@
 	// Stats derived from all bounties (unfiltered)
 	const now24h = $derived(Math.floor(Date.now() / 1000) - 86_400);
 
-	const recentCount = $derived(bountyList.items.filter((b) => b.createdAt >= now24h).length);
+	const recentCount = $derived(
+		bountyList.items.filter((b) => b.status !== 'cancelled' && b.createdAt >= now24h).length
+	);
 
 	const openBounties = $derived(
 		bountyList.items.filter(

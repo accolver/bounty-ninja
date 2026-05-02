@@ -104,6 +104,17 @@ export function allPayoutsFilter(limit?: number): Filter {
 }
 
 /**
+ * Filter to fetch all retraction events (Kind 7305) across all tasks.
+ * Used by the home page to derive cancelled status.
+ */
+export function allRetractionsFilter(limit?: number): Filter {
+	return {
+		kinds: [RETRACTION_KIND],
+		limit: limit ?? 200
+	};
+}
+
+/**
  * Filter to search tasks by text query (NIP-50).
  * Defaults to 20 results if no limit is specified.
  */
