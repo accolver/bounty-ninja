@@ -7,6 +7,74 @@
 
 import type { Proof, Token } from '@cashu/cashu-ts';
 
+// ── Financial Verification ──────────────────────────────────────────────────
+
+/** Financial checks are fail-closed: only `valid` records contribute value. */
+export type VerificationStatus = 'pending' | 'valid' | 'invalid' | 'unavailable';
+
+/** Mint-scoped Cashu proof identity: normalized mint URL plus NUT-00 Y. */
+export type ProofIdentity = string & { readonly __proofIdentity: unique symbol };
+
+export type PledgeInvalidReason =
+	| 'wrong_bounty'
+	| 'decode_failed'
+	| 'wrong_unit'
+	| 'missing_proofs'
+	| 'invalid_amount'
+	| 'amount_mismatch'
+	| 'mint_mismatch'
+	| 'mint_unavailable'
+	| 'proof_state_mismatch'
+	| 'spent_proof'
+	| 'pending_proof'
+	| 'duplicate_proof'
+	| 'not_p2pk'
+	| 'p2pk_target_mismatch'
+	| 'locktime_mismatch'
+	| 'refund_policy_mismatch'
+	| 'inconsistent_proof_conditions';
+
+/** Result of validating one pledge against its bounty and supported mint guarantees. */
+export interface PledgeVerification {
+	pledgeId: string;
+	status: VerificationStatus;
+	policyVersion: number;
+	checkedAt: number;
+	validUntil: number | null;
+	normalizedMint: string | null;
+	decodedAmount: number | null;
+	proofIdentities: readonly ProofIdentity[];
+	reasons: readonly PledgeInvalidReason[];
+}
+
+export type CashuTokenInvalidReason =
+	| 'decode_failed'
+	| 'wrong_unit'
+	| 'missing_proofs'
+	| 'invalid_amount'
+	| 'mint_mismatch'
+	| 'amount_mismatch'
+	| 'proof_state_mismatch'
+	| 'spent_proof'
+	| 'pending_proof'
+	| 'duplicate_proof'
+	| 'not_p2pk'
+	| 'p2pk_target_mismatch'
+	| 'inconsistent_proof_conditions';
+
+/** Verification record for source-bound payout token validation. */
+export interface CashuTokenVerification {
+	status: VerificationStatus;
+	policyVersion: number;
+	checkedAt: number;
+	validUntil: number | null;
+	normalizedMint: string | null;
+	decodedAmount: number | null;
+	proofIdentities: readonly ProofIdentity[];
+	p2pkTarget: string | null;
+	reasons: readonly CashuTokenInvalidReason[];
+}
+
 // ── Token Info ──────────────────────────────────────────────────────────────
 
 /** Decoded token information extracted from a Cashu token string. */

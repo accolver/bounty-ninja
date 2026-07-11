@@ -1,4 +1,10 @@
 import type { NostrEvent } from 'nostr-tools';
+import type {
+	CashuTokenVerification,
+	PledgeVerification,
+	ProofIdentity,
+	VerificationStatus
+} from '$lib/cashu/types';
 
 export type BountyStatus =
 	| 'draft'
@@ -89,6 +95,10 @@ export interface Payout {
 	solverPubkey: string;
 	amount: number;
 	cashuToken: string;
+	/** Exact source pledge reference. Null identifies a legacy, untrusted payout. */
+	sourcePledgeId: string | null;
+	/** Event-declared mint. Null identifies a legacy, untrusted payout. */
+	mintUrl: string | null;
 	createdAt: number;
 }
 
@@ -132,4 +142,71 @@ export interface VoteTally {
 	isRejected: boolean;
 	isTied: boolean;
 	quorumPercent: number;
+}
+
+export type ConsensusResult =
+	| { state: 'none'; tallies: ReadonlyMap<string, VoteTally> }
+	| { state: 'unique'; winner: Solution; tallies: ReadonlyMap<string, VoteTally> }
+	| {
+			state: 'ambiguous';
+			approvedSolutionIds: readonly string[];
+			tallies: ReadonlyMap<string, VoteTally>;
+	  }
+	| { state: 'incomplete'; reason: string; tallies: ReadonlyMap<string, VoteTally> };
+
+export interface RetractionValidation {
+	retraction: Retraction;
+	valid: boolean;
+	reason?: string;
+}
+
+export interface PayoutValidation {
+	payout: Payout;
+	status: VerificationStatus;
+	sourcePledgeId: string | null;
+	reasons: readonly string[];
+}
+
+export interface ReleaseProgress {
+	requiredPledgeIds: ReadonlySet<string>;
+	releasedPledgeIds: ReadonlySet<string>;
+	releasedAmount: number;
+	totalAmount: number;
+	complete: boolean;
+}
+
+/** Complete deterministic financial and lifecycle view for one bounty. */
+export interface FinancialProjection {
+	policyVersion: number;
+	projectedAt: number;
+	bountyAddress: string;
+	validatedPledges: readonly Pledge[];
+	activePledges: readonly Pledge[];
+	pendingPledges: readonly Pledge[];
+	unavailablePledges: readonly Pledge[];
+	invalidPledges: readonly Pledge[];
+	proofOwners: ReadonlyMap<ProofIdentity, string>;
+	validatedFunding: number;
+	votingPowerByPubkey: ReadonlyMap<string, number>;
+	solutions: readonly Solution[];
+	consensus: ConsensusResult;
+	authorizedRetractions: readonly Retraction[];
+	validPayouts: readonly Payout[];
+	payoutValidations: readonly PayoutValidation[];
+	releaseProgress: ReleaseProgress;
+	cancelled: boolean;
+	status: BountyStatus;
+}
+
+export interface FinancialProjectionInput {
+	bounty: Bounty;
+	pledges: readonly Pledge[];
+	pledgeVerifications: ReadonlyMap<string, PledgeVerification>;
+	solutions: readonly Solution[];
+	votes: readonly Vote[];
+	payouts: readonly Payout[];
+	payoutTokenVerifications: ReadonlyMap<string, CashuTokenVerification>;
+	retractions: readonly Retraction[];
+	relatedEventsComplete: boolean;
+	now: number;
 }

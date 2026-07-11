@@ -17,13 +17,13 @@
 
 ## 3. Trusted Financial Projection
 
-- [ ] 3.1 Define `PledgeVerification`, proof-identity, payout-validation, and projection result types in `src/lib/bounty/types.ts` and `src/lib/cashu/types.ts`
-- [ ] 3.2 Implement pure pledge validation policy in `src/lib/cashu/` for unit, normalized mint, decoded amount, proof state, duplicate proof identity, P2PK target, locktime, and refund keys; add mint-contract tests
-- [ ] 3.3 Implement a deterministic projection module in `src/lib/bounty/financial-state.ts` using `(created_at, id)` ordering and validated active pledge value
-- [ ] 3.4 Add authorized bounty and pledge retraction validation and same-bounty relationship checks; update `retraction-flow.test.ts`
-- [ ] 3.5 Implement unique-winner consensus with an explicit ambiguous state and tests for equal timestamps, replayed votes, and multiple quorum winners
-- [ ] 3.6 Implement source-bound payout validation and deduplication by pledge ID; test malicious winner redirection, mismatched solver, mint, amount, and token
-- [ ] 3.7 Derive reputation only from validated source-bound completions and authorized retractions; update reputation tests
+- [x] 3.1 Define `PledgeVerification`, proof-identity, payout-validation, and projection result types in `src/lib/bounty/types.ts` and `src/lib/cashu/types.ts`
+- [x] 3.2 Implement pure pledge validation policy in `src/lib/cashu/` for unit, normalized mint, decoded amount, proof state, duplicate proof identity, P2PK target, locktime, and refund keys; add mint-contract tests
+- [x] 3.3 Implement a deterministic projection module in `src/lib/bounty/financial-state.ts` using `(created_at, id)` ordering and validated active pledge value
+- [x] 3.4 Add authorized bounty and pledge retraction validation and same-bounty relationship checks; update `retraction-flow.test.ts`
+- [x] 3.5 Implement unique-winner consensus with an explicit ambiguous state and tests for equal timestamps, replayed votes, and multiple quorum winners
+- [x] 3.6 Implement source-bound payout validation and deduplication by pledge ID; test malicious winner redirection, mismatched solver, mint, amount, and token
+- [x] 3.7 Derive reputation only from validated source-bound completions and authorized retractions; update reputation tests
 
 ## 4. Route and Lifecycle Consistency
 

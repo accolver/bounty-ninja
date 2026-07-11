@@ -1,120 +1,32 @@
-import type { NostrEvent } from 'nostr-tools';
-import { combineLatest, type Subscription } from 'rxjs';
-import { eventStore } from '$lib/nostr/event-store';
-import { ingestEventsFrom } from '$lib/nostr/event-ingestion';
-import { pool } from '$lib/nostr/relay-pool';
-import { onlyEvents } from 'applesauce-relay';
-import { getDefaultRelays } from '$lib/utils/env';
-import { PAYOUT_KIND, PLEDGE_KIND, REPUTATION_KIND } from '$lib/bounty/kinds';
-import { deriveReputation, type ReputationScore } from '$lib/reputation/score';
+import {
+	deriveReputation,
+	type ReputationProjection,
+	type ReputationScore
+} from '$lib/reputation/score';
 
-/**
- * Reactive store that caches reputation scores per pubkey.
- * Lazily fetches Kind 73006, 73004, and 73002 events on first access.
- */
+/** Reactive cache populated only from trusted per-bounty financial projections. */
 export class ReputationStore {
 	#cache = $state<Map<string, ReputationScore>>(new Map());
-	#loading: Set<string> = new Set();
-	#subs: Map<string, Array<Subscription | { unsubscribe(): void }>> = new Map();
 
-	/**
-	 * Get the cached reputation score for a pubkey, or null if not yet loaded.
-	 * Triggers lazy loading on first access.
-	 */
-	getReputation(pubkey: string): ReputationScore | null {
-		if (this.#cache.has(pubkey)) {
-			return this.#cache.get(pubkey)!;
-		}
-
-		if (!this.#loading.has(pubkey)) {
-			this.#loadReputation(pubkey);
-		}
-
-		return null;
+	getReputation(pubkey: string): ReputationScore {
+		const cached = this.#cache.get(pubkey);
+		if (cached) return cached;
+		const neutral = deriveReputation(pubkey, []);
+		const updated = new Map(this.#cache);
+		updated.set(pubkey, neutral);
+		this.#cache = updated;
+		return neutral;
 	}
 
-	#loadReputation(pubkey: string) {
-		this.#loading.add(pubkey);
-		const subs: Array<Subscription | { unsubscribe(): void }> = [];
-
-		// Subscribe to EventStore timelines
-		const repEvents$ = eventStore.timeline({ kinds: [REPUTATION_KIND], '#p': [pubkey] });
-		const payoutEvents$ = eventStore.timeline({ kinds: [PAYOUT_KIND] });
-		const pledgeEvents$ = eventStore.timeline({ kinds: [PLEDGE_KIND], authors: [pubkey] });
-
-		// Also need payouts where pubkey is the solver (p tag)
-		const solverPayouts$ = eventStore.timeline({ kinds: [PAYOUT_KIND], '#p': [pubkey] });
-
-		const combinedSub = combineLatest([
-			repEvents$,
-			payoutEvents$,
-			pledgeEvents$,
-			solverPayouts$
-		]).subscribe({
-			next: ([repEvents, payoutEvents, pledgeEvents, solverPayouts]: [
-				NostrEvent[],
-				NostrEvent[],
-				NostrEvent[],
-				NostrEvent[]
-			]) => {
-				// Merge payout events (deduplicate by id)
-				const allPayouts = new Map<string, NostrEvent>();
-				for (const e of [...payoutEvents, ...solverPayouts]) {
-					allPayouts.set(e.id, e);
-				}
-
-				const score = deriveReputation(
-					pubkey,
-					Array.from(allPayouts.values()),
-					repEvents,
-					pledgeEvents
-				);
-				const updated = new Map(this.#cache);
-				updated.set(pubkey, score);
-				this.#cache = updated;
-			}
-		});
-		subs.push(combinedSub);
-
-		// Start relay subscriptions to feed EventStore
-		const relayUrls = getDefaultRelays();
-		const filters = [
-			{ kinds: [REPUTATION_KIND], '#p': [pubkey] },
-			{ kinds: [PAYOUT_KIND], '#p': [pubkey] },
-			{ kinds: [PAYOUT_KIND], authors: [pubkey] },
-			{ kinds: [PLEDGE_KIND], authors: [pubkey] }
-		];
-
-		for (const url of relayUrls) {
-			for (const filter of filters) {
-				try {
-					const sub = pool
-						.relay(url)
-						.subscription(filter)
-						.pipe(onlyEvents(), ingestEventsFrom('reputation'))
-						.subscribe();
-					subs.push(sub);
-				} catch {
-					// Skip unreachable relays
-				}
-			}
-		}
-
-		this.#subs.set(pubkey, subs);
+	setProjections(pubkey: string, projections: readonly ReputationProjection[]): void {
+		const updated = new Map(this.#cache);
+		updated.set(pubkey, deriveReputation(pubkey, projections));
+		this.#cache = updated;
 	}
 
-	/** Clean up all subscriptions */
-	destroy() {
-		for (const [, subs] of this.#subs) {
-			for (const sub of subs) {
-				sub.unsubscribe();
-			}
-		}
-		this.#subs.clear();
+	destroy(): void {
 		this.#cache = new Map();
-		this.#loading.clear();
 	}
 }
 
-/** Singleton reputation store */
 export const reputationStore = new ReputationStore();

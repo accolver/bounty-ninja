@@ -1,6 +1,4 @@
-import type { NostrEvent } from 'nostr-tools';
-import { PAYOUT_KIND, PLEDGE_KIND, REPUTATION_KIND } from '$lib/bounty/kinds';
-import { getTagValue } from '$lib/nostr/nostr-tags';
+import type { FinancialProjection } from '$lib/bounty/types';
 
 export type ReputationTier = 'new' | 'emerging' | 'established' | 'trusted' | 'flagged';
 
@@ -15,66 +13,82 @@ export interface ReputationScore {
 	tier: ReputationTier;
 }
 
-/**
- * Derive a reputation score for a pubkey from on-chain events.
- *
- * @param pubkey - The pubkey to compute reputation for
- * @param payoutEvents - Kind 73004 payout events (all relevant)
- * @param reputationEvents - Kind 73006 reputation events targeting this pubkey
- * @param pledgeEvents - Kind 73002 pledge events by this pubkey
- */
+export type ReputationProjection = Pick<
+	FinancialProjection,
+	| 'bountyAddress'
+	| 'projectedAt'
+	| 'validatedPledges'
+	| 'consensus'
+	| 'authorizedRetractions'
+	| 'validPayouts'
+	| 'releaseProgress'
+>;
+
+function creatorFromAddress(address: string): string | null {
+	const parts = address.split(':');
+	return parts.length >= 3 && parts[0] === '37300' ? parts[1] : null;
+}
+
+/** Derive reputation exclusively from trusted, source-bound financial projections. */
 export function deriveReputation(
 	pubkey: string,
-	payoutEvents: NostrEvent[],
-	reputationEvents: NostrEvent[],
-	pledgeEvents: NostrEvent[]
+	projections: readonly ReputationProjection[]
 ): ReputationScore {
-	// Bounties completed: payouts where this pubkey created the bounty
-	// (pubkey is the bounty creator, payout references their bounty)
-	const bountiesCompleted = payoutEvents.filter((e) => {
-		const aTag = getTagValue(e, 'a');
-		return aTag?.includes(`:${pubkey}:`);
-	}).length;
+	const latestByBounty = new Map<string, ReputationProjection>();
+	for (const projection of projections) {
+		const existing = latestByBounty.get(projection.bountyAddress);
+		if (!existing || projection.projectedAt > existing.projectedAt) {
+			latestByBounty.set(projection.bountyAddress, projection);
+		}
+	}
 
-	// Pledges released: payouts where this pubkey is the payout publisher (pledger)
-	const pledgesReleased = payoutEvents.filter((e) => e.pubkey === pubkey).length;
+	const pledgeIds = new Set<string>();
+	const releasedPledgeIds = new Set<string>();
+	const bountyRetractionIds = new Set<string>();
+	const pledgeRetractionIds = new Set<string>();
+	let bountiesCompleted = 0;
+	let solutionsAccepted = 0;
 
-	// Total pledges by this pubkey
-	const totalPledges = pledgeEvents.filter((e) => e.pubkey === pubkey).length;
+	for (const projection of latestByBounty.values()) {
+		for (const pledge of projection.validatedPledges) {
+			if (pledge.pubkey === pubkey) pledgeIds.add(pledge.id);
+		}
+		for (const payout of projection.validPayouts) {
+			if (payout.pubkey === pubkey && payout.sourcePledgeId) {
+				releasedPledgeIds.add(payout.sourcePledgeId);
+			}
+		}
+		if (projection.releaseProgress.complete) {
+			if (creatorFromAddress(projection.bountyAddress) === pubkey) bountiesCompleted++;
+			if (
+				projection.consensus.state === 'unique' &&
+				projection.consensus.winner.pubkey === pubkey
+			) {
+				solutionsAccepted++;
+			}
+		}
+		for (const retraction of projection.authorizedRetractions) {
+			if (retraction.pubkey !== pubkey) continue;
+			if (retraction.type === 'bounty') bountyRetractionIds.add(retraction.id);
+			else pledgeRetractionIds.add(retraction.id);
+		}
+	}
 
-	// Release rate
+	const totalPledges = pledgeIds.size;
+	const pledgesReleased = [...releasedPledgeIds].filter((id) => pledgeIds.has(id)).length;
 	const releaseRate = totalPledges > 0 ? pledgesReleased / totalPledges : 1;
-
-	// Solutions accepted: payouts where this pubkey is the solver (p tag)
-	const solutionsAccepted = payoutEvents.filter((e) => getTagValue(e, 'p') === pubkey).length;
-
-	// Count retractions from Kind 73006 events targeting this pubkey
-	const targetingEvents = reputationEvents.filter(
-		(e) => e.kind === REPUTATION_KIND && getTagValue(e, 'p') === pubkey
-	);
-	const bountyRetractions = targetingEvents.filter(
-		(e) => getTagValue(e, 'type') === 'bounty_retraction'
-	).length;
-	const pledgeRetractions = targetingEvents.filter(
-		(e) => getTagValue(e, 'type') === 'pledge_retraction'
-	).length;
-
+	const bountyRetractions = bountyRetractionIds.size;
+	const pledgeRetractions = pledgeRetractionIds.size;
 	const totalRetractions = bountyRetractions + pledgeRetractions;
 	const totalCompletions = bountiesCompleted + pledgesReleased + solutionsAccepted;
 	const totalInteractions = totalCompletions + totalRetractions;
 
-	// Derive tier
 	let tier: ReputationTier = 'new';
-
-	if (totalRetractions > 0 && totalRetractions > totalCompletions) {
-		tier = 'flagged';
-	} else if (totalInteractions >= 25 && releaseRate > 0.95 && bountyRetractions === 0) {
+	if (totalRetractions > totalCompletions) tier = 'flagged';
+	else if (totalInteractions >= 25 && releaseRate > 0.95 && bountyRetractions === 0)
 		tier = 'trusted';
-	} else if (totalInteractions >= 10 && releaseRate > 0.9) {
-		tier = 'established';
-	} else if (totalInteractions >= 3 && totalRetractions === 0) {
-		tier = 'emerging';
-	}
+	else if (totalInteractions >= 10 && releaseRate > 0.9) tier = 'established';
+	else if (totalInteractions >= 3 && totalRetractions === 0) tier = 'emerging';
 
 	return {
 		bountiesCompleted,

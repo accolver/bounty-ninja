@@ -193,6 +193,8 @@ export function parsePayout(event: NostrEvent, pledgerPubkeys?: string[]): Payou
 		solverPubkey,
 		amount: Number.isNaN(amount) ? 0 : amount,
 		cashuToken,
+		sourcePledgeId: null,
+		mintUrl: getTagValue(event, 'mint') ?? null,
 		createdAt: event.created_at
 	};
 }

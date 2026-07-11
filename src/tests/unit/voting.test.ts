@@ -197,6 +197,24 @@ describe('tallyVotes', () => {
 		expect(tally.isApproved).toBe(true);
 	});
 
+	it('breaks equal-timestamp vote replacements by event id', () => {
+		const alice = 'alice'.padEnd(64, '0');
+		const votes = [
+			mockVote({ id: '1'.repeat(64), pubkey: alice, choice: 'approve', createdAt: 100 }),
+			mockVote({ id: '2'.repeat(64), pubkey: alice, choice: 'reject', createdAt: 100 })
+		];
+		const tally = tallyVotes(votes.reverse(), new Map([[alice, 50_000]]), 50_000);
+		expect(tally.approveWeight).toBe(0);
+		expect(tally.rejectWeight).toBe(50_000);
+	});
+
+	it('counts a replayed vote event once', () => {
+		const alice = 'alice'.padEnd(64, '0');
+		const replay = mockVote({ id: '1'.repeat(64), pubkey: alice, createdAt: 100 });
+		const tally = tallyVotes([replay, replay], new Map([[alice, 50_000]]), 50_000);
+		expect(tally.approveWeight).toBe(50_000);
+	});
+
 	it('returns zero tally when totalPledgedSats is zero', () => {
 		const pledgesByPubkey = new Map<string, number>();
 		const totalPledged = 0;

@@ -1,144 +1,166 @@
-import { describe, it, expect } from 'vitest';
-import type { NostrEvent } from 'nostr-tools';
-import { deriveReputation } from '$lib/reputation/score';
-import { PAYOUT_KIND, PLEDGE_KIND, REPUTATION_KIND } from '$lib/bounty/kinds';
+import { describe, expect, it } from 'vitest';
+import type { Payout, Pledge, Retraction, Solution, VoteTally } from '$lib/bounty/types';
+import { deriveReputation, type ReputationProjection } from '$lib/reputation/score';
 
-const PUBKEY_A = 'a'.repeat(64);
-const PUBKEY_B = 'b'.repeat(64);
-const SIG = 'c'.repeat(128);
-/** Task address where PUBKEY_B is the bounty creator (NOT PUBKEY_A) */
-const TASK_ADDR_BY_B = `37300:${PUBKEY_B}:bounty-123`;
-/** Task address where PUBKEY_A is the bounty creator */
-const TASK_ADDR_BY_A = `37300:${PUBKEY_A}:bounty-456`;
+const USER = 'a'.repeat(64);
+const OTHER = 'b'.repeat(64);
+const SOLVER = 'c'.repeat(64);
 
-function mockEvent(overrides: Partial<NostrEvent> = {}): NostrEvent {
+function projection(
+	id: number,
+	overrides: Partial<ReputationProjection> = {}
+): ReputationProjection {
+	const bountyAddress = `37300:${OTHER}:bounty-${id}`;
 	return {
-		id: 'e'.repeat(64),
-		pubkey: PUBKEY_B,
-		created_at: Math.floor(Date.now() / 1000),
-		kind: 1,
-		tags: [],
-		content: '',
-		sig: SIG,
+		bountyAddress,
+		projectedAt: id,
+		validatedPledges: [],
+		consensus: { state: 'none', tallies: new Map() },
+		authorizedRetractions: [],
+		validPayouts: [],
+		releaseProgress: {
+			requiredPledgeIds: new Set(),
+			releasedPledgeIds: new Set(),
+			releasedAmount: 0,
+			totalAmount: 0,
+			complete: false
+		},
 		...overrides
 	};
 }
 
-function makePayout(opts: { pubkey?: string; solverPubkey?: string; taskAddr?: string } = {}): NostrEvent {
-	return mockEvent({
-		kind: PAYOUT_KIND,
-		pubkey: opts.pubkey ?? PUBKEY_B,
-		tags: [
-			['a', opts.taskAddr ?? TASK_ADDR_BY_B],
-			['p', opts.solverPubkey ?? PUBKEY_B],
-			['e', '1'.repeat(64)]
-		]
-	});
+function pledge(id: string, pubkey = USER): Pledge {
+	return { id, pubkey } as Pledge;
 }
 
-function makePledge(pubkey: string = PUBKEY_A): NostrEvent {
-	return mockEvent({
-		kind: PLEDGE_KIND,
-		pubkey,
-		tags: [['a', TASK_ADDR_BY_B]]
-	});
+function payout(id: string, source: Pledge, pubkey = source.pubkey): Payout {
+	return { id, pubkey, sourcePledgeId: source.id } as Payout;
 }
 
-function makeRepEvent(opts: { targetPubkey: string; type: string }): NostrEvent {
-	return mockEvent({
-		kind: REPUTATION_KIND,
-		tags: [
-			['p', opts.targetPubkey],
-			['type', opts.type],
-			['e', '1'.repeat(64)]
-		]
+function completeProjection(
+	id: number,
+	creator: string,
+	solver: string,
+	pledges: Pledge[],
+	payouts: Payout[]
+): ReputationProjection {
+	const winner = { id: `solution-${id}`, pubkey: solver } as Solution;
+	const tally = {} as VoteTally;
+	return projection(id, {
+		bountyAddress: `37300:${creator}:bounty-${id}`,
+		validatedPledges: pledges,
+		validPayouts: payouts,
+		consensus: { state: 'unique', winner, tallies: new Map([[winner.id, tally]]) },
+		releaseProgress: {
+			requiredPledgeIds: new Set(pledges.map((item) => item.id)),
+			releasedPledgeIds: new Set(payouts.map((item) => item.sourcePledgeId!)),
+			releasedAmount: payouts.length,
+			totalAmount: pledges.length,
+			complete: true
+		}
 	});
 }
 
 describe('deriveReputation', () => {
-	it('returns "new" tier for user with no events', () => {
-		const score = deriveReputation(PUBKEY_A, [], [], []);
-		expect(score.tier).toBe('new');
-		expect(score.bountiesCompleted).toBe(0);
-		expect(score.releaseRate).toBe(1); // No pledges = 100% rate
+	it('returns neutral new reputation without trusted projections', () => {
+		expect(deriveReputation(USER, [])).toEqual({
+			bountiesCompleted: 0,
+			pledgesReleased: 0,
+			totalPledges: 0,
+			releaseRate: 1,
+			solutionsAccepted: 0,
+			bountyRetractions: 0,
+			pledgeRetractions: 0,
+			tier: 'new'
+		});
 	});
 
-	it('returns "emerging" for user with 5 completions and 0 retractions', () => {
-		// 5 payouts where PUBKEY_A is the solver
-		const payouts = Array.from({ length: 5 }, () =>
-			makePayout({ solverPubkey: PUBKEY_A })
-		);
-		const score = deriveReputation(PUBKEY_A, payouts, [], []);
-		expect(score.tier).toBe('emerging');
-		expect(score.solutionsAccepted).toBe(5);
-	});
-
-	it('returns "established" for user with 15 completions', () => {
-		const payouts = Array.from({ length: 15 }, () =>
-			makePayout({ solverPubkey: PUBKEY_A })
-		);
-		const score = deriveReputation(PUBKEY_A, payouts, [], []);
-		expect(score.tier).toBe('established');
-	});
-
-	it('returns "trusted" for user with 30 completions and perfect release rate', () => {
-		// 15 payouts as solver (bounty by someone else) + 15 pledges all released by PUBKEY_A
-		const solverPayouts = Array.from({ length: 15 }, () =>
-			makePayout({ solverPubkey: PUBKEY_A, taskAddr: TASK_ADDR_BY_B })
-		);
-		const pledgerPayouts = Array.from({ length: 15 }, () =>
-			makePayout({ pubkey: PUBKEY_A, taskAddr: TASK_ADDR_BY_B })
-		);
-		const pledges = Array.from({ length: 15 }, () => makePledge(PUBKEY_A));
-		const payouts = [...solverPayouts, ...pledgerPayouts];
-		const score = deriveReputation(PUBKEY_A, payouts, [], pledges);
-		expect(score.tier).toBe('trusted');
+	it('credits only valid source-bound payouts represented by the projection', () => {
+		const source = pledge('pledge-1');
+		const score = deriveReputation(USER, [
+			completeProjection(1, OTHER, SOLVER, [source], [payout('payout-1', source)])
+		]);
+		expect(score.totalPledges).toBe(1);
+		expect(score.pledgesReleased).toBe(1);
 		expect(score.releaseRate).toBe(1);
-		expect(score.bountyRetractions).toBe(0);
 	});
 
-	it('returns "flagged" for user with retractions dominating history', () => {
-		// 1 completion, 2 retractions
-		const payouts = [makePayout({ solverPubkey: PUBKEY_A })];
-		const repEvents = [
-			makeRepEvent({ targetPubkey: PUBKEY_A, type: 'bounty_retraction' }),
-			makeRepEvent({ targetPubkey: PUBKEY_A, type: 'bounty_retraction' })
-		];
-		const score = deriveReputation(PUBKEY_A, payouts, repEvents, []);
-		expect(score.tier).toBe('flagged');
-		expect(score.bountyRetractions).toBe(2);
+	it('does not credit incomplete releases as completed bounties or accepted solutions', () => {
+		const source = pledge('pledge-1', OTHER);
+		const winner = { id: 'solution', pubkey: USER } as Solution;
+		const incomplete = projection(1, {
+			bountyAddress: `37300:${USER}:bounty`,
+			consensus: { state: 'unique', winner, tallies: new Map() },
+			validatedPledges: [source]
+		});
+		const score = deriveReputation(USER, [incomplete]);
+		expect(score.bountiesCompleted).toBe(0);
+		expect(score.solutionsAccepted).toBe(0);
 	});
 
-	it('does not flag user when completions exceed retractions', () => {
-		const payouts = Array.from({ length: 10 }, () =>
-			makePayout({ solverPubkey: PUBKEY_A })
+	it('counts one completion and accepted solution across multiple source payouts', () => {
+		const first = pledge('pledge-1');
+		const second = pledge('pledge-2');
+		const result = completeProjection(
+			1,
+			USER,
+			USER,
+			[first, second],
+			[payout('payout-1', first), payout('payout-2', second)]
 		);
-		const repEvents = [
-			makeRepEvent({ targetPubkey: PUBKEY_A, type: 'bounty_retraction' })
-		];
-		const score = deriveReputation(PUBKEY_A, payouts, repEvents, []);
-		// 10 completions, 1 retraction — not flagged, but retraction blocks "emerging" (needs 0 retractions)
-		// 11 total interactions >= 10 and releaseRate > 0.9 → established
-		expect(score.tier).toBe('established');
+		const score = deriveReputation(USER, [result]);
+		expect(score.bountiesCompleted).toBe(1);
+		expect(score.solutionsAccepted).toBe(1);
+		expect(score.pledgesReleased).toBe(2);
 	});
 
-	it('counts pledge retractions separately', () => {
-		const repEvents = [
-			makeRepEvent({ targetPubkey: PUBKEY_A, type: 'pledge_retraction' })
-		];
-		const score = deriveReputation(PUBKEY_A, [], repEvents, []);
+	it('deduplicates source payouts and repeated projections', () => {
+		const source = pledge('pledge-1');
+		const result = completeProjection(
+			1,
+			OTHER,
+			SOLVER,
+			[source],
+			[payout('payout-1', source), payout('payout-2', source)]
+		);
+		const newer = { ...result, projectedAt: 2 };
+		const score = deriveReputation(USER, [result, newer]);
+		expect(score.totalPledges).toBe(1);
+		expect(score.pledgesReleased).toBe(1);
+	});
+
+	it('uses validated pledges only for the release-rate denominator', () => {
+		const released = pledge('pledge-1');
+		const unreleased = pledge('pledge-2');
+		const score = deriveReputation(USER, [
+			projection(1, {
+				validatedPledges: [released, unreleased],
+				validPayouts: [payout('payout-1', released)]
+			})
+		]);
+		expect(score.totalPledges).toBe(2);
+		expect(score.pledgesReleased).toBe(1);
+		expect(score.releaseRate).toBe(0.5);
+	});
+
+	it('counts only authorized retractions supplied by the projection and deduplicates IDs', () => {
+		const bountyRetraction = { id: 'r1', pubkey: USER, type: 'bounty' } as Retraction;
+		const pledgeRetraction = { id: 'r2', pubkey: USER, type: 'pledge' } as Retraction;
+		const score = deriveReputation(USER, [
+			projection(1, {
+				authorizedRetractions: [bountyRetraction, bountyRetraction, pledgeRetraction]
+			})
+		]);
+		expect(score.bountyRetractions).toBe(1);
 		expect(score.pledgeRetractions).toBe(1);
-		expect(score.bountyRetractions).toBe(0);
+		expect(score.tier).toBe('flagged');
 	});
 
-	it('computes correct release rate', () => {
-		const pledges = Array.from({ length: 10 }, () => makePledge(PUBKEY_A));
-		const payouts = Array.from({ length: 8 }, () =>
-			makePayout({ pubkey: PUBKEY_A })
-		);
-		const score = deriveReputation(PUBKEY_A, payouts, [], pledges);
-		expect(score.totalPledges).toBe(10);
-		expect(score.pledgesReleased).toBe(8);
-		expect(score.releaseRate).toBeCloseTo(0.8);
+	it('ignores authorized retractions belonging to another user', () => {
+		const otherRetraction = { id: 'r1', pubkey: OTHER, type: 'bounty' } as Retraction;
+		const score = deriveReputation(USER, [
+			projection(1, { authorizedRetractions: [otherRetraction] })
+		]);
+		expect(score.bountyRetractions).toBe(0);
 	});
 });

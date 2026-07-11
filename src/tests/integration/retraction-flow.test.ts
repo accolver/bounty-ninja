@@ -14,10 +14,21 @@ vi.mock('$lib/utils/env', () => ({
 	getVoteQuorumFraction: () => 0.66
 }));
 
-import { BOUNTY_KIND, SOLUTION_KIND, PLEDGE_KIND, RETRACTION_KIND, REPUTATION_KIND } from '$lib/bounty/kinds';
+import {
+	BOUNTY_KIND,
+	SOLUTION_KIND,
+	PLEDGE_KIND,
+	RETRACTION_KIND,
+	REPUTATION_KIND
+} from '$lib/bounty/kinds';
 import { retractionBlueprint, reputationBlueprint } from '$lib/bounty/blueprints';
 import { parseRetraction } from '$lib/bounty/helpers';
 import { deriveBountyStatus } from '$lib/bounty/state-machine';
+import type { Bounty, Pledge } from '$lib/bounty/types';
+import {
+	validateBountyRetraction,
+	validatePledgeRetraction
+} from '$lib/bounty/retraction-validation';
 
 const CREATOR_PUBKEY = 'a'.repeat(64);
 const PLEDGER_PUBKEY = 'b'.repeat(64);
@@ -71,7 +82,9 @@ describe('Retraction flow', () => {
 		expect(hasSolutions).toBe(false);
 
 		// Status should be cancelled
-		const status = deriveBountyStatus(bountyEvent, [], [], [], [], undefined, false, [retractionEvent]);
+		const status = deriveBountyStatus(bountyEvent, [], [], [], [], undefined, false, [
+			retractionEvent
+		]);
 		expect(status).toBe('cancelled');
 
 		// Parse the retraction
@@ -110,7 +123,9 @@ describe('Retraction flow', () => {
 		const repEvent = signEvent(repTemplate, CREATOR_PUBKEY);
 		expect(repEvent.kind).toBe(REPUTATION_KIND);
 
-		const status = deriveBountyStatus(bountyEvent, [], [solutionEvent], [], [], undefined, false, [retractionEvent]);
+		const status = deriveBountyStatus(bountyEvent, [], [solutionEvent], [], [], undefined, false, [
+			retractionEvent
+		]);
 		expect(status).toBe('cancelled');
 	});
 
@@ -139,7 +154,9 @@ describe('Retraction flow', () => {
 		expect(parsed!.pledgeEventId).toBe(pledgeEvent.id);
 
 		// Pledge retraction should NOT cancel the bounty
-		const status = deriveBountyStatus(bountyEvent, [pledgeEvent], [], [], [], undefined, false, [retractionEvent]);
+		const status = deriveBountyStatus(bountyEvent, [pledgeEvent], [], [], [], undefined, false, [
+			retractionEvent
+		]);
 		expect(status).toBe('open');
 
 		// Filter out retracted pledges
@@ -188,7 +205,79 @@ describe('Retraction flow', () => {
 		expect(repEvent.kind).toBe(REPUTATION_KIND);
 
 		// Bounty still open (pledge retraction doesn't cancel)
-		const status = deriveBountyStatus(bountyEvent, [pledgeEvent], [solutionEvent], [], [], undefined, false, [retractionEvent]);
+		const status = deriveBountyStatus(
+			bountyEvent,
+			[pledgeEvent],
+			[solutionEvent],
+			[],
+			[],
+			undefined,
+			false,
+			[retractionEvent]
+		);
 		expect(status).toBe('in_review');
+	});
+});
+
+describe('Retraction authorization', () => {
+	const bounty = {
+		pubkey: CREATOR_PUBKEY,
+		dTag: 'test-bounty'
+	} as Bounty;
+	const pledge = {
+		id: '6'.repeat(64),
+		pubkey: PLEDGER_PUBKEY,
+		bountyAddress: TASK_ADDR
+	} as Pledge;
+
+	function parsedRetraction(
+		author: string,
+		type: 'bounty' | 'pledge',
+		taskAddress = TASK_ADDR,
+		pledgeEventId = pledge.id
+	) {
+		const template = retractionBlueprint({
+			taskAddress,
+			type,
+			pledgeEventId: type === 'pledge' ? pledgeEventId : undefined,
+			creatorPubkey: CREATOR_PUBKEY
+		});
+		return parseRetraction(signEvent(template, author))!;
+	}
+
+	it('accepts only the bounty creator for the exact bounty address', () => {
+		expect(validateBountyRetraction(parsedRetraction(CREATOR_PUBKEY, 'bounty'), bounty).valid).toBe(
+			true
+		);
+		expect(validateBountyRetraction(parsedRetraction(PLEDGER_PUBKEY, 'bounty'), bounty).valid).toBe(
+			false
+		);
+		expect(
+			validateBountyRetraction(
+				parsedRetraction(CREATOR_PUBKEY, 'bounty', `${TASK_ADDR}-other`),
+				bounty
+			).valid
+		).toBe(false);
+	});
+
+	it('accepts only the source pledge owner and same-bounty relationship', () => {
+		expect(
+			validatePledgeRetraction(parsedRetraction(PLEDGER_PUBKEY, 'pledge'), pledge, TASK_ADDR).valid
+		).toBe(true);
+		expect(
+			validatePledgeRetraction(parsedRetraction(CREATOR_PUBKEY, 'pledge'), pledge, TASK_ADDR).valid
+		).toBe(false);
+		expect(
+			validatePledgeRetraction(
+				parsedRetraction(PLEDGER_PUBKEY, 'pledge', `${TASK_ADDR}-other`),
+				pledge,
+				TASK_ADDR
+			).valid
+		).toBe(false);
+	});
+
+	it('rejects unknown source pledge references', () => {
+		const unknown = parsedRetraction(PLEDGER_PUBKEY, 'pledge', TASK_ADDR, '9'.repeat(64));
+		expect(validatePledgeRetraction(unknown, pledge, TASK_ADDR).valid).toBe(false);
 	});
 });

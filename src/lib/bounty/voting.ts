@@ -1,5 +1,6 @@
-import type { Vote, VoteTally } from './types';
+import type { ConsensusResult, Solution, Vote, VoteTally } from './types';
 import { getVoteQuorumFraction } from '$lib/utils/env';
+import { compareEventOrder } from './event-order';
 
 /**
  * Calculate the voting weight for a given pledge amount.
@@ -41,11 +42,11 @@ export function tallyVotes(
 
 	const quorum = totalPledgedSats * getVoteQuorumFraction();
 
-	// Deduplicate: keep only the latest vote per pubkey (highest created_at)
+	// Deduplicate using the protocol's total event order.
 	const latestVoteByPubkey = new Map<string, Vote>();
 	for (const vote of votes) {
 		const existing = latestVoteByPubkey.get(vote.pubkey);
-		if (!existing || vote.createdAt > existing.createdAt) {
+		if (!existing || compareEventOrder(existing, vote) < 0) {
 			latestVoteByPubkey.set(vote.pubkey, vote);
 		}
 	}
@@ -84,5 +85,34 @@ export function tallyVotes(
 		isRejected: !isTied && rejectWeight > approveWeight && rejectWeight >= quorum,
 		isTied,
 		quorumPercent
+	};
+}
+
+export function deriveConsensus(
+	solutions: readonly Solution[],
+	votes: readonly Vote[],
+	votingPowerByPubkey: ReadonlyMap<string, number>,
+	totalPledgedSats: number,
+	relatedEventsComplete: boolean
+): ConsensusResult {
+	const tallies = new Map<string, VoteTally>();
+	for (const solution of solutions) {
+		const solutionVotes = votes.filter((vote) => vote.solutionId === solution.id);
+		tallies.set(
+			solution.id,
+			tallyVotes(solutionVotes, new Map(votingPowerByPubkey), totalPledgedSats)
+		);
+	}
+
+	if (!relatedEventsComplete) {
+		return { state: 'incomplete', reason: 'Related event loading is incomplete', tallies };
+	}
+	const approved = solutions.filter((solution) => tallies.get(solution.id)?.isApproved);
+	if (approved.length === 0) return { state: 'none', tallies };
+	if (approved.length === 1) return { state: 'unique', winner: approved[0], tallies };
+	return {
+		state: 'ambiguous',
+		approvedSolutionIds: approved.map((solution) => solution.id).sort(),
+		tallies
 	};
 }
