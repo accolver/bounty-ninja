@@ -4,7 +4,7 @@
 	import { pledgeBlueprint } from '$lib/bounty/blueprints';
 	import { PLEDGE_KIND } from '$lib/bounty/kinds';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import { getDefaultMint } from '$lib/utils/env';
+	import { arePaymentWritesEnabled, getDefaultMint } from '$lib/utils/env';
 	import { rateLimiter } from '$lib/nostr/rate-limiter';
 	import { decodeToken, encodeToken, getProofsAmount } from '$lib/cashu/token';
 	import { createPledgeToken } from '$lib/cashu/escrow';
@@ -18,6 +18,9 @@
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import CoinsIcon from '@lucide/svelte/icons/coins';
 	import { connectivity } from '$lib/stores/connectivity.svelte';
+	import PaymentUnavailable from '$lib/components/shared/PaymentUnavailable.svelte';
+
+	const paymentWritesEnabled = arePaymentWritesEnabled();
 
 	let {
 		bountyAddress,
@@ -110,7 +113,12 @@
 	const isValidToken = $derived(decodedToken !== null && !mintMismatch);
 
 	const isValid = $derived(
-		isValidToken && acknowledged && !submitting && !isRateLimited && connectivity.online
+		paymentWritesEnabled &&
+			isValidToken &&
+			acknowledged &&
+			!submitting &&
+			!isRateLimited &&
+			connectivity.online
 	);
 
 	const formattedAmount = $derived(
@@ -118,6 +126,7 @@
 	);
 
 	async function handleSubmit() {
+		if (!paymentWritesEnabled) return;
 		if (!isValid || !accountState.pubkey || !decodedToken) return;
 
 		// Rate limit check
@@ -198,6 +207,9 @@
 				Paste a Cashu token from your wallet to pledge sats to this bounty.
 			</Dialog.Description>
 		</Dialog.Header>
+		{#if !paymentWritesEnabled}
+			<PaymentUnavailable action="Pledging" />
+		{/if}
 
 		<form
 			onsubmit={(e) => {
@@ -214,7 +226,7 @@
 					id="pledge-token"
 					bind:value={tokenInput}
 					rows={3}
-					disabled={submitting}
+					disabled={submitting || !paymentWritesEnabled}
 					placeholder="Paste a cashuA... or cashuB... token"
 					spellcheck={false}
 					autocomplete="off"
@@ -258,7 +270,7 @@
 					bind:value={message}
 					rows={2}
 					maxlength={280}
-					disabled={submitting}
+					disabled={submitting || !paymentWritesEnabled}
 					placeholder="Leave a note for the bounty creator..."
 					class="border-border bg-input dark:bg-input/30 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-full rounded-md border px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
 				></textarea>
@@ -284,7 +296,7 @@
 							<input
 								type="checkbox"
 								bind:checked={acknowledged}
-								disabled={submitting}
+								disabled={submitting || !paymentWritesEnabled}
 								class="pledge-checkbox mt-0.5 size-4 shrink-0"
 								aria-describedby="acknowledge-desc"
 							/>
@@ -306,10 +318,12 @@
 				>
 					Cancel
 				</Button>
-				<Button type="submit" disabled={!isValid}>
+				<Button type="submit" disabled={!isValid || !paymentWritesEnabled}>
 					{#if submitting}
 						<LoadingSpinner size="sm" />
 						Locking tokens...
+					{:else if !paymentWritesEnabled}
+						Payments disabled
 					{:else if isRateLimited}
 						Wait {rateLimitRemaining}s
 					{:else if !connectivity.online}

@@ -3,15 +3,15 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
 	plugins: [sveltekit()],
+	resolve: {
+		conditions: ['browser']
+	},
 	test: {
 		include: [
 			'src/tests/unit/**/*.{test,spec}.{js,ts}',
 			'src/tests/integration/**/*.{test,spec}.{js,ts}'
 		],
-		exclude: [
-			'src/tests/e2e/**',
-			'node_modules/**'
-		],
+		exclude: ['src/tests/e2e/**', 'node_modules/**'],
 		environment: 'jsdom'
 	}
 });

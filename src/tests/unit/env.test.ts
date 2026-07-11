@@ -1,13 +1,30 @@
-import { describe, it, expect, vi } from 'vitest';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
+
+const { publicEnv } = vi.hoisted(() => ({
+	publicEnv: {} as Record<string, string | undefined>
+}));
 
 // Mock the SvelteKit env module before importing
 vi.mock('$env/dynamic/public', () => ({
-	env: {}
+	env: publicEnv
 }));
 
-const { getDefaultRelays, getDefaultMint, getAppName, getAppUrl, getMinSubmissionFee, getMaxSubmissionFee, getSearchRelay } = await import('$lib/utils/env');
+const {
+	getDefaultRelays,
+	getDefaultMint,
+	arePaymentWritesEnabled,
+	getAppName,
+	getAppUrl,
+	getMinSubmissionFee,
+	getMaxSubmissionFee,
+	getSearchRelay
+} = await import('$lib/utils/env');
 
 describe('env accessors', () => {
+	beforeEach(() => {
+		for (const key of Object.keys(publicEnv)) delete publicEnv[key];
+	});
+
 	it('getDefaultRelays returns fallback relay list when env is undefined', () => {
 		const relays = getDefaultRelays();
 		expect(relays).toBeInstanceOf(Array);
@@ -18,6 +35,23 @@ describe('env accessors', () => {
 	it('getDefaultMint returns fallback mint URL', () => {
 		const mint = getDefaultMint();
 		expect(mint).toMatch(/^https:\/\//);
+	});
+
+	it('disables payment writes by default', () => {
+		expect(arePaymentWritesEnabled()).toBe(false);
+	});
+
+	it('enables payment writes only for an explicit true value', () => {
+		publicEnv.PUBLIC_PAYMENT_WRITES_ENABLED = 'true';
+		expect(arePaymentWritesEnabled()).toBe(true);
+
+		publicEnv.PUBLIC_PAYMENT_WRITES_ENABLED = ' TRUE ';
+		expect(arePaymentWritesEnabled()).toBe(true);
+	});
+
+	it.each(['false', '1', 'yes', 'enabled', ''])('fails closed for %j', (value) => {
+		publicEnv.PUBLIC_PAYMENT_WRITES_ENABLED = value;
+		expect(arePaymentWritesEnabled()).toBe(false);
 	});
 
 	it('getAppName returns fallback name', () => {

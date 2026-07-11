@@ -18,6 +18,10 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import ShieldAlertIcon from '@lucide/svelte/icons/shield-alert';
+	import { arePaymentWritesEnabled } from '$lib/utils/env';
+	import PaymentUnavailable from '$lib/components/shared/PaymentUnavailable.svelte';
+
+	const paymentWritesEnabled = arePaymentWritesEnabled();
 
 	let {
 		bountyAddress,
@@ -92,7 +96,8 @@
 
 	/** Show release button only for pledgers who haven't released yet */
 	const canRelease = $derived(
-		accountState.isLoggedIn &&
+		paymentWritesEnabled &&
+			accountState.isLoggedIn &&
 			isPledger &&
 			!hasReleased &&
 			winningSolution !== undefined &&
@@ -191,6 +196,7 @@
 	}
 
 	async function handleRelease() {
+		if (!paymentWritesEnabled) return;
 		if (!winningSolution || processing || !isKeyValid) return;
 
 		// Rate limit check
@@ -311,6 +317,10 @@
 			You have released your funds ({myTotalPledged.toLocaleString()} sats).
 		</p>
 	</div>
+{/if}
+
+{#if !paymentWritesEnabled && accountState.isLoggedIn && isPledger && !hasReleased && winningSolution}
+	<PaymentUnavailable action="Fund release" />
 {/if}
 
 <!-- Release dialog for pledgers who haven't released -->

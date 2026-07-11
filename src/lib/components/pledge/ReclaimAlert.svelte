@@ -8,6 +8,10 @@
 	import { nip19 } from 'nostr-tools';
 	import SatAmount from '$lib/components/shared/SatAmount.svelte';
 	import { config } from '$lib/config';
+	import { arePaymentWritesEnabled } from '$lib/utils/env';
+	import PaymentUnavailable from '$lib/components/shared/PaymentUnavailable.svelte';
+
+	const paymentWritesEnabled = arePaymentWritesEnabled();
 
 	const { detail }: { detail: BountyDetail } = $props();
 
@@ -76,6 +80,7 @@
 	}
 
 	async function handleReclaim() {
+		if (!paymentWritesEnabled) return;
 		if (!isValidKey(privkeyInput)) {
 			toastStore.error('Invalid private key. Enter your nsec or hex private key.');
 			return;
@@ -166,7 +171,9 @@
 					payout, you can reclaim your tokens. Your tokens are locked to your own key, so reclaim is straightforward.
 				</p>
 
-				{#if !showKeyInput}
+				{#if !paymentWritesEnabled}
+					<PaymentUnavailable action="Pledge reclaim" />
+				{:else if !showKeyInput}
 					<div class="flex gap-2 pt-1">
 						<button
 							type="button"

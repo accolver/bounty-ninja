@@ -33,6 +33,7 @@ export const config = {
 
 	// Payments
 	payments: {
+		writesEnabled: false,
 		defaultMint: 'https://mint.minibits.cash/Bitcoin',
 		minSubmissionFee: 10,
 		maxSubmissionFee: 10000,

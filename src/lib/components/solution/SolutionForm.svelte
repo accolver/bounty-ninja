@@ -19,6 +19,10 @@
 	import CoinsIcon from '@lucide/svelte/icons/coins';
 	import XIcon from '@lucide/svelte/icons/x';
 	import { connectivity } from '$lib/stores/connectivity.svelte';
+	import { arePaymentWritesEnabled } from '$lib/utils/env';
+	import PaymentUnavailable from '$lib/components/shared/PaymentUnavailable.svelte';
+
+	const paymentWritesEnabled = arePaymentWritesEnabled();
 
 	// ── Constants ────────────────────────────────────────────────
 	const DESCRIPTION_MAX = 100_000;
@@ -152,10 +156,12 @@
 			isUrlValid &&
 			!submitting &&
 			!isRateLimited &&
-			connectivity.online
+			connectivity.online &&
+			(feeAmount <= 0 || paymentWritesEnabled)
 	);
 
 	async function handleSubmit() {
+		if (feeAmount > 0 && !paymentWritesEnabled) return;
 		if (!isValid || !canSubmit || !accountState.pubkey) return;
 
 		// Rate limit check
@@ -320,6 +326,9 @@
 			<!-- Anti-spam fee (set by bounty creator, immutable) -->
 			{#if feeAmount > 0}
 				<div class="space-y-3">
+					{#if !paymentWritesEnabled}
+						<PaymentUnavailable action="Submission fees" />
+					{/if}
 					<label for="solution-fee-token" class="text-sm font-medium text-foreground">
 						<span class="inline-flex items-center gap-1.5">
 							<CoinsIcon class="size-3.5" />
@@ -343,7 +352,7 @@
 										<button
 											type="button"
 											onclick={() => removeFeeToken(i)}
-											disabled={submitting}
+											disabled={submitting || !paymentWritesEnabled}
 											class="cursor-pointer rounded p-0.5 text-muted-foreground transition-colors hover:bg-destructive/20 hover:text-destructive focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
 											aria-label="Remove token"
 										>
@@ -388,7 +397,7 @@
 								id="solution-fee-token"
 								bind:value={feeTokenInput}
 								rows={2}
-								disabled={submitting || decoding}
+								disabled={submitting || decoding || !paymentWritesEnabled}
 								placeholder="Paste a cashuA... or cashuB... token"
 								spellcheck={false}
 								autocomplete="off"
@@ -398,7 +407,7 @@
 							<button
 								type="button"
 								onclick={addFeeToken}
-								disabled={!feeTokenInput.trim() || submitting || decoding}
+								disabled={!feeTokenInput.trim() || submitting || decoding || !paymentWritesEnabled}
 								class="cursor-pointer self-end rounded-md border border-border bg-muted px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
 							>
 								{decoding ? 'Checking...' : 'Add'}
@@ -426,10 +435,15 @@
 				{:else if isRateLimited}
 					<p class="text-xs text-muted-foreground">Please wait {rateLimitRemaining}s</p>
 				{/if}
-				<Button type="submit" disabled={!isValid || !canSubmit}>
+				<Button
+					type="submit"
+					disabled={!isValid || !canSubmit || (feeAmount > 0 && !paymentWritesEnabled)}
+				>
 					{#if submitting}
 						<LoadingSpinner size="sm" />
 						Submitting...
+					{:else if feeAmount > 0 && !paymentWritesEnabled}
+						Payments disabled
 					{:else if !connectivity.online}
 						Offline
 					{:else if isRateLimited}

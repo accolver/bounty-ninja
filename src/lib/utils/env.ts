@@ -54,6 +54,13 @@ export function getDefaultMint(): string {
 	return env.PUBLIC_DEFAULT_MINT ?? config.payments.defaultMint;
 }
 
+/** Payment writes fail closed unless a reviewed build explicitly enables them. */
+export function arePaymentWritesEnabled(): boolean {
+	const configured = env.PUBLIC_PAYMENT_WRITES_ENABLED;
+	if (configured === undefined) return config.payments.writesEnabled;
+	return configured.trim().toLowerCase() === 'true';
+}
+
 /** Returns the application display name */
 export function getAppName(): string {
 	return env.PUBLIC_APP_NAME ?? config.app.nameCaps;
