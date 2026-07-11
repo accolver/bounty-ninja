@@ -4,9 +4,9 @@ import { take, timeout, toArray } from 'rxjs/operators';
 import type { NostrEvent } from 'nostr-tools';
 import type { BountySummary } from '$lib/bounty/types';
 import { eventStore } from '$lib/nostr/event-store';
+import { ingestEventsFrom } from '$lib/nostr/event-ingestion';
 import { pool } from '$lib/nostr/relay-pool';
 import { onlyEvents } from 'applesauce-relay';
-import { mapEventsToStore } from 'applesauce-core';
 import { parseBountySummary } from '$lib/bounty/helpers';
 import { searchBountiesFilter } from '$lib/bounty/filters';
 import { getSearchRelay } from '$lib/utils/env';
@@ -95,9 +95,7 @@ class SearchStore {
 
 					this.#results = summaries.filter((item) => {
 						const titleMatch = item.title.toLowerCase().includes(lowerQuery);
-						const tagMatch = item.tags.some((tag) =>
-							tag.toLowerCase().includes(lowerQuery)
-						);
+						const tagMatch = item.tags.some((tag) => tag.toLowerCase().includes(lowerQuery));
 						return titleMatch || tagMatch;
 					});
 				}
@@ -121,7 +119,7 @@ class SearchStore {
 				.subscription(filter)
 				.pipe(
 					onlyEvents(),
-					mapEventsToStore(eventStore),
+					ingestEventsFrom('search'),
 					timeout(SEARCH_RELAY_TIMEOUT),
 					toArray(),
 					catchError(() => {

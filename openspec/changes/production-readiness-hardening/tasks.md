@@ -8,12 +8,12 @@
 
 ## 2. Untrusted Content and Event Ingestion
 
-- [ ] 2.1 Add a centralized safe event URL helper in `src/lib/utils/` allowing only approved schemes and cover encoded, mixed-case, and malformed URLs in `src/tests/unit/`
-- [ ] 2.2 Apply safe URL handling to `SolutionItem.svelte`, profile links/images, Markdown links, and every event-derived `href` or `src`; add browser-level regression tests
-- [ ] 2.3 Connect `src/lib/utils/sanitize.ts` to the actual `MarkdownViewer.svelte` rendering pipeline and test raw HTML, SVG, protocol, and mutation payloads against the component
-- [ ] 2.4 Centralize live relay, search, cache, profile, and reputation ingestion through signature verification in `src/lib/nostr/`; prove invalid events never reach EventStore or IndexedDB with integration tests
-- [ ] 2.5 Add per-kind content, tag, tag-value, token, and related-event limits to `src/lib/nostr/tag-validator.ts` and reject oversized events before persistence
-- [ ] 2.6 Harden `static/_headers` with `script-src-attr 'none'`, explicit HTML/service-worker cache policies, and a tested inline theme-script authorization strategy
+- [x] 2.1 Add a centralized safe event URL helper in `src/lib/utils/` allowing only approved schemes and cover encoded, mixed-case, and malformed URLs in `src/tests/unit/`
+- [x] 2.2 Apply safe URL handling to `SolutionItem.svelte`, profile links/images, Markdown links, and every event-derived `href` or `src`; add browser-level regression tests
+- [x] 2.3 Connect `src/lib/utils/sanitize.ts` to the actual `MarkdownViewer.svelte` rendering pipeline and test raw HTML, SVG, protocol, and mutation payloads against the component
+- [x] 2.4 Centralize live relay, search, cache, profile, and reputation ingestion through signature verification in `src/lib/nostr/`; prove invalid events never reach EventStore or IndexedDB with integration tests
+- [x] 2.5 Add per-kind content, tag, tag-value, token, and related-event limits to `src/lib/nostr/tag-validator.ts` and reject oversized events before persistence
+- [x] 2.6 Harden `static/_headers` with `script-src-attr 'none'`, explicit HTML/service-worker cache policies, and a tested inline theme-script authorization strategy
 
 ## 3. Trusted Financial Projection
 

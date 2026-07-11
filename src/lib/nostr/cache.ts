@@ -7,7 +7,7 @@ import {
 } from 'nostr-idb';
 import type { NostrEvent, Filter } from 'nostr-tools';
 import { eventStore } from './event-store';
-import { validateEvent } from './event-validator';
+import { ingestEvent, validateIncomingEvent } from './event-ingestion';
 import { clearCacheMeta } from './cache-meta';
 
 let db: NostrIDBDatabase | null = null;
@@ -35,7 +35,7 @@ export async function initCache(): Promise<void> {
 
 	// Subscribe to new events added to the store and persist them
 	eventStore.insert$.subscribe((event: NostrEvent) => {
-		if (db) {
+		if (db && validateIncomingEvent(event).valid) {
 			addEvents(db, [event]);
 		}
 	});
@@ -49,15 +49,14 @@ export async function loadCachedEvents(filters: Filter[]): Promise<void> {
 	if (!db) return;
 	const events = await getEventsForFilters(db, filters);
 	for (const event of events) {
-		if (validateEvent(event)) {
-			eventStore.add(event);
-		} else {
-			// Remove corrupted/tampered events from cache
-			try {
-				await deleteEvent(db, event.id);
-			} catch {
-				console.warn(`[cache] Failed to delete invalid event ${event.id} from IndexedDB`);
-			}
+		if (ingestEvent(event, 'cache')) {
+			continue;
+		}
+		// Remove corrupted, unsupported, or oversized events from cache.
+		try {
+			await deleteEvent(db, event.id);
+		} catch {
+			console.warn(`[cache] Failed to delete invalid event ${event.id} from IndexedDB`);
 		}
 	}
 }

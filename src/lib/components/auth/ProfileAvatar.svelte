@@ -3,6 +3,7 @@
 	import type { NostrEvent } from 'nostr-tools';
 	import { nip19 } from 'nostr-tools';
 	import { eventStore } from '$lib/nostr/event-store';
+	import { safeEventUrl } from '$lib/utils/safe-event-url';
 
 	const {
 		pubkey,
@@ -43,7 +44,7 @@
 		return () => sub?.unsubscribe();
 	});
 
-	const pictureUrl = $derived(profile?.picture ?? null);
+	const pictureUrl = $derived(safeEventUrl(profile?.picture, 'image'));
 	const displayName = $derived(profile?.display_name ?? profile?.name ?? null);
 
 	/**

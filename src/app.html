@@ -37,29 +37,8 @@
 		<title>Bounty.ninja — Decentralized Bounty Board</title>
 
 		<!-- Synchronous theme initialization — prevents flash of wrong theme -->
-		<!-- NOTE: All hardcoded values below MUST match config.ts (can't import JS in raw HTML) -->
-		<script>
-			(function () {
-				try {
-					// MUST match config.storagePrefix + ':theme'
-					var theme = localStorage.getItem('bounty.ninja:theme');
-					if (theme === 'light') {
-						document.documentElement.classList.add('light');
-						var meta = document.querySelector('meta[name="theme-color"]');
-						if (meta) meta.setAttribute('content', '#EDEEE8');
-					} else if (!theme) {
-						// No stored preference — check system preference
-						if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
-							document.documentElement.classList.add('light');
-							var meta2 = document.querySelector('meta[name="theme-color"]');
-							if (meta2) meta2.setAttribute('content', '#EDEEE8');
-						}
-					}
-				} catch (e) {
-					// localStorage unavailable — default dark theme
-				}
-			})();
-		</script>
+		<!-- NOTE: Hardcoded values in theme-init.js must match config.ts. -->
+		<script src="%sveltekit.assets%/theme-init.js"></script>
 
 		%sveltekit.head%
 	</head>

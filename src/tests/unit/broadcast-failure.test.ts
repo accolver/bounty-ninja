@@ -14,11 +14,9 @@ import type { PublishResult } from '$lib/nostr/signer.svelte';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────
 
-// Mock the event store
-vi.mock('$lib/nostr/event-store', () => ({
-	eventStore: {
-		add: vi.fn()
-	}
+// Mock the verified ingestion boundary
+vi.mock('$lib/nostr/event-ingestion', () => ({
+	ingestEvent: vi.fn().mockReturnValue(true)
 }));
 
 // Mock the broadcast module
@@ -58,10 +56,10 @@ vi.mock('$lib/utils/constants', () => ({
 
 import { publishEvent, resetEventFactory } from '$lib/nostr/signer.svelte';
 import { broadcastEvent } from '$lib/nostr/publish';
-import { eventStore } from '$lib/nostr/event-store';
+import { ingestEvent } from '$lib/nostr/event-ingestion';
 
 const mockedBroadcast = vi.mocked(broadcastEvent);
-const mockedEventStoreAdd = vi.mocked(eventStore.add);
+const mockedIngestEvent = vi.mocked(ingestEvent);
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -175,14 +173,15 @@ describe('publishEvent broadcast result', () => {
 		expect(result.event.sig).toBe(TEST_SIG);
 	});
 
-	it('optimistically inserts event into EventStore regardless of broadcast outcome', async () => {
+	it('optimistically ingests the event regardless of broadcast outcome', async () => {
 		mockedBroadcast.mockRejectedValue(new Error('All relays failed'));
 
 		await publishEvent(makeTemplate());
 
-		expect(mockedEventStoreAdd).toHaveBeenCalledTimes(1);
-		expect(mockedEventStoreAdd).toHaveBeenCalledWith(
-			expect.objectContaining({ id: TEST_EVENT_ID })
+		expect(mockedIngestEvent).toHaveBeenCalledTimes(1);
+		expect(mockedIngestEvent).toHaveBeenCalledWith(
+			expect.objectContaining({ id: TEST_EVENT_ID }),
+			'local'
 		);
 	});
 

@@ -1,8 +1,7 @@
 import type { Subscription } from 'rxjs';
 import { pool } from '$lib/nostr/relay-pool';
-import { eventStore } from '$lib/nostr/event-store';
+import { ingestEventsFrom } from '$lib/nostr/event-ingestion';
 import { onlyEvents } from 'applesauce-relay';
-import { mapEventsToStore } from 'applesauce-core';
 import { getDefaultRelays } from '$lib/utils/env';
 import { solutionsForBountyFilter } from '$lib/bounty/filters';
 
@@ -20,7 +19,7 @@ export function createSolutionLoader(bountyAddress: string): { unsubscribe(): vo
 			const sub = pool
 				.relay(url)
 				.subscription(filter)
-				.pipe(onlyEvents(), mapEventsToStore(eventStore))
+				.pipe(onlyEvents(), ingestEventsFrom('relay'))
 				.subscribe();
 			subscriptions.push(sub);
 		} catch (e) {

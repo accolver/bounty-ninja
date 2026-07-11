@@ -9,6 +9,53 @@ import {
 	REPUTATION_KIND
 } from '$lib/bounty/kinds';
 import { getTagValue } from '$lib/nostr/nostr-tags';
+import { CLIENT_TAG } from '$lib/utils/constants';
+import { safeEventUrl } from '$lib/utils/safe-event-url';
+
+const DOMAIN_KINDS = new Set([
+	BOUNTY_KIND,
+	SOLUTION_KIND,
+	PLEDGE_KIND,
+	VOTE_KIND,
+	PAYOUT_KIND,
+	RETRACTION_KIND,
+	REPUTATION_KIND
+]);
+
+const CONTENT_LIMITS: Record<number, number> = {
+	0: 16_384,
+	[BOUNTY_KIND]: 50_000,
+	[SOLUTION_KIND]: 100_000,
+	[PLEDGE_KIND]: 280,
+	[VOTE_KIND]: 0,
+	[PAYOUT_KIND]: 2_000,
+	[RETRACTION_KIND]: 2_000,
+	[REPUTATION_KIND]: 2_000
+};
+
+const TAG_LIMITS: Record<number, number> = {
+	0: 8,
+	[BOUNTY_KIND]: 32,
+	[SOLUTION_KIND]: 32,
+	[PLEDGE_KIND]: 16,
+	[VOTE_KIND]: 12,
+	[PAYOUT_KIND]: 20,
+	[RETRACTION_KIND]: 12,
+	[REPUTATION_KIND]: 12
+};
+
+const SINGLETON_TAGS = new Set([
+	'd',
+	'title',
+	'subject',
+	'reward',
+	'amount',
+	'mint',
+	'vote',
+	'type',
+	'r',
+	'client'
+]);
 
 /**
  * Result of tag validation for a Nostr event.
@@ -37,12 +84,7 @@ function isHex64(value: string): boolean {
  * Check if a string is a valid URL.
  */
 function isValidUrl(value: string): boolean {
-	try {
-		const url = new URL(value);
-		return url.protocol === 'http:' || url.protocol === 'https:';
-	} catch {
-		return false;
-	}
+	return safeEventUrl(value, 'external-link') !== null;
 }
 
 /**
@@ -59,6 +101,7 @@ function isValidBountyAddress(value: string): boolean {
 	if (kindStr !== String(BOUNTY_KIND)) return false;
 	if (!isHex64(pubkey)) return false;
 	if (!dTag || dTag.length === 0) return false;
+	if (dTag.length > 128) return false;
 
 	return true;
 }
@@ -140,6 +183,11 @@ function validateSolutionTags(event: NostrEvent): string[] {
 
 	if (!event.content || event.content.trim().length === 0) {
 		errors.push('Solution event must have non-empty content');
+	}
+
+	const deliverable = getTagValue(event, 'r');
+	if (deliverable && !isValidUrl(deliverable)) {
+		errors.push(`Solution 'r' tag must be a safe HTTPS URL, got: ${deliverable}`);
 	}
 
 	return errors;
@@ -325,4 +373,49 @@ export function validateEventTags(event: NostrEvent): TagValidationResult {
 		valid: errors.length === 0,
 		errors
 	};
+}
+
+/** Reject unsupported or resource-heavy events before parsing or persistence. */
+export function validateEventResources(event: NostrEvent): TagValidationResult {
+	const errors: string[] = [];
+	const contentLimit = CONTENT_LIMITS[event.kind];
+	const tagLimit = TAG_LIMITS[event.kind];
+
+	if (contentLimit === undefined || tagLimit === undefined) {
+		errors.push(`Unsupported event kind: ${event.kind}`);
+		return { valid: false, errors };
+	}
+	if (event.content.length > contentLimit)
+		errors.push(`Content exceeds ${contentLimit} characters`);
+	if (event.tags.length > tagLimit) errors.push(`Tag count exceeds ${tagLimit}`);
+
+	const counts = new Map<string, number>();
+	for (const tag of event.tags) {
+		if (tag.length === 0 || tag.length > 4) errors.push('Tag arity must be between 1 and 4');
+		const name = tag[0] ?? '';
+		counts.set(name, (counts.get(name) ?? 0) + 1);
+		for (let index = 0; index < tag.length; index++) {
+			const value = tag[index] ?? '';
+			const limit = name === 'cashu' && index === 1 ? 262_144 : 2_048;
+			if (value.length > limit) errors.push(`Tag '${name}' value exceeds ${limit} characters`);
+		}
+	}
+
+	for (const name of SINGLETON_TAGS) {
+		if ((counts.get(name) ?? 0) > 1) errors.push(`Tag '${name}' must not be repeated`);
+	}
+	if ((counts.get('cashu') ?? 0) > (event.kind === SOLUTION_KIND ? 16 : 1)) {
+		errors.push("Too many 'cashu' tags");
+	}
+	const title = getTagValue(event, 'title') ?? getTagValue(event, 'subject');
+	if (title && title.length > 200) errors.push('Title exceeds 200 characters');
+	const dTag = getTagValue(event, 'd');
+	if (dTag && dTag.length > 128) errors.push("Tag 'd' exceeds 128 characters");
+
+	if (DOMAIN_KINDS.has(event.kind)) {
+		const client = getTagValue(event, 'client');
+		if (client !== CLIENT_TAG) errors.push(`Missing required client namespace '${CLIENT_TAG}'`);
+	}
+
+	return { valid: errors.length === 0, errors };
 }

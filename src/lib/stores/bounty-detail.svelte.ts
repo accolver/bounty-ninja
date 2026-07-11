@@ -14,8 +14,8 @@ import {
 import { parseRetraction } from '$lib/bounty/helpers';
 import type { Retraction } from '$lib/bounty/types';
 import { pool } from '$lib/nostr/relay-pool';
+import { ingestEventsFrom } from '$lib/nostr/event-ingestion';
 import { onlyEvents } from 'applesauce-relay';
-import { mapEventsToStore } from 'applesauce-core';
 import { getDefaultRelays } from '$lib/utils/env';
 import { createPledgeLoader } from '$lib/nostr/loaders/pledge-loader';
 import { createSolutionLoader } from '$lib/nostr/loaders/solution-loader';
@@ -195,7 +195,7 @@ export class BountyDetailStore {
 				const sub = pool
 					.relay(url)
 					.subscription(filter)
-					.pipe(onlyEvents(), mapEventsToStore(eventStore))
+					.pipe(onlyEvents(), ingestEventsFrom('relay'))
 					.subscribe();
 				this.#relaySubs.push(sub);
 			} catch {
@@ -213,7 +213,7 @@ export class BountyDetailStore {
 				const sub = pool
 					.relay(url)
 					.subscription(filter)
-					.pipe(onlyEvents(), mapEventsToStore(eventStore))
+					.pipe(onlyEvents(), ingestEventsFrom('relay'))
 					.subscribe();
 				this.#relaySubs.push(sub);
 			} catch {

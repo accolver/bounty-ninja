@@ -7,7 +7,7 @@ import {
 	SIGNER_TIMEOUT_MS,
 	CLIENT_TAG
 } from '$lib/utils/constants';
-import { eventStore } from './event-store';
+import { ingestEvent } from './event-ingestion';
 import { broadcastEvent } from './publish';
 import type { BroadcastResult } from './publish';
 
@@ -141,7 +141,9 @@ export async function publishEvent(template: EventTemplate): Promise<PublishResu
 	const signedEvent = await signWithTimeout(factory, template, SIGNER_TIMEOUT_MS);
 
 	// Optimistic insert — event appears in UI immediately
-	eventStore.add(signedEvent);
+	if (!ingestEvent(signedEvent, 'local')) {
+		throw new Error('Signed event failed local validation');
+	}
 
 	// Broadcast to relays
 	let broadcast: BroadcastResult;

@@ -1,9 +1,9 @@
 import type { NostrEvent } from 'nostr-tools';
 import { combineLatest, type Subscription } from 'rxjs';
 import { eventStore } from '$lib/nostr/event-store';
+import { ingestEventsFrom } from '$lib/nostr/event-ingestion';
 import { pool } from '$lib/nostr/relay-pool';
 import { onlyEvents } from 'applesauce-relay';
-import { mapEventsToStore } from 'applesauce-core';
 import { getDefaultRelays } from '$lib/utils/env';
 import { PAYOUT_KIND, PLEDGE_KIND, REPUTATION_KIND } from '$lib/bounty/kinds';
 import { deriveReputation, type ReputationScore } from '$lib/reputation/score';
@@ -91,7 +91,7 @@ export class ReputationStore {
 					const sub = pool
 						.relay(url)
 						.subscription(filter)
-						.pipe(onlyEvents(), mapEventsToStore(eventStore))
+						.pipe(onlyEvents(), ingestEventsFrom('reputation'))
 						.subscribe();
 					subs.push(sub);
 				} catch {

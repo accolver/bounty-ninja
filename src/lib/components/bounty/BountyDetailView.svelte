@@ -32,6 +32,7 @@
 	} from '$lib/components/ui/accordion/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import FileTextIcon from '@lucide/svelte/icons/file-text';
+	import DeliverableLink from '$lib/components/solution/DeliverableLink.svelte';
 
 	const {
 		detail,
@@ -341,17 +342,7 @@
 										<MarkdownViewer content={solution.description} />
 
 										{#if solution.deliverableUrl}
-											<div class="text-sm">
-												<span class="text-muted-foreground">Deliverable: </span>
-												<a
-													href={solution.deliverableUrl}
-													target="_blank"
-													rel="noopener noreferrer"
-													class="font-medium text-foreground underline underline-offset-2 hover:text-primary transition-colors hover:cursor-pointer focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-												>
-													{solution.deliverableUrl}
-												</a>
-											</div>
+											<DeliverableLink url={solution.deliverableUrl} />
 										{/if}
 
 										<!-- Vote progress bar -->

@@ -3,6 +3,7 @@
 	import MarkdownViewer from '$lib/components/shared/MarkdownViewer.svelte';
 	import TimeAgo from '$lib/components/shared/TimeAgo.svelte';
 	import ProfileLink from '$lib/components/shared/ProfileLink.svelte';
+	import DeliverableLink from './DeliverableLink.svelte';
 
 	const { solution, votes = [] }: { solution: Solution; votes?: Vote[] } = $props();
 
@@ -23,18 +24,7 @@
 
 		<!-- Deliverable URL -->
 		{#if solution.deliverableUrl}
-			<div class="text-sm">
-				<span class="text-muted-foreground">Deliverable: </span>
-				<a
-					href={solution.deliverableUrl}
-					target="_blank"
-					rel="noopener noreferrer"
-					class="font-medium text-primary underline underline-offset-2 transition-colors hover:text-primary/80 focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-					aria-label="Deliverable link (opens in new tab)"
-				>
-					{solution.deliverableUrl}
-				</a>
-			</div>
+			<DeliverableLink url={solution.deliverableUrl} />
 		{/if}
 
 		<!-- Vote summary (if votes exist) -->

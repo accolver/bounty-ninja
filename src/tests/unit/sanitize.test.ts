@@ -28,6 +28,30 @@ describe('sanitizeHtml', () => {
 			expect(result).not.toContain('javascript:');
 		});
 
+		it.each([
+			'JaVaScRiPt:alert(1)',
+			'data:text/html,<script>alert(1)</script>',
+			'vbscript:msgbox(1)',
+			'http://example.com'
+		])('removes disallowed link protocol %s', (href) => {
+			const result = sanitizeHtml(`<a href="${href}">Visible text</a>`);
+			expect(result).not.toContain('href=');
+			expect(result).toContain('Visible text');
+		});
+
+		it('removes loadable sources from unsafe images', () => {
+			const result = sanitizeHtml('<img src="data:image/svg+xml,<svg onload=alert(1)>" alt="x">');
+			expect(result).not.toContain('src=');
+			expect(result).not.toContain('onload');
+		});
+
+		it('removes SVG mutation payloads', () => {
+			const result = sanitizeHtml('<svg><g onload="alert(1)"></g></svg><p>safe</p>');
+			expect(result).not.toContain('<svg');
+			expect(result).not.toContain('onload');
+			expect(result).toContain('<p>safe</p>');
+		});
+
 		it('removes <iframe> tags', () => {
 			const input = '<iframe src="https://evil.com"></iframe>';
 			const result = sanitizeHtml(input);
@@ -125,7 +149,7 @@ describe('sanitizeHtml', () => {
 		it('preserves links with href, target, and rel', () => {
 			const input = '<a href="https://example.com" target="_blank" rel="noopener">Link</a>';
 			const result = sanitizeHtml(input);
-			expect(result).toContain('href="https://example.com"');
+			expect(result).toContain('href="https://example.com/"');
 			expect(result).toContain('target="_blank"');
 			expect(result).toContain('rel="noopener noreferrer"');
 			expect(result).toContain('Link</a>');
@@ -211,7 +235,7 @@ describe('sanitizeHtml', () => {
 		it('handles nested malicious content', () => {
 			const input = '<p><a href="https://ok.com" onclick="alert(1)">Link</a></p>';
 			const result = sanitizeHtml(input);
-			expect(result).toContain('href="https://ok.com"');
+			expect(result).toContain('href="https://ok.com/"');
 			expect(result).not.toContain('onclick');
 		});
 	});

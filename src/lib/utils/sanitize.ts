@@ -1,4 +1,5 @@
 import DOMPurify, { type Config } from 'dompurify';
+import { safeEventUrl } from './safe-event-url';
 
 /**
  * DOMPurify configuration for sanitizing user-generated HTML content.
@@ -78,8 +79,22 @@ function ensureHooksRegistered(): void {
 	if (typeof window !== 'undefined') {
 		DOMPurify.addHook('afterSanitizeAttributes', (node) => {
 			if (node.tagName === 'A') {
-				node.setAttribute('target', '_blank');
-				node.setAttribute('rel', 'noopener noreferrer');
+				const safeUrl = safeEventUrl(node.getAttribute('href'), 'external-link');
+				if (safeUrl) {
+					node.setAttribute('href', safeUrl);
+					node.setAttribute('target', '_blank');
+					node.setAttribute('rel', 'noopener noreferrer');
+				} else {
+					node.removeAttribute('href');
+					node.removeAttribute('target');
+					node.removeAttribute('rel');
+				}
+			}
+
+			if (node.tagName === 'IMG') {
+				const safeUrl = safeEventUrl(node.getAttribute('src'), 'image');
+				if (safeUrl) node.setAttribute('src', safeUrl);
+				else node.removeAttribute('src');
 			}
 		});
 	}

@@ -1,14 +1,13 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
 	import { Crepe, CrepeFeature } from '@milkdown/crepe';
+	import { sanitizeHtml } from '$lib/utils/sanitize';
 	import '@milkdown/crepe/theme/common/style.css';
 	import '@milkdown/crepe/theme/frame-dark.css';
 
 	const { content = '' }: { content: string } = $props();
 
-	let viewerRoot: HTMLDivElement | undefined = $state();
-	let crepe: Crepe | undefined;
-	let currentContent: string | undefined;
+	let sanitizedHtml = $state('');
+	let renderGeneration = 0;
 
 	const CREPE_FEATURES = {
 		[CrepeFeature.ImageBlock]: false,
@@ -19,39 +18,41 @@
 		[CrepeFeature.Cursor]: false
 	} as const;
 
-	// Single effect handles both initial mount and content changes
 	$effect(() => {
-		if (!viewerRoot || !content) return;
-
-		// Skip if content hasn't changed
-		if (content === currentContent && crepe) return;
-		currentContent = content;
-
-		// Destroy previous instance if it exists
-		if (crepe) {
-			crepe.destroy();
-			crepe = undefined;
+		if (!content) {
+			sanitizedHtml = '';
+			return;
 		}
 
+		const generation = ++renderGeneration;
+		const detachedRoot = document.createElement('div');
+
 		const instance = new Crepe({
-			root: viewerRoot,
+			root: detachedRoot,
 			defaultValue: content,
 			features: CREPE_FEATURES
 		});
 
-		instance.create().then(() => {
-			instance.setReadonly(true);
-			crepe = instance;
-		});
-	});
+		instance
+			.create()
+			.then(() => {
+				instance.setReadonly(true);
+				if (generation === renderGeneration) sanitizedHtml = sanitizeHtml(detachedRoot.innerHTML);
+			})
+			.catch(() => {
+				if (generation === renderGeneration) sanitizedHtml = '';
+			})
+			.finally(() => instance.destroy());
 
-	onDestroy(() => {
-		crepe?.destroy();
+		return () => {
+			if (generation === renderGeneration) renderGeneration++;
+			instance.destroy();
+		};
 	});
 </script>
 
 <div class="milkdown-viewer-wrapper" aria-label="Markdown content">
-	<div bind:this={viewerRoot} class="milkdown-viewer-root"></div>
+	<div class="milkdown-viewer-root">{@html sanitizedHtml}</div>
 </div>
 
 <style>

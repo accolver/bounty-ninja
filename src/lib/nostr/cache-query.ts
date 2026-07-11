@@ -3,8 +3,8 @@ import type { Subscription } from 'rxjs';
 import { eventStore } from './event-store';
 import { loadCachedEvents } from './cache';
 import { pool } from './relay-pool';
+import { ingestEventsFrom } from './event-ingestion';
 import { onlyEvents } from 'applesauce-relay';
-import { mapEventsToStore } from 'applesauce-core';
 import { getDefaultRelays } from '$lib/utils/env';
 import { hashFilters, isQueryFresh, recordQueryFetch } from './cache-meta';
 
@@ -107,7 +107,7 @@ export class CachedQuery {
 				const sub = pool
 					.relay(url)
 					.subscription(this.#filters)
-					.pipe(onlyEvents(), mapEventsToStore(eventStore))
+					.pipe(onlyEvents(), ingestEventsFrom('relay'))
 					.subscribe({
 						next: () => {
 							receivedCount++;

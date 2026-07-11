@@ -1,8 +1,7 @@
 import type { Subscription } from 'rxjs';
 import { pool } from '$lib/nostr/relay-pool';
-import { eventStore } from '$lib/nostr/event-store';
+import { ingestEventsFrom } from '$lib/nostr/event-ingestion';
 import { onlyEvents } from 'applesauce-relay';
-import { mapEventsToStore } from 'applesauce-core';
 import { getDefaultRelays } from '$lib/utils/env';
 import {
 	pledgesForBountyFilter,
@@ -26,7 +25,7 @@ export function createAllPledgesLoader(): { unsubscribe(): void } {
 			const sub = pool
 				.relay(url)
 				.subscription(filter)
-				.pipe(onlyEvents(), mapEventsToStore(eventStore))
+				.pipe(onlyEvents(), ingestEventsFrom('relay'))
 				.subscribe();
 			subscriptions.push(sub);
 		} catch (e) {
@@ -57,7 +56,7 @@ export function createAllSolutionsLoader(): { unsubscribe(): void } {
 			const sub = pool
 				.relay(url)
 				.subscription(filter)
-				.pipe(onlyEvents(), mapEventsToStore(eventStore))
+				.pipe(onlyEvents(), ingestEventsFrom('relay'))
 				.subscribe();
 			subscriptions.push(sub);
 		} catch (e) {
@@ -88,7 +87,7 @@ export function createAllPayoutsLoader(): { unsubscribe(): void } {
 			const sub = pool
 				.relay(url)
 				.subscription(filter)
-				.pipe(onlyEvents(), mapEventsToStore(eventStore))
+				.pipe(onlyEvents(), ingestEventsFrom('relay'))
 				.subscribe();
 			subscriptions.push(sub);
 		} catch (e) {
@@ -119,7 +118,7 @@ export function createPledgeLoader(bountyAddress: string): { unsubscribe(): void
 			const sub = pool
 				.relay(url)
 				.subscription(filter)
-				.pipe(onlyEvents(), mapEventsToStore(eventStore))
+				.pipe(onlyEvents(), ingestEventsFrom('relay'))
 				.subscribe();
 			subscriptions.push(sub);
 		} catch (e) {
