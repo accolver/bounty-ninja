@@ -2,8 +2,13 @@
 
 A decentralized, censorship-resistant bounty board built on
 [Nostr](https://nostr.com/) and [Cashu](https://cashu.space/). Post bounties,
-fund them with bitcoin ecash, submit solutions, vote on winners, and receive
-automatic payouts — all client-side, zero backend.
+fund them with bitcoin ecash, submit solutions, vote on winners, and coordinate
+pledger-controlled releases — all client-side, zero backend.
+
+> **Payment safety status:** payment writes are currently disabled while wallet
+> signing, token validation, and crash-safe recovery are hardened. The Nostr
+> bounty and fee-free solution flows remain available. Never paste an `nsec` or
+> raw private key into this application.
 
 **Live:** [bounty.ninja](https://bounty.ninja)
 
@@ -14,10 +19,11 @@ automatic payouts — all client-side, zero backend.
    custody
 3. **Solve** by submitting proof of work with an anti-spam fee
 4. **Vote** — funders vote weighted by their pledge amount (66% quorum)
-5. **Payout** — consensus triggers automatic release to the winner
+5. **Payout** — after consensus, each pledger releases their own funds to the winner
 
-No accounts, no intermediaries, no rug-pulls. Identity is your Nostr keypair
-(NIP-07 browser extension).
+No accounts or application custodian. Identity signing uses a NIP-07 browser
+extension or NIP-46 remote signer; the application never accepts identity
+private keys.
 
 ## Tech Stack
 

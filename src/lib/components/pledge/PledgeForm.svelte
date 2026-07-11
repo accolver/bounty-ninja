@@ -286,11 +286,8 @@
 					<div class="space-y-2">
 						<p class="text-sm font-medium text-warning">Bearer instrument warning</p>
 						<p class="text-xs text-foreground/80">
-							Your tokens will be locked to your own key until the bounty deadline. After vote
-							consensus, you will be asked to release them to the winning solver.
-							{#if deadline}
-								If the bounty expires without a payout, you can reclaim your tokens at any time.
-							{/if}
+							Payment writes are disabled until a compatible Cashu wallet can authorize locking,
+							release, and recovery without exposing your Nostr identity key.
 						</p>
 						<label class="flex items-start gap-2 cursor-pointer">
 							<input
@@ -301,7 +298,7 @@
 								aria-describedby="acknowledge-desc"
 							/>
 							<span id="acknowledge-desc" class="text-xs text-foreground/80">
-								I understand that this pledge locks my tokens and I accept the risk.
+								I understand Cashu tokens are bearer instruments and can be lost.
 							</span>
 						</label>
 					</div>

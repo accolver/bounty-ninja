@@ -9,7 +9,7 @@ export const config = {
 		url: 'https://bounty.ninja',
 		tagline: 'Decentralized Bounty Board',
 		description:
-			'Post tasks, fund with bitcoin, solve for sats. Zero backend. Powered by Nostr + Cashu.',
+			'Post bounties, fund with bitcoin, solve for sats. Zero backend. Powered by Nostr + Cashu.',
 		logo: '/logo-icon.svg',
 		logoLight: '/logo-icon-light.svg',
 		favicon: '/favicon.svg'

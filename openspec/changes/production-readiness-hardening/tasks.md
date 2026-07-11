@@ -2,9 +2,9 @@
 
 - [x] 1.1 Add a typed, build-time payment-write safety flag in `src/lib/config.ts` and `src/lib/utils/env.ts`, default it to disabled, and test production/default parsing in `src/tests/unit/env.test.ts`
 - [x] 1.2 Gate pledge, solution-fee, release, and reclaim mint operations in `src/lib/components/pledge/PledgeForm.svelte`, `src/lib/components/solution/SolutionForm.svelte`, `src/lib/components/voting/PayoutTrigger.svelte`, and `src/lib/components/pledge/ReclaimAlert.svelte`; render one accessible unavailable-state component with component tests
-- [ ] 1.3 Remove direct nsec login and `PrivateKeySigner` account paths from `src/lib/components/auth/LoginButton.svelte`, `src/lib/nostr/account.svelte.ts`, and `src/lib/nostr/signer.svelte.ts`; update authentication tests
-- [ ] 1.4 Remove raw private-key inputs from release and reclaim components while preserving disabled/read-only recovery messaging; add a repository test that rejects production secret-key inputs
-- [ ] 1.5 Update `README.md`, `PAYMENTS_TEST.md`, and user-facing payment copy to state that payment writes are disabled pending wallet integration
+- [x] 1.3 Remove direct nsec login and `PrivateKeySigner` account paths from `src/lib/components/auth/LoginButton.svelte`, `src/lib/nostr/account.svelte.ts`, and `src/lib/nostr/signer.svelte.ts`; update authentication tests
+- [x] 1.4 Remove raw private-key inputs from release and reclaim components while preserving disabled/read-only recovery messaging; add a repository test that rejects production secret-key inputs
+- [x] 1.5 Update `README.md`, `PAYMENTS_TEST.md`, and user-facing payment copy to state that payment writes are disabled pending wallet integration
 
 ## 2. Untrusted Content and Event Ingestion
 

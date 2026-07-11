@@ -1,7 +1,6 @@
-// SECURITY: This file handles private key material. Never persist or log nsec values.
 import type { EventTemplate, NostrEvent } from 'nostr-tools';
 import { EventFactory } from 'applesauce-core/event-factory';
-import { ExtensionSigner, PrivateKeySigner, NostrConnectSigner } from 'applesauce-signers';
+import { ExtensionSigner, NostrConnectSigner } from 'applesauce-signers';
 import {
 	SIGNER_POLL_INTERVAL_MS,
 	SIGNER_MAX_RETRIES,
@@ -49,9 +48,6 @@ export interface PublishResult {
 /** Lazily-initialized EventFactory singleton */
 let factoryInstance: EventFactory | null = null;
 
-/** SECURITY: Memory-only nsec signer reference. Never persist. */
-let nsecSignerInstance: PrivateKeySigner | null = null;
-
 /** NIP-46 bunker signer instance. Kept alive for the session. */
 let bunkerSignerInstance: NostrConnectSigner | null = null;
 
@@ -86,28 +82,8 @@ export function getBunkerSigner(): NostrConnectSigner | null {
 }
 
 /**
- * Set the nsec signer from a private key string.
- * SECURITY: The signer is held in memory only and cleared on logout/beforeunload.
- */
-export function setNsecSigner(nsec: string): void {
-	nsecSignerInstance = PrivateKeySigner.fromKey(nsec);
-}
-
-/**
- * Clear the nsec signer from memory.
- */
-export function clearNsecSigner(): void {
-	nsecSignerInstance = null;
-}
-
-// Zero out nsec signer when the tab closes
-if (typeof window !== 'undefined') {
-	window.addEventListener('beforeunload', clearNsecSigner);
-}
-
-/**
  * Get or create the EventFactory singleton.
- * Uses nsec signer if available, otherwise falls back to NIP-07 ExtensionSigner.
+ * Uses the NIP-46 signer if available, otherwise falls back to NIP-07.
  *
  * @throws {SignerUnavailableError} if no signer is available
  */
@@ -117,14 +93,6 @@ export function getEventFactory(): EventFactory {
 	if (bunkerSignerInstance) {
 		factoryInstance = new EventFactory({
 			signer: bunkerSignerInstance,
-			client: { name: CLIENT_TAG }
-		});
-		return factoryInstance;
-	}
-
-	if (nsecSignerInstance) {
-		factoryInstance = new EventFactory({
-			signer: nsecSignerInstance,
 			client: { name: CLIENT_TAG }
 		});
 		return factoryInstance;

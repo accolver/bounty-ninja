@@ -19,7 +19,11 @@ vi.mock('$lib/nostr/event-store', () => ({
 
 vi.mock('$lib/nostr/publish', () => ({
 	broadcastEvent: vi.fn().mockResolvedValue({
-		success: true, acceptedCount: 1, rejectedCount: 0, results: [], failures: []
+		success: true,
+		acceptedCount: 1,
+		rejectedCount: 0,
+		results: [],
+		failures: []
 	})
 }));
 
@@ -43,7 +47,6 @@ vi.mock('applesauce-signers', () => {
 	};
 	return {
 		ExtensionSigner: vi.fn(),
-		PrivateKeySigner: { fromKey: vi.fn() },
 		NostrConnectSigner: {
 			pool: null,
 			_instance: instance,
@@ -65,9 +68,15 @@ const localStorageMock = (() => {
 	let store: Record<string, string> = {};
 	return {
 		getItem: vi.fn((key: string) => store[key] ?? null),
-		setItem: vi.fn((key: string, value: string) => { store[key] = value; }),
-		removeItem: vi.fn((key: string) => { delete store[key]; }),
-		clear: () => { store = {}; }
+		setItem: vi.fn((key: string, value: string) => {
+			store[key] = value;
+		}),
+		removeItem: vi.fn((key: string) => {
+			delete store[key];
+		}),
+		clear: () => {
+			store = {};
+		}
 	};
 })();
 Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock, writable: true });
@@ -97,7 +106,13 @@ describe('NIP-46 bunker login', () => {
 
 	describe('URI validation', () => {
 		it('rejects non-bunker URIs', () => {
-			const invalid = ['https://example.com', 'nostrconnect://abc', 'nsec1abc', '', 'bunker:missing'];
+			const invalid = [
+				'https://example.com',
+				'nostrconnect://abc',
+				'nsec1abc',
+				'',
+				'bunker:missing'
+			];
 			for (const uri of invalid) {
 				expect(uri.startsWith('bunker://')).toBe(false);
 			}
@@ -164,9 +179,7 @@ describe('NIP-46 bunker login', () => {
 			await expect(
 				Promise.race([
 					signer.connect('secret'),
-					new Promise<never>((_, reject) =>
-						setTimeout(() => reject(new Error('timeout')), 50)
-					)
+					new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 50))
 				])
 			).rejects.toThrow('timeout');
 		});

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import type { BountyDetail } from '$lib/bounty/types';
-	import { fade } from 'svelte/transition';
 	import { tallyVotes } from '$lib/bounty/voting';
 	import { BOUNTY_KIND } from '$lib/bounty/kinds';
 	import { accountState } from '$lib/nostr/account.svelte';
@@ -23,9 +22,7 @@
 	import PayoutTrigger from '$lib/components/voting/PayoutTrigger.svelte';
 	import SolverClaim from '$lib/components/voting/SolverClaim.svelte';
 	import RetractButton from '$lib/components/bounty/RetractButton.svelte';
-	import { connectivity } from '$lib/stores/connectivity.svelte';
 	import type { Retraction } from '$lib/bounty/types';
-	import UnlockIcon from '@lucide/svelte/icons/unlock';
 	import CrownIcon from '@lucide/svelte/icons/crown';
 	import {
 		Accordion,
@@ -133,26 +130,7 @@
 	const uniquePledgers = $derived(new Set(detail.pledges.map((p) => p.pubkey)).size);
 	const releasedPledgers = $derived(new Set(detail.payouts.map((p) => p.pubkey)).size);
 
-	/** Whether the current user is a pledger who still needs to release funds */
-	const needsRelease = $derived.by(() => {
-		if (!accountState.isLoggedIn || !accountState.pubkey) return false;
-		if (!winningSolution) return false;
-		if (!isReleasePhase && detail.payouts.length === 0) return false;
-		const isPledger = detail.pledges.some((p) => p.pubkey === accountState.pubkey);
-		if (!isPledger) return false;
-		const hasReleased = detail.payouts.some((p) => p.pubkey === accountState.pubkey);
-		return !hasReleased;
-	});
-
-	/** Amount the current user has pledged */
-	const myPledgeTotal = $derived(
-		detail.pledges
-			.filter((p) => p.pubkey === accountState.pubkey)
-			.reduce((sum, p) => sum + p.amount, 0)
-	);
-
 	let pledgeFormOpen = $state(false);
-	let releaseDialogOpen = $state(false);
 </script>
 
 <article class="mx-auto max-w-5xl space-y-4">
@@ -236,32 +214,6 @@
 			</div>
 		</section>
 	</div>
-
-	<!-- Sticky release banner for pledgers who need to act -->
-	{#if needsRelease}
-		<div
-			class="sticky top-0 z-30 -mx-4 pt-2 sm:-mx-0"
-			role="alert"
-			aria-label="Action required: release funds"
-			in:fade={{ duration: 500, delay: 200 }}
-		>
-			<button
-				onclick={() => (releaseDialogOpen = true)}
-				disabled={!connectivity.online}
-				class="flex w-full items-center justify-between gap-3 border-b border-success/40 bg-success/90 px-4 py-3 text-left transition-colors hover:bg-success hover:cursor-pointer sm:rounded-lg sm:border"
-			>
-				<div class="min-w-0">
-					<p class="text-sm font-semibold text-success-foreground">
-						Action Required: Release Your Funds
-					</p>
-					<p class="text-xs text-success-foreground/80">
-						You pledged {myPledgeTotal.toLocaleString()} sats — release them to the winning solver.
-					</p>
-				</div>
-				<UnlockIcon class="size-4 shrink-0 text-success-foreground" />
-			</button>
-		</div>
-	{/if}
 
 	<!-- Retraction history -->
 	{#if retractions.length > 0}
@@ -470,7 +422,6 @@
 					{winningSolution}
 					pledges={detail.pledges}
 					payouts={detail.payouts}
-					bind:open={releaseDialogOpen}
 				/>
 				<SolverClaim payouts={detail.payouts} pledges={detail.pledges} />
 			</section>

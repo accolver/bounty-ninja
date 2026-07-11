@@ -18,7 +18,11 @@ vi.mock('$lib/nostr/event-store', () => ({
 
 vi.mock('$lib/nostr/publish', () => ({
 	broadcastEvent: vi.fn().mockResolvedValue({
-		success: true, acceptedCount: 1, rejectedCount: 0, results: [], failures: []
+		success: true,
+		acceptedCount: 1,
+		rejectedCount: 0,
+		results: [],
+		failures: []
 	})
 }));
 
@@ -39,12 +43,10 @@ vi.mock('applesauce-signers', () => {
 		signEvent: vi.fn(),
 		ping: vi.fn().mockResolvedValue('pong'),
 		isConnected: true,
-		relays: ['wss://relay.example.com'],
-		signer: { key: new Uint8Array(32).fill(1) }
+		relays: ['wss://relay.example.com']
 	};
 	return {
 		ExtensionSigner: vi.fn(),
-		PrivateKeySigner: vi.fn().mockImplementation(() => ({})),
 		NostrConnectSigner: Object.assign(
 			vi.fn().mockImplementation(() => instance),
 			{
@@ -68,9 +70,15 @@ const localStorageMock = (() => {
 	let store: Record<string, string> = {};
 	return {
 		getItem: vi.fn((key: string) => store[key] ?? null),
-		setItem: vi.fn((key: string, value: string) => { store[key] = value; }),
-		removeItem: vi.fn((key: string) => { delete store[key]; }),
-		clear: () => { store = {}; }
+		setItem: vi.fn((key: string, value: string) => {
+			store[key] = value;
+		}),
+		removeItem: vi.fn((key: string) => {
+			delete store[key];
+		}),
+		clear: () => {
+			store = {};
+		}
 	};
 })();
 Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock, writable: true });

@@ -50,9 +50,7 @@
 				await publishEvent(repTemplate);
 			}
 
-			// Note: Token reclaim requires private key access.
-			// The pledger retains the P2PK key and can reclaim tokens
-			// from their Cashu wallet at any time independently.
+			// Retraction records intent only; wallet-authorized token recovery is separate.
 
 			confirming = false;
 		} catch (err) {

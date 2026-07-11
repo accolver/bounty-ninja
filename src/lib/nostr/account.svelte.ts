@@ -1,27 +1,23 @@
-// SECURITY: This file handles private key material. Never persist or log nsec values.
-import { nip19, getPublicKey } from 'nostr-tools';
+import { nip19 } from 'nostr-tools';
 import {
 	SESSION_STORAGE_KEY,
 	SIGNER_TIMEOUT_MS,
-	BUNKER_STORAGE_KEY,
 	BUNKER_CONNECT_TIMEOUT_MS
 } from '$lib/utils/constants';
-import { NostrConnectSigner, PrivateKeySigner } from 'applesauce-signers';
+import { NostrConnectSigner } from 'applesauce-signers';
 import {
 	signerState,
 	resetEventFactory,
-	setNsecSigner,
-	clearNsecSigner,
 	setBunkerSigner,
 	clearBunkerSigner,
 	getBunkerSigner
 } from './signer.svelte';
 import { pool } from './relay-pool';
 
-export type LoginMethod = 'nip07' | 'nsec' | 'bunker';
+export type LoginMethod = 'nip07' | 'bunker';
 
 export type LoginError = {
-	type: 'no-extension' | 'rejected' | 'timeout' | 'unknown' | 'invalid-nsec' | 'bunker-error';
+	type: 'no-extension' | 'rejected' | 'timeout' | 'unknown' | 'bunker-error';
 	message: string;
 };
 
@@ -68,68 +64,9 @@ class AccountState {
 			const stored = localStorage.getItem(SESSION_STORAGE_KEY);
 			if (stored && /^[0-9a-f]{64}$/i.test(stored)) {
 				this.pubkey = stored;
-
-				// Check if this was a bunker session and auto-reconnect
-				const bunkerInfo = localStorage.getItem(BUNKER_STORAGE_KEY);
-				if (bunkerInfo) {
-					this.restoreBunkerSession(bunkerInfo);
-				}
 			}
 		} catch {
 			// localStorage may be unavailable
-		}
-	}
-
-	/**
-	 * Restore a bunker session from persisted connection info.
-	 * Reconstructs the NostrConnectSigner using the saved client keypair
-	 * and reconnects to the remote signer without needing a new bunker:// URI.
-	 */
-	private restoreBunkerSession(bunkerInfoJson: string): void {
-		try {
-			const info = JSON.parse(bunkerInfoJson);
-			if (!info.clientKeyHex || !info.remotePubkey || !info.relays?.length) return;
-
-			// Reconstruct client keypair from persisted hex
-			const keyBytes = new Uint8Array(
-				info.clientKeyHex.match(/.{2}/g)!.map((h: string) => parseInt(h, 16))
-			);
-			const clientSigner = new PrivateKeySigner(keyBytes);
-
-			NostrConnectSigner.pool = pool;
-
-			const signer = new NostrConnectSigner({
-				relays: info.relays,
-				signer: clientSigner,
-				remote: info.remotePubkey,
-				pubkey: this.pubkey ?? undefined
-			});
-
-			// Open connection asynchronously — don't block session restore
-			signer.open().then(async () => {
-				// Ping to verify the connection is still alive
-				try {
-					await Promise.race([
-						signer.ping(),
-						new Promise<never>((_, reject) =>
-							setTimeout(() => reject(new Error('timeout')), 5000)
-						)
-					]);
-					setBunkerSigner(signer);
-					resetEventFactory();
-					this.loginMethod = 'bunker';
-				} catch {
-					// Remote signer not responding — user will need to re-login
-					console.warn('[account] Bunker session restore failed — signer not responding');
-					this.clearBunkerInfo();
-				}
-			}).catch(() => {
-				console.warn('[account] Bunker session restore failed — could not open connection');
-				this.clearBunkerInfo();
-			});
-		} catch {
-			// Invalid stored data — clear it
-			this.clearBunkerInfo();
 		}
 	}
 
@@ -199,59 +136,9 @@ class AccountState {
 	}
 
 	/**
-	 * Login via nsec (private key).
-	 * SECURITY: The nsec is used to derive the pubkey and configure the signer,
-	 * then never stored persistently.
-	 */
-	loginWithNsec(nsec: string): void {
-		this.error = null;
-
-		try {
-			if (!nsec.startsWith('nsec1')) {
-				this.error = {
-					type: 'invalid-nsec',
-					message: 'Invalid key format. Must start with nsec1.'
-				};
-				return;
-			}
-
-			const decoded = nip19.decode(nsec);
-			if (decoded.type !== 'nsec') {
-				this.error = {
-					type: 'invalid-nsec',
-					message: 'Invalid nsec key.'
-				};
-				return;
-			}
-
-			const secretKey = decoded.data as Uint8Array;
-			if (secretKey.length !== 32) {
-				this.error = {
-					type: 'invalid-nsec',
-					message: 'Invalid key: must be 32 bytes.'
-				};
-				return;
-			}
-
-			const pubkey = getPublicKey(secretKey);
-			setNsecSigner(nsec);
-			resetEventFactory();
-
-			this.pubkey = pubkey;
-			this.loginMethod = 'nsec';
-			this.persistSession();
-		} catch {
-			this.error = {
-				type: 'invalid-nsec',
-				message: 'Invalid nsec key. Please check and try again.'
-			};
-		}
-	}
-
-	/**
 	 * Login via NIP-46 bunker (remote signer).
 	 * Parses a bunker:// URI, establishes connection, and retrieves the user's pubkey.
-	 * SECURITY: The bunker secret is never persisted — only remote pubkey + relays are stored.
+	 * The bunker URI is used only to establish the current in-memory session.
 	 */
 	async loginWithBunker(bunkerUri: string): Promise<void> {
 		this.error = null;
@@ -326,13 +213,6 @@ class AccountState {
 			this.pubkey = pubkey;
 			this.loginMethod = 'bunker';
 			this.persistSession();
-
-			// Persist connection info for session restoration across page reloads
-			// Client key is a disposable comm keypair, NOT the user's identity key
-			const clientKeyHex = Array.from(signer.signer.key)
-				.map((b: number) => b.toString(16).padStart(2, '0'))
-				.join('');
-			this.persistBunkerInfo(parsed.remote, signer.relays, clientKeyHex);
 		} catch (err) {
 			if (err instanceof Error && err.message === 'timeout') {
 				this.error = {
@@ -355,36 +235,6 @@ class AccountState {
 	}
 
 	/**
-	 * Persist bunker connection info for session restoration across page reloads.
-	 * Stores the client keypair (hex) so we can reconstruct the NostrConnectSigner
-	 * without needing a new bunker:// URI (the secret is one-time use).
-	 *
-	 * SECURITY: The client keypair is a disposable keypair generated per connection.
-	 * It is NOT the user's identity key — it's only used for NIP-44 encrypted
-	 * communication with the remote signer. Stored in localStorage for session
-	 * persistence; cleared on explicit disconnect.
-	 */
-	private persistBunkerInfo(remotePubkey: string, relays: string[], clientKeyHex: string): void {
-		try {
-			localStorage.setItem(
-				BUNKER_STORAGE_KEY,
-				JSON.stringify({ remotePubkey, relays, clientKeyHex })
-			);
-		} catch {
-			// localStorage may be unavailable
-		}
-	}
-
-	/** Clear persisted bunker connection info */
-	private clearBunkerInfo(): void {
-		try {
-			localStorage.removeItem(BUNKER_STORAGE_KEY);
-		} catch {
-			// localStorage may be unavailable
-		}
-	}
-
-	/**
 	 * Logout — clear pubkey and session data.
 	 * Bunker connection is kept alive so the user can re-login without a new URI.
 	 * Use disconnectBunker() to fully close the bunker connection.
@@ -394,12 +244,10 @@ class AccountState {
 		this.error = null;
 		const wasBunker = this.loginMethod === 'bunker';
 		this.loginMethod = null;
-		clearNsecSigner();
 		if (!wasBunker) {
 			// Only close bunker connection if we weren't using bunker login
-			// (i.e., switching from NIP-07/nsec). Keep bunker alive for re-login.
+			// (i.e., switching from NIP-07). Keep bunker alive for re-login.
 			await clearBunkerSigner(true);
-			this.clearBunkerInfo();
 		}
 		resetEventFactory();
 		this.persistSession();
@@ -461,7 +309,6 @@ class AccountState {
 	 */
 	async disconnectBunker(): Promise<void> {
 		await clearBunkerSigner(true);
-		this.clearBunkerInfo();
 		if (this.loginMethod === 'bunker') {
 			this.pubkey = null;
 			this.loginMethod = null;
