@@ -9,6 +9,7 @@ import type { Proof, Wallet, Token } from '@cashu/cashu-ts';
 import type { NostrEvent } from 'nostr-tools';
 import type { DecodedPledge } from '$lib/cashu/types';
 import { DoubleSpendError } from '$lib/cashu/types';
+import { CASHU_PAYMENT_SIGNER_PROTOCOL, type CashuPaymentSigner } from '$lib/cashu/payment-signer';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────
 
@@ -23,7 +24,8 @@ vi.mock('$lib/cashu/token', () => ({
 }));
 
 vi.mock('$lib/cashu/p2pk', () => ({
-	createP2PKLock: vi.fn()
+	createP2PKLock: vi.fn(),
+	assertNut11Support: vi.fn()
 }));
 
 import {
@@ -46,7 +48,6 @@ const mockedCreateP2PKLock = vi.mocked(createP2PKLock);
 // ── Helpers ───────────────────────────────────────────────────────────────
 
 const PLEDGER_PK = 'b'.repeat(64);
-const PLEDGER_PRIVKEY = 'e'.repeat(64);
 const SOLVER_PK = 'c'.repeat(64);
 const MINT_URL = 'https://mint.example.com';
 const SIG = 'd'.repeat(128);
@@ -57,6 +58,7 @@ function mockProof(amount: number, id = 'proof'): Proof {
 
 function mockWallet(overrides: Record<string, unknown> = {}): Wallet {
 	return {
+		getMintInfo: vi.fn(() => ({ isSupported: vi.fn(() => ({ supported: true })) })),
 		getFeesForProofs: vi.fn(() => 0),
 		send: vi.fn(async (amount: number) => ({
 			keep: [],
@@ -66,6 +68,17 @@ function mockWallet(overrides: Record<string, unknown> = {}): Wallet {
 		checkProofsStates: vi.fn(async (proofs: Proof[]) => proofs.map(() => ({ state: 'UNSPENT' }))),
 		...overrides
 	} as unknown as Wallet;
+}
+
+function mockPaymentSigner(overrides: Partial<CashuPaymentSigner> = {}): CashuPaymentSigner {
+	return {
+		protocol: CASHU_PAYMENT_SIGNER_PROTOCOL,
+		getPublicKey: vi.fn(async () => PLEDGER_PK),
+		signP2PKProofs: vi.fn(async ({ proofs }) =>
+			proofs.map((proof: Proof) => ({ ...proof, witness: { signatures: ['signature'] } }))
+		),
+		...overrides
+	};
 }
 
 function makePledgeEvent(tokenStr: string, eventId?: string): NostrEvent {
@@ -133,19 +146,8 @@ describe('createPledgeToken', () => {
 		expect(result.success).toBe(true);
 		expect(result.proofs.length).toBeGreaterThan(0);
 		// Lock target is the pledger's own pubkey (self-custody)
-		expect(mockedCreateP2PKLock).toHaveBeenCalledWith(PLEDGER_PK, undefined);
+		expect(mockedCreateP2PKLock).toHaveBeenCalledWith(PLEDGER_PK);
 		expect(wallet.send).toHaveBeenCalledOnce();
-	});
-
-	it('passes locktime as social signal when provided', async () => {
-		const wallet = mockWallet();
-		mockedGetWallet.mockResolvedValue(wallet);
-		const locktime = 1800000000;
-
-		await createPledgeToken([mockProof(100)], PLEDGER_PK, MINT_URL, locktime);
-
-		// No refund pubkey — pledger holds the primary key
-		expect(mockedCreateP2PKLock).toHaveBeenCalledWith(PLEDGER_PK, locktime);
 	});
 
 	it('returns failure when fees exceed amount', async () => {
@@ -296,7 +298,7 @@ describe('collectPledgeTokens', () => {
 describe('releasePledgeToSolver', () => {
 	it('returns failure for empty proofs', async () => {
 		const pledge = { ...makeDecodedPledge(100), proofs: [] };
-		const result = await releasePledgeToSolver(pledge, PLEDGER_PRIVKEY, SOLVER_PK);
+		const result = await releasePledgeToSolver(pledge, mockPaymentSigner(), SOLVER_PK);
 
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('No proofs');
@@ -306,26 +308,35 @@ describe('releasePledgeToSolver', () => {
 		mockedGetProofsAmount.mockReturnValue(0);
 		const pledge = makeDecodedPledge(0);
 
-		const result = await releasePledgeToSolver(pledge, PLEDGER_PRIVKEY, SOLVER_PK);
+		const result = await releasePledgeToSolver(pledge, mockPaymentSigner(), SOLVER_PK);
 
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('zero total amount');
 	});
 
-	it('signs with pledger privkey, swaps, and re-locks to solver', async () => {
+	it('requests payment authorization and atomically creates solver-locked outputs', async () => {
 		const wallet = mockWallet();
 		mockedGetWallet.mockResolvedValue(wallet);
 		const pledge = makeDecodedPledge(100);
+		const paymentSigner = mockPaymentSigner();
 
-		const result = await releasePledgeToSolver(pledge, PLEDGER_PRIVKEY, SOLVER_PK);
+		const result = await releasePledgeToSolver(pledge, paymentSigner, SOLVER_PK);
 
 		expect(result.success).toBe(true);
 		expect(result.proofs.length).toBeGreaterThan(0);
-		// Step 1: Sign P2PK proofs with pledger's private key
-		expect(wallet.signP2PKProofs).toHaveBeenCalledWith(pledge.proofs, PLEDGER_PRIVKEY);
-		// Step 1: Swap signed proofs at mint (with privkey)
-		expect(wallet.send).toHaveBeenCalled();
-		// Step 2: Lock fresh proofs to solver pubkey
+		expect(paymentSigner.signP2PKProofs).toHaveBeenCalledWith({
+			mintUrl: pledge.mint,
+			proofs: pledge.proofs,
+			purpose: 'release'
+		});
+		expect(wallet.signP2PKProofs).not.toHaveBeenCalled();
+		expect(wallet.send).toHaveBeenCalledOnce();
+		expect(wallet.send).toHaveBeenCalledWith(
+			100,
+			[{ ...pledge.proofs[0], witness: { signatures: ['signature'] } }],
+			undefined,
+			{ send: { type: 'p2pk', options: { pubkey: PLEDGER_PK } } }
+		);
 		expect(mockedCreateP2PKLock).toHaveBeenCalledWith(SOLVER_PK);
 	});
 
@@ -334,7 +345,7 @@ describe('releasePledgeToSolver', () => {
 		mockedGetWallet.mockResolvedValue(wallet);
 		const pledge = makeDecodedPledge(100, 'evt-1', 'https://custom-mint.com');
 
-		await releasePledgeToSolver(pledge, PLEDGER_PRIVKEY, SOLVER_PK);
+		await releasePledgeToSolver(pledge, mockPaymentSigner(), SOLVER_PK);
 
 		expect(mockedGetWallet).toHaveBeenCalledWith('https://custom-mint.com');
 	});
@@ -344,7 +355,7 @@ describe('releasePledgeToSolver', () => {
 		mockedGetWallet.mockResolvedValue(wallet);
 		const pledge = makeDecodedPledge(50);
 
-		const result = await releasePledgeToSolver(pledge, PLEDGER_PRIVKEY, SOLVER_PK);
+		const result = await releasePledgeToSolver(pledge, mockPaymentSigner(), SOLVER_PK);
 
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('Insufficient amount after swap fees');
@@ -359,7 +370,7 @@ describe('releasePledgeToSolver', () => {
 		mockedGetWallet.mockResolvedValue(wallet);
 		const pledge = makeDecodedPledge(100);
 
-		await expect(releasePledgeToSolver(pledge, PLEDGER_PRIVKEY, SOLVER_PK)).rejects.toThrow(
+		await expect(releasePledgeToSolver(pledge, mockPaymentSigner(), SOLVER_PK)).rejects.toThrow(
 			DoubleSpendError
 		);
 	});
@@ -373,7 +384,7 @@ describe('releasePledgeToSolver', () => {
 		mockedGetWallet.mockResolvedValue(wallet);
 		const pledge = makeDecodedPledge(100);
 
-		const result = await releasePledgeToSolver(pledge, PLEDGER_PRIVKEY, SOLVER_PK);
+		const result = await releasePledgeToSolver(pledge, mockPaymentSigner(), SOLVER_PK);
 
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('Unknown mint error');
@@ -383,7 +394,7 @@ describe('releasePledgeToSolver', () => {
 		mockedGetWallet.mockRejectedValue(new Error('Mint offline'));
 		const pledge = makeDecodedPledge(100);
 
-		const result = await releasePledgeToSolver(pledge, PLEDGER_PRIVKEY, SOLVER_PK);
+		const result = await releasePledgeToSolver(pledge, mockPaymentSigner(), SOLVER_PK);
 
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('Mint offline');
@@ -397,7 +408,7 @@ describe('releasePledgeToSolver', () => {
 describe('reclaimPledge', () => {
 	it('returns failure for empty proofs', async () => {
 		const pledge = { ...makeDecodedPledge(100), proofs: [] };
-		const result = await reclaimPledge(pledge, PLEDGER_PRIVKEY);
+		const result = await reclaimPledge(pledge, mockPaymentSigner());
 
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('No proofs');
@@ -407,7 +418,7 @@ describe('reclaimPledge', () => {
 		mockedGetProofsAmount.mockReturnValue(0);
 		const pledge = makeDecodedPledge(0);
 
-		const result = await reclaimPledge(pledge, PLEDGER_PRIVKEY);
+		const result = await reclaimPledge(pledge, mockPaymentSigner());
 
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('zero total amount');
@@ -417,12 +428,18 @@ describe('reclaimPledge', () => {
 		const wallet = mockWallet();
 		mockedGetWallet.mockResolvedValue(wallet);
 		const pledge = makeDecodedPledge(100);
+		const paymentSigner = mockPaymentSigner();
 
-		const result = await reclaimPledge(pledge, PLEDGER_PRIVKEY);
+		const result = await reclaimPledge(pledge, paymentSigner);
 
 		expect(result.success).toBe(true);
 		expect(result.sendProofs.length).toBeGreaterThan(0);
-		expect(wallet.signP2PKProofs).toHaveBeenCalledWith(pledge.proofs, PLEDGER_PRIVKEY);
+		expect(paymentSigner.signP2PKProofs).toHaveBeenCalledWith({
+			mintUrl: pledge.mint,
+			proofs: pledge.proofs,
+			purpose: 'reclaim'
+		});
+		expect(wallet.signP2PKProofs).not.toHaveBeenCalled();
 		expect(wallet.send).toHaveBeenCalledOnce();
 	});
 
@@ -431,7 +448,7 @@ describe('reclaimPledge', () => {
 		mockedGetWallet.mockResolvedValue(wallet);
 		const pledge = makeDecodedPledge(100);
 
-		const result = await reclaimPledge(pledge, PLEDGER_PRIVKEY);
+		const result = await reclaimPledge(pledge, mockPaymentSigner());
 
 		expect(result.success).toBe(true);
 		expect(result.fees).toBe(3);
@@ -442,7 +459,7 @@ describe('reclaimPledge', () => {
 		mockedGetWallet.mockResolvedValue(wallet);
 		const pledge = makeDecodedPledge(50);
 
-		const result = await reclaimPledge(pledge, PLEDGER_PRIVKEY);
+		const result = await reclaimPledge(pledge, mockPaymentSigner());
 
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('Insufficient amount after fees');
@@ -457,7 +474,7 @@ describe('reclaimPledge', () => {
 		mockedGetWallet.mockResolvedValue(wallet);
 		const pledge = makeDecodedPledge(100);
 
-		await expect(reclaimPledge(pledge, PLEDGER_PRIVKEY)).rejects.toThrow(DoubleSpendError);
+		await expect(reclaimPledge(pledge, mockPaymentSigner())).rejects.toThrow(DoubleSpendError);
 	});
 
 	it('returns failure for generic errors', async () => {
@@ -469,7 +486,7 @@ describe('reclaimPledge', () => {
 		mockedGetWallet.mockResolvedValue(wallet);
 		const pledge = makeDecodedPledge(100);
 
-		const result = await reclaimPledge(pledge, PLEDGER_PRIVKEY);
+		const result = await reclaimPledge(pledge, mockPaymentSigner());
 
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('Mint timeout');

@@ -6,11 +6,18 @@ import { BOUNTY_KIND } from '$lib/bounty/kinds';
 
 // Mock the relay pool
 const mockSubscription = vi.fn();
+const mockLoadCachedEvents = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
 const mockRelay = vi.fn(() => ({
 	subscription: mockSubscription
 }));
 vi.mock('$lib/nostr/relay-pool', () => ({
 	pool: { relay: mockRelay }
+}));
+vi.mock('$lib/nostr/cache', () => ({
+	loadCachedEvents: mockLoadCachedEvents
+}));
+vi.mock('$lib/nostr/event-ingestion', () => ({
+	ingestEventsFrom: () => (source: unknown) => source
 }));
 
 // Mock the event store with a real EventStore but control timeline
@@ -77,11 +84,19 @@ describe('SearchStore', () => {
 
 	beforeEach(async () => {
 		vi.clearAllMocks();
+		mockRelay.mockImplementation(() => ({ subscription: mockSubscription }));
 		// Re-import to get a fresh singleton
 		vi.resetModules();
 		// Re-setup mocks after resetModules
 		vi.doMock('$lib/nostr/relay-pool', () => ({
 			pool: { relay: mockRelay }
+		}));
+		mockLoadCachedEvents.mockResolvedValue(undefined);
+		vi.doMock('$lib/nostr/cache', () => ({
+			loadCachedEvents: mockLoadCachedEvents
+		}));
+		vi.doMock('$lib/nostr/event-ingestion', () => ({
+			ingestEventsFrom: () => (source: unknown) => source
 		}));
 		vi.doMock('$lib/nostr/event-store', () => ({
 			eventStore: {
@@ -213,6 +228,53 @@ describe('SearchStore', () => {
 
 		expect(searchStore.results).toEqual([]);
 		expect(searchStore.loading).toBe(false);
+	});
+
+	it('adds matching cached events without waiting for the relay', async () => {
+		const localEvent = makeBountyEvent('Cashu local');
+		const cachedEvent = makeBountyEvent('Cashu cached');
+		const events$ = new BehaviorSubject<NostrEvent[]>([localEvent]);
+		mockTimeline.mockReturnValue(events$);
+		mockSubscription.mockReturnValue(NEVER);
+		mockLoadCachedEvents.mockImplementation(async () => {
+			events$.next([localEvent, cachedEvent]);
+		});
+
+		const { searchStore } = SearchStoreModule;
+		searchStore.search('cashu');
+
+		expect(searchStore.results.map((result) => result.title)).toEqual(['Cashu local']);
+		await vi.waitFor(() => {
+			expect(searchStore.results.map((result) => result.title)).toEqual([
+				'Cashu local',
+				'Cashu cached'
+			]);
+		});
+		expect(mockLoadCachedEvents).toHaveBeenCalledWith([{ kinds: [BOUNTY_KIND] }]);
+	});
+
+	it('keeps incrementally merged relay results when the relay times out', () => {
+		vi.useFakeTimers();
+		try {
+			mockTimeline.mockReturnValue(new BehaviorSubject<NostrEvent[]>([]));
+			const relayEvents = new Subject<NostrEvent>();
+			mockSubscription.mockReturnValue(relayEvents);
+
+			const { searchStore } = SearchStoreModule;
+			searchStore.search('relay');
+			const firstResult = makeBountyEvent('Relay result');
+			relayEvents.next(firstResult);
+
+			expect(searchStore.results.map((result) => result.id)).toEqual([firstResult.id]);
+			expect(searchStore.loading).toBe(true);
+
+			vi.advanceTimersByTime(5_001);
+
+			expect(searchStore.results.map((result) => result.id)).toEqual([firstResult.id]);
+			expect(searchStore.loading).toBe(false);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it('cancels previous subscription when new search starts', () => {

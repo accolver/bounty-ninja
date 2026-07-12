@@ -15,7 +15,13 @@ vi.mock('$lib/cashu/lazy', () => ({
 	}))
 }));
 
-import { encodeToken, decodeToken, getTokenAmount, getProofsAmount, isValidToken } from '$lib/cashu/token';
+import {
+	encodeToken,
+	decodeToken,
+	getTokenAmount,
+	getProofsAmount,
+	isValidToken
+} from '$lib/cashu/token';
 
 const MINT_URL = 'https://mint.example.com';
 

@@ -55,11 +55,9 @@ function makeP2PKProof(locktime: number) {
 /** Create a mock wallet that returns all proofs as UNSPENT */
 function makeMockWallet(allSpendable = true) {
 	return {
-		checkProofsStates: vi.fn().mockResolvedValue(
-			allSpendable
-				? [{ state: 'UNSPENT' }]
-				: [{ state: 'SPENT' }]
-		)
+		checkProofsStates: vi
+			.fn()
+			.mockResolvedValue(allSpendable ? [{ state: 'UNSPENT' }] : [{ state: 'SPENT' }])
 	};
 }
 
@@ -183,7 +181,9 @@ describe('TokenValidator', () => {
 
 		it('sets status to unverified when mint URLs do not match', async () => {
 			const token = 'cashuAmismatchedmint';
-			mockedDecodeToken.mockResolvedValue(makeTokenInfo({ mint: 'https://other-mint.example.com' }));
+			mockedDecodeToken.mockResolvedValue(
+				makeTokenInfo({ mint: 'https://other-mint.example.com' })
+			);
 
 			tokenValidator.verify(token, MINT_URL);
 

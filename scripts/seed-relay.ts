@@ -73,7 +73,6 @@ const THREE_DAYS_AGO = NOW - 3 * DAY;
 const WEEK_AGO = NOW - WEEK;
 const TWO_WEEKS_AGO = NOW - 2 * WEEK;
 const MONTH_AGO = NOW - MONTH;
-const TOMORROW = NOW + DAY;
 const NEXT_WEEK = NOW + WEEK;
 const NEXT_MONTH = NOW + MONTH;
 const EXPIRED_DEADLINE = NOW - 3 * DAY;

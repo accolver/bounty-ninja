@@ -26,8 +26,6 @@ const PUBKEY_D = 'd'.repeat(64);
 const EVENT_ID_1 = '1'.repeat(64);
 const EVENT_ID_2 = '2'.repeat(64);
 const EVENT_ID_3 = '3'.repeat(64);
-const EVENT_ID_4 = '4'.repeat(64);
-const EVENT_ID_5 = '5'.repeat(64);
 const SIG = 'c'.repeat(128);
 const VALID_TASK_ADDR = `37300:${PUBKEY_B}:bounty-123`;
 const VALID_MINT_URL = 'https://mint.example.com';
@@ -177,6 +175,7 @@ describe('parsePledge', () => {
 				['a', VALID_TASK_ADDR],
 				['amount', '25000'],
 				['cashu', 'cashuAtoken123'],
+				['payment', 'cashu', PUBKEY_C],
 				['mint', VALID_MINT_URL]
 			],
 			content: 'Happy to fund this!'
@@ -189,6 +188,7 @@ describe('parsePledge', () => {
 		expect(pledge.bountyAddress).toBe(VALID_TASK_ADDR);
 		expect(pledge.amount).toBe(25000);
 		expect(pledge.cashuToken).toBe('cashuAtoken123');
+		expect(pledge.paymentPubkey).toBe(PUBKEY_C);
 		expect(pledge.mintUrl).toBe(VALID_MINT_URL);
 		expect(pledge.message).toBe('Happy to fund this!');
 	});
@@ -224,6 +224,7 @@ describe('parseSolution', () => {
 				['a', VALID_TASK_ADDR],
 				['cashu', 'cashuBtoken456'],
 				['amount', '100'],
+				['payment', 'cashu', PUBKEY_C],
 				['r', 'https://github.com/user/repo/pull/1']
 			],
 			content: 'Here is my solution with full implementation'
@@ -237,6 +238,7 @@ describe('parseSolution', () => {
 		expect(solution.antiSpamAmount).toBe(100);
 		expect(solution.deliverableUrl).toBe('https://github.com/user/repo/pull/1');
 		expect(solution.voteWeight).toBe(0);
+		expect(solution.paymentPubkey).toBe(PUBKEY_C);
 	});
 
 	it('returns null when content is empty (validation failure)', () => {
@@ -329,14 +331,18 @@ describe('parseVote', () => {
 
 describe('parsePayout', () => {
 	it('parses a payout event with all tags', () => {
+		const sourcePledgeId = 'f'.repeat(64);
 		const event = mockEvent({
 			kind: 73004,
 			tags: [
 				['a', VALID_TASK_ADDR],
-				['e', EVENT_ID_1],
+				['e', EVENT_ID_1, '', 'solution'],
+				['e', sourcePledgeId, '', 'source'],
 				['p', PUBKEY_C],
+				['payment', 'cashu', PUBKEY_D],
 				['amount', '75000'],
-				['cashu', 'cashuCpayoutToken']
+				['cashu', 'cashuCpayoutToken'],
+				['mint', VALID_MINT_URL]
 			]
 		});
 
@@ -345,8 +351,24 @@ describe('parsePayout', () => {
 		expect(payout.bountyAddress).toBe(VALID_TASK_ADDR);
 		expect(payout.solutionId).toBe(EVENT_ID_1);
 		expect(payout.solverPubkey).toBe(PUBKEY_C);
+		expect(payout.paymentPubkey).toBe(PUBKEY_D);
 		expect(payout.amount).toBe(75000);
 		expect(payout.cashuToken).toBe('cashuCpayoutToken');
+		expect(payout.sourcePledgeId).toBe(sourcePledgeId);
+		expect(payout.mintUrl).toBe(VALID_MINT_URL);
+	});
+
+	it('keeps legacy events parseable with no payment key', () => {
+		const event = mockEvent({
+			kind: 73002,
+			tags: [
+				['a', VALID_TASK_ADDR],
+				['amount', '1'],
+				['cashu', 'legacy'],
+				['mint', VALID_MINT_URL]
+			]
+		});
+		expect(parsePledge(event)?.paymentPubkey).toBeNull();
 	});
 
 	it('returns null when tags are missing (validation failure)', () => {

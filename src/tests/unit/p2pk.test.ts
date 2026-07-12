@@ -3,8 +3,11 @@ import type { Proof, Wallet, P2PKOptions } from '@cashu/cashu-ts';
 import {
 	createP2PKLock,
 	createP2PKLockFromParams,
+	assertNut11Support,
 	lockProofsToKey,
-	toCompressedPubkey
+	toCompressedPubkey,
+	nut11KeyMatchesXOnly,
+	nut11KeyXCoordinate
 } from '$lib/cashu/p2pk';
 import type { P2PKLockParams } from '$lib/cashu/types';
 
@@ -19,6 +22,7 @@ function mockProof(amount: number, id = 'proof-id'): Proof {
 
 function mockWallet(overrides: Partial<Wallet> = {}): Wallet {
 	return {
+		getMintInfo: vi.fn(() => ({ isSupported: vi.fn(() => ({ supported: true })) })),
 		getFeesForProofs: vi.fn(() => 0),
 		send: vi.fn(async (amount: number) => ({
 			keep: [],
@@ -62,6 +66,20 @@ describe('toCompressedPubkey', () => {
 	});
 });
 
+describe('NUT-11 x-coordinate comparison', () => {
+	it('matches either compressed parity to one canonical x-only key', () => {
+		expect(nut11KeyMatchesXOnly(`02${VALID_PUBKEY}`, VALID_PUBKEY)).toBe(true);
+		expect(nut11KeyMatchesXOnly(`03${VALID_PUBKEY}`, VALID_PUBKEY)).toBe(true);
+	});
+
+	it('rejects malformed NUT-11 keys and non-canonical event keys', () => {
+		expect(() => nut11KeyXCoordinate(`04${VALID_PUBKEY}`)).toThrow('Invalid NUT-11');
+		expect(() => nut11KeyMatchesXOnly(COMPRESSED_PUBKEY, VALID_PUBKEY.toUpperCase())).toThrow(
+			'lowercase'
+		);
+	});
+});
+
 // ── createP2PKLock ──────────────────────────────────────────────────────────
 
 describe('createP2PKLock', () => {
@@ -70,6 +88,8 @@ describe('createP2PKLock', () => {
 		expect(options.pubkey).toBe(COMPRESSED_PUBKEY);
 		expect(options.locktime).toBeUndefined();
 		expect(options.refundKeys).toBeUndefined();
+		expect(options.sigFlag).toBe('SIG_INPUTS');
+		expect(options.requiredSignatures).toBe(1);
 	});
 
 	it('passes through already-compressed pubkey', () => {
@@ -77,19 +97,18 @@ describe('createP2PKLock', () => {
 		expect(options.pubkey).toBe(COMPRESSED_PUBKEY);
 	});
 
-	it('creates lock with locktime', () => {
+	it('rejects locktime without a refund key', () => {
 		const locktime = Math.floor(Date.now() / 1000) + 3600;
-		const options = createP2PKLock(VALID_PUBKEY, locktime);
-		expect(options.pubkey).toBe(COMPRESSED_PUBKEY);
-		expect(options.locktime).toBe(locktime);
+		expect(() => createP2PKLock(VALID_PUBKEY, locktime)).toThrow(
+			'locktime requires at least one refund key'
+		);
 	});
 
-	it('normalizes refund keys to compressed format', () => {
+	it('rejects refund keys without a locktime', () => {
 		const refundKeys = [OTHER_PUBKEY];
-		const options = createP2PKLock(VALID_PUBKEY, undefined, refundKeys);
-		expect(options.pubkey).toBe(COMPRESSED_PUBKEY);
-		expect(options.refundKeys).toEqual([COMPRESSED_OTHER]);
-		expect(options.locktime).toBeUndefined();
+		expect(() => createP2PKLock(VALID_PUBKEY, undefined, refundKeys)).toThrow(
+			'refund keys require a locktime'
+		);
 	});
 
 	it('creates lock with locktime and refund keys', () => {
@@ -99,11 +118,19 @@ describe('createP2PKLock', () => {
 		expect(options.pubkey).toBe(COMPRESSED_PUBKEY);
 		expect(options.locktime).toBe(locktime);
 		expect(options.refundKeys).toEqual([COMPRESSED_OTHER]);
+		expect(options.requiredRefundSignatures).toBe(1);
 	});
 
 	it('ignores empty refund keys array', () => {
 		const options = createP2PKLock(VALID_PUBKEY, undefined, []);
 		expect(options.refundKeys).toBeUndefined();
+	});
+
+	it('rejects malformed hex keys and duplicate refund keys', () => {
+		expect(() => toCompressedPubkey('z'.repeat(64))).toThrow('hexadecimal');
+		expect(() => createP2PKLock(VALID_PUBKEY, 1_800_000_000, [OTHER_PUBKEY, OTHER_PUBKEY])).toThrow(
+			'must be unique'
+		);
 	});
 });
 
@@ -183,7 +210,9 @@ describe('lockProofsToKey', () => {
 				type: 'p2pk',
 				options: expect.objectContaining({
 					pubkey: COMPRESSED_PUBKEY,
-					locktime
+					locktime,
+					refundKeys: [COMPRESSED_PUBKEY],
+					sigFlag: 'SIG_INPUTS'
 				})
 			}
 		});
@@ -284,5 +313,18 @@ describe('lockProofsToKey', () => {
 
 		expect(result.success).toBe(true);
 		expect(result.keepProofs).toEqual([changeProof]);
+	});
+});
+
+describe('assertNut11Support', () => {
+	it('accepts a mint that advertises NUT-11', () => {
+		expect(() => assertNut11Support(mockWallet())).not.toThrow();
+	});
+
+	it('rejects a mint without NUT-11 support', () => {
+		const wallet = mockWallet({
+			getMintInfo: vi.fn(() => ({ isSupported: vi.fn(() => ({ supported: false })) }))
+		} as unknown as Partial<Wallet>);
+		expect(() => assertNut11Support(wallet)).toThrow('does not advertise NUT-11');
 	});
 });

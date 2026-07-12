@@ -57,6 +57,7 @@ function pledge(id: string, pubkey: string, amount: number, createdAt: number): 
 		event: event(id, pubkey, createdAt),
 		id: id.padEnd(64, id[0]),
 		pubkey,
+		paymentPubkey: pubkey,
 		bountyAddress: ADDRESS,
 		amount,
 		cashuToken: `token-${id}`,
@@ -89,6 +90,7 @@ function solution(id: string, pubkey: string, createdAt = 10): Solution {
 		event: event(id, pubkey, createdAt),
 		id: id.padEnd(64, id[0]),
 		pubkey,
+		paymentPubkey: pubkey,
 		bountyAddress: ADDRESS,
 		description: 'solution',
 		antiSpamTokens: [],
@@ -147,6 +149,7 @@ function payout(id: string, source: Pledge, target: Solution, createdAt: number)
 		bountyAddress: ADDRESS,
 		solutionId: target.id,
 		solverPubkey: target.pubkey,
+		paymentPubkey: target.paymentPubkey,
 		amount: source.amount,
 		cashuToken: `payout-${id}`,
 		sourcePledgeId: source.id,
@@ -164,7 +167,7 @@ function payoutVerification(item: ReturnType<typeof payout>): CashuTokenVerifica
 		normalizedMint: 'https://mint.example',
 		decodedAmount: item.amount,
 		proofIdentities: [],
-		p2pkTarget: `02${item.solverPubkey}`,
+		p2pkTarget: `02${item.paymentPubkey}`,
 		reasons: []
 	};
 }
@@ -217,6 +220,11 @@ describe('projectFinancialState', () => {
 		);
 		expect(projection.validatedFunding).toBe(0);
 		expect(projection.unavailablePledges).toEqual([item]);
+	});
+
+	it('remains draft with zero validated funding even after the deadline', () => {
+		const expiredBounty = { ...bounty, deadline: NOW - 1 };
+		expect(projectFinancialState(input({ bounty: expiredBounty })).status).toBe('draft');
 	});
 
 	it('accepts at most one duplicate proof owner by createdAt then id regardless of input order', () => {
@@ -356,6 +364,16 @@ describe('projectFinancialState', () => {
 		expect(partial.status).toBe('releasing');
 		expect(partial.releaseProgress.complete).toBe(false);
 		expect(partial.releaseProgress.releasedAmount).toBe(40);
+		expect(
+			projectFinancialState(
+				input({
+					...base,
+					bounty: { ...bounty, deadline: NOW - 1 },
+					payouts: [firstPayout],
+					payoutTokenVerifications: new Map([[firstPayout.id, payoutVerification(firstPayout)]])
+				})
+			).status
+		).toBe('releasing');
 
 		const complete = projectFinancialState(
 			input({

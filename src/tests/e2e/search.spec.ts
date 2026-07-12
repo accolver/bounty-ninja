@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/test';
 
 test.describe('Search', () => {
 	test('home page search dialog opens and navigates to search page', async ({ page }) => {
@@ -47,12 +47,9 @@ test.describe('Search', () => {
 	test('category tabs on home page are clickable', async ({ page }) => {
 		await page.goto('/');
 
-		// Look for category tab buttons
 		const allTab = page.locator('button:has-text("All")');
-		if (await allTab.isVisible({ timeout: 2000 }).catch(() => false)) {
-			await allTab.click();
-			// Should still be on home page
-			expect(page.url()).toContain('/');
-		}
+		await expect(allTab).toBeVisible();
+		await allTab.click();
+		expect(page.url()).toContain('/');
 	});
 });

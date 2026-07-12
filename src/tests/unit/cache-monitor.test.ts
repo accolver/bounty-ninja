@@ -3,11 +3,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // Mock the cache-eviction module before importing cache-monitor
 const mockGetCacheEventCount = vi.fn();
 const mockEstimateCacheSize = vi.fn();
+const mockEmergencyEviction = vi.fn();
 
 vi.mock('$lib/nostr/cache-eviction', () => ({
 	getCacheEventCount: mockGetCacheEventCount,
 	estimateCacheSize: mockEstimateCacheSize,
-	emergencyEviction: vi.fn().mockResolvedValue({ ageEvicted: 0, countEvicted: 0, remaining: 0 })
+	emergencyEviction: mockEmergencyEviction
 }));
 
 vi.mock('$lib/nostr/profile-cache', () => ({
@@ -36,13 +37,14 @@ beforeEach(async () => {
 	// Default: IDB returns reasonable values
 	mockGetCacheEventCount.mockResolvedValue(42);
 	mockEstimateCacheSize.mockResolvedValue(8192);
+	mockEmergencyEviction.mockResolvedValue({ ageEvicted: 0, countEvicted: 0, remaining: 0 });
 
 	// Re-import to get fresh singleton
 	vi.resetModules();
 	vi.doMock('$lib/nostr/cache-eviction', () => ({
 		getCacheEventCount: mockGetCacheEventCount,
 		estimateCacheSize: mockEstimateCacheSize,
-		emergencyEviction: vi.fn().mockResolvedValue({ ageEvicted: 0, countEvicted: 0, remaining: 0 })
+		emergencyEviction: mockEmergencyEviction
 	}));
 	vi.doMock('$lib/nostr/profile-cache', () => ({
 		getProfileCacheStats: vi.fn(() => ({ size: 0, maxSize: 500 }))
@@ -73,6 +75,23 @@ describe('CacheMonitor', () => {
 	// ── refresh() ─────────────────────────────────────────────────────
 
 	describe('refresh()', () => {
+		it('uses saved limits and protects the remembered user during quota eviction', async () => {
+			const pubkey = 'a'.repeat(64);
+			localStorage.setItem('bounty.ninja-pubkey', pubkey);
+			localStorage.setItem(
+				'bounty.ninja:cache-limits',
+				JSON.stringify({ maxEvents: 5_000, maxAgeDays: 7 })
+			);
+			vi.mocked(navigator.storage.estimate).mockResolvedValue({ usage: 80, quota: 100 });
+
+			await cacheMonitorModule.cacheMonitor.refresh();
+
+			expect(mockEmergencyEviction).toHaveBeenCalledWith(pubkey, {
+				maxEvents: 5_000,
+				maxAgeMs: 7 * 24 * 60 * 60 * 1000
+			});
+		});
+
 		it('updates stats when refresh is called', async () => {
 			const { cacheMonitor } = cacheMonitorModule;
 
@@ -109,9 +128,7 @@ describe('CacheMonitor', () => {
 			// Should not throw
 			await cacheMonitor.refresh();
 
-			expect(warnSpy).toHaveBeenCalledWith(
-				expect.stringContaining('[cache-monitor]')
-			);
+			expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('[cache-monitor]'));
 			// State should remain at defaults (0) when error occurs
 			expect(cacheMonitor.eventCount).toBe(0);
 			expect(cacheMonitor.estimatedSizeBytes).toBe(0);
@@ -129,9 +146,7 @@ describe('CacheMonitor', () => {
 
 			await cacheMonitor.refresh();
 
-			expect(warnSpy).toHaveBeenCalledWith(
-				expect.stringContaining('string error')
-			);
+			expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('string error'));
 			expect(cacheMonitor.refreshing).toBe(false);
 
 			warnSpy.mockRestore();

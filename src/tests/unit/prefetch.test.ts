@@ -30,7 +30,10 @@ describe('prefetch', () => {
 		clearPrefetchState();
 		vi.clearAllMocks();
 		// Mock requestIdleCallback to execute immediately
-		vi.stubGlobal('requestIdleCallback', (cb: () => void) => { cb(); return 0; });
+		vi.stubGlobal('requestIdleCallback', (cb: () => void) => {
+			cb();
+			return 0;
+		});
 	});
 
 	it('prefetches a profile', () => {
@@ -55,7 +58,10 @@ describe('prefetchProfiles', () => {
 	beforeEach(() => {
 		clearPrefetchState();
 		vi.clearAllMocks();
-		vi.stubGlobal('requestIdleCallback', (cb: () => void) => { cb(); return 0; });
+		vi.stubGlobal('requestIdleCallback', (cb: () => void) => {
+			cb();
+			return 0;
+		});
 	});
 
 	it('batch loads profiles', () => {

@@ -17,7 +17,11 @@ beforeEach(async () => {
 	// Intercept addEventListener so we can capture the listeners
 	const originalAddEventListener = window.addEventListener.bind(window);
 	vi.spyOn(window, 'addEventListener').mockImplementation(
-		(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) => {
+		(
+			type: string,
+			listener: EventListenerOrEventListenerObject,
+			options?: boolean | AddEventListenerOptions
+		) => {
 			windowListeners.set(type, listener);
 			originalAddEventListener(type, listener, options);
 		}
@@ -102,17 +106,11 @@ describe('ConnectivityStore', () => {
 
 	describe('event listener registration', () => {
 		it('registers online event listener on window', () => {
-			expect(window.addEventListener).toHaveBeenCalledWith(
-				'online',
-				expect.any(Function)
-			);
+			expect(window.addEventListener).toHaveBeenCalledWith('online', expect.any(Function));
 		});
 
 		it('registers offline event listener on window', () => {
-			expect(window.addEventListener).toHaveBeenCalledWith(
-				'offline',
-				expect.any(Function)
-			);
+			expect(window.addEventListener).toHaveBeenCalledWith('offline', expect.any(Function));
 		});
 	});
 });

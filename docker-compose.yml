@@ -1,7 +1,7 @@
 services:
   relay:
-    image: dockurr/strfry:latest
-    container_name: tasks-relay
+    image: dockurr/strfry@sha256:545555da5dd2c2b502f2c0d159f4dc4996d0e488e3bf25905ce881722d63d2c5
+    container_name: bounty-ninja-relay
     ports:
       - '10547:7777'
     volumes:

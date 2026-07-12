@@ -28,6 +28,7 @@ import { CLIENT_TAG } from '$lib/utils/constants';
 const CREATOR_PUBKEY = 'a'.repeat(64);
 const PLEDGER_PUBKEY = 'b'.repeat(64);
 const PLEDGER_2_PUBKEY = 'c'.repeat(64);
+const PAYMENT_PUBKEY = 'e'.repeat(64);
 const SIG = 'd'.repeat(128);
 
 function signEvent(
@@ -68,6 +69,7 @@ describe('Pledge blueprint produces correct event structure', () => {
 		const template = pledgeBlueprint({
 			bountyAddress,
 			creatorPubkey: CREATOR_PUBKEY,
+			paymentPubkey: PAYMENT_PUBKEY,
 			amount: 10000,
 			cashuToken: 'cashuA_test_123',
 			mintUrl: 'https://mint.test.com',
@@ -83,6 +85,7 @@ describe('Pledge blueprint produces correct event structure', () => {
 		const template = pledgeBlueprint({
 			bountyAddress,
 			creatorPubkey: CREATOR_PUBKEY,
+			paymentPubkey: PAYMENT_PUBKEY,
 			amount: 5000,
 			cashuToken: 'cashuA_abc',
 			mintUrl: 'https://mint.test.com'
@@ -115,6 +118,7 @@ describe('Pledge event inserted into EventStore', () => {
 		const template = pledgeBlueprint({
 			bountyAddress,
 			creatorPubkey: CREATOR_PUBKEY,
+			paymentPubkey: PAYMENT_PUBKEY,
 			amount: 10000,
 			cashuToken: 'cashuA_test',
 			mintUrl: 'https://mint.test.com'
@@ -139,6 +143,7 @@ describe('Pledge event inserted into EventStore', () => {
 		const template = pledgeBlueprint({
 			bountyAddress,
 			creatorPubkey: CREATOR_PUBKEY,
+			paymentPubkey: PAYMENT_PUBKEY,
 			amount: 7500,
 			cashuToken: 'cashuA_parsed',
 			mintUrl: 'https://mint.test.com',
@@ -174,6 +179,7 @@ describe('Bounty status transitions on pledge', () => {
 		const pledgeTemplate = pledgeBlueprint({
 			bountyAddress,
 			creatorPubkey: CREATOR_PUBKEY,
+			paymentPubkey: PAYMENT_PUBKEY,
 			amount: 10000,
 			cashuToken: 'cashuA_first',
 			mintUrl: 'https://mint.test.com'
@@ -194,6 +200,7 @@ describe('Bounty status transitions on pledge', () => {
 			pledgeBlueprint({
 				bountyAddress,
 				creatorPubkey: CREATOR_PUBKEY,
+				paymentPubkey: PAYMENT_PUBKEY,
 				amount: 5000,
 				cashuToken: 'cashuA_p1',
 				mintUrl: 'https://mint.test.com'
@@ -205,6 +212,7 @@ describe('Bounty status transitions on pledge', () => {
 			pledgeBlueprint({
 				bountyAddress,
 				creatorPubkey: CREATOR_PUBKEY,
+				paymentPubkey: PAYMENT_PUBKEY,
 				amount: 3000,
 				cashuToken: 'cashuA_p2',
 				mintUrl: 'https://mint.test.com'
@@ -229,6 +237,7 @@ describe('totalPledged reflects pledges', () => {
 			pledgeBlueprint({
 				bountyAddress,
 				creatorPubkey: CREATOR_PUBKEY,
+				paymentPubkey: PAYMENT_PUBKEY,
 				amount: 10000,
 				cashuToken: 'cashuA_t1',
 				mintUrl: 'https://mint.test.com'
@@ -240,6 +249,7 @@ describe('totalPledged reflects pledges', () => {
 			pledgeBlueprint({
 				bountyAddress,
 				creatorPubkey: CREATOR_PUBKEY,
+				paymentPubkey: PAYMENT_PUBKEY,
 				amount: 5000,
 				cashuToken: 'cashuA_t2',
 				mintUrl: 'https://mint.test.com'
@@ -251,6 +261,7 @@ describe('totalPledged reflects pledges', () => {
 			pledgeBlueprint({
 				bountyAddress,
 				creatorPubkey: CREATOR_PUBKEY,
+				paymentPubkey: PAYMENT_PUBKEY,
 				amount: 2500,
 				cashuToken: 'cashuA_t3',
 				mintUrl: 'https://mint.test.com'
@@ -277,6 +288,7 @@ describe('totalPledged reflects pledges', () => {
 			pledgeBlueprint({
 				bountyAddress,
 				creatorPubkey: CREATOR_PUBKEY,
+				paymentPubkey: PAYMENT_PUBKEY,
 				amount: 42000,
 				cashuToken: 'cashuA_single',
 				mintUrl: 'https://mint.test.com'

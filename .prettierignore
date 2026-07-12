@@ -5,3 +5,6 @@ dist
 node_modules
 package
 bun.lock
+
+# Generated component primitives are updated through shadcn-svelte.
+src/lib/components/ui

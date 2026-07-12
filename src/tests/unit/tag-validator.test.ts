@@ -400,6 +400,80 @@ describe('validateEventTags — Kind 73004 (Payout)', () => {
 		expect(result.valid).toBe(true);
 		expect(result.errors).toHaveLength(0);
 	});
+
+	it('accepts exactly one source-bound pledge reference with its mint', () => {
+		const event = makeEvent(73004, [
+			['a', VALID_A_TAG],
+			['e', HEX_EVENT_ID, '', 'solution'],
+			['e', 'd'.repeat(64), '', 'source'],
+			['p', HEX_PUBKEY],
+			['payment', 'cashu', 'd'.repeat(64)],
+			['mint', VALID_MINT_URL]
+		]);
+		expect(validateEventTags(event)).toEqual({ valid: true, errors: [] });
+	});
+
+	it('rejects malformed, uppercase, wrong-scheme, and duplicate payment tags', () => {
+		const base = [
+			['a', VALID_A_TAG],
+			['amount', '100'],
+			['cashu', 'cashuAtoken123'],
+			['mint', VALID_MINT_URL]
+		];
+		const invalidTags = [
+			[['payment', 'cashu']],
+			[['payment', 'cashu', 'D'.repeat(64)]],
+			[['payment', 'bitcoin', 'd'.repeat(64)]],
+			[
+				['payment', 'cashu', 'd'.repeat(64)],
+				['payment', 'cashu', 'e'.repeat(64)]
+			]
+		];
+		for (const paymentTags of invalidTags) {
+			expect(validateEventTags(makeEvent(73002, [...base, ...paymentTags])).valid).toBe(false);
+		}
+	});
+
+	it('rejects malformed or multiple source pledge references', () => {
+		const malformed = makeEvent(73004, [
+			['a', VALID_A_TAG],
+			['e', HEX_EVENT_ID, '', 'solution'],
+			['e', 'not-an-event-id', '', 'source'],
+			['p', HEX_PUBKEY],
+			['mint', VALID_MINT_URL]
+		]);
+		const duplicate = makeEvent(73004, [
+			['a', VALID_A_TAG],
+			['e', HEX_EVENT_ID, '', 'solution'],
+			['e', 'd'.repeat(64), '', 'source'],
+			['e', 'e'.repeat(64), '', 'source'],
+			['p', HEX_PUBKEY],
+			['mint', VALID_MINT_URL]
+		]);
+
+		expect(validateEventTags(malformed).valid).toBe(false);
+		expect(validateEventTags(duplicate).errors).toContain(
+			'Payout event must reference exactly one source pledge'
+		);
+	});
+
+	it('requires source and mint tags to appear together', () => {
+		const sourceOnly = makeEvent(73004, [
+			['a', VALID_A_TAG],
+			['e', HEX_EVENT_ID, '', 'solution'],
+			['e', 'd'.repeat(64), '', 'source'],
+			['p', HEX_PUBKEY]
+		]);
+		const mintOnly = makeEvent(73004, [
+			['a', VALID_A_TAG],
+			['e', HEX_EVENT_ID],
+			['p', HEX_PUBKEY],
+			['mint', VALID_MINT_URL]
+		]);
+
+		expect(validateEventTags(sourceOnly).valid).toBe(false);
+		expect(validateEventTags(mintOnly).valid).toBe(false);
+	});
 });
 
 // ── Unknown Kinds ───────────────────────────────────────────────────────────

@@ -7,6 +7,7 @@ import { validatePayout, type PayoutValidationContext } from '$lib/bounty/payout
 const OWNER = 'a'.repeat(64);
 const SOLVER = 'b'.repeat(64);
 const OTHER = 'c'.repeat(64);
+const PAYMENT_KEY = 'd'.repeat(64);
 const ADDRESS = `37300:${'d'.repeat(64)}:bounty`;
 const NOW = 1_000;
 const event = {} as NostrEvent;
@@ -15,6 +16,7 @@ const pledge = {
 	event,
 	id: '1'.repeat(64),
 	pubkey: OWNER,
+	paymentPubkey: 'e'.repeat(64),
 	bountyAddress: ADDRESS,
 	amount: 100,
 	cashuToken: 'source-token',
@@ -26,6 +28,7 @@ const winner = {
 	event,
 	id: '2'.repeat(64),
 	pubkey: SOLVER,
+	paymentPubkey: PAYMENT_KEY,
 	bountyAddress: ADDRESS,
 	description: '',
 	antiSpamTokens: [],
@@ -41,6 +44,7 @@ const payout = {
 	bountyAddress: ADDRESS,
 	solutionId: winner.id,
 	solverPubkey: SOLVER,
+	paymentPubkey: PAYMENT_KEY,
 	amount: 100,
 	cashuToken: 'payout-token',
 	sourcePledgeId: pledge.id,
@@ -55,7 +59,7 @@ const token = {
 	normalizedMint: 'https://mint.example',
 	decodedAmount: 100,
 	proofIdentities: [],
-	p2pkTarget: `02${SOLVER}`,
+	p2pkTarget: `02${PAYMENT_KEY}`,
 	reasons: []
 } satisfies CashuTokenVerification;
 
@@ -112,6 +116,20 @@ describe('validatePayout', () => {
 		expect(validatePayout({ ...payout, solverPubkey: OTHER }, context()).reasons).toContain(
 			'wrong_recipient'
 		);
+	});
+
+	it('rejects payout payment-key redirection independently of solver identity', () => {
+		const result = validatePayout({ ...payout, paymentPubkey: OTHER }, context());
+		expect(result.reasons).toContain('payment_key_mismatch');
+	});
+
+	it('rejects legacy winners and payouts without payment keys', () => {
+		expect(validatePayout({ ...payout, paymentPubkey: null }, context()).reasons).toContain(
+			'missing_payment_key'
+		);
+		expect(
+			validatePayout(payout, context({ winner: { ...winner, paymentPubkey: null } })).reasons
+		).toContain('winner_missing_payment_key');
 	});
 
 	it('rejects payout, source, bounty, and token mint mismatches', () => {

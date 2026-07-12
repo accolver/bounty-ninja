@@ -27,7 +27,10 @@ vi.mock('$lib/nostr/signer.svelte', () => ({
 	publishEvent: vi.fn()
 }));
 
-import { detectSpentUnretractedPledges, autoRetractSpentPledge } from '$lib/cashu/pledge-monitor.svelte';
+import {
+	detectSpentUnretractedPledges,
+	autoRetractSpentPledge
+} from '$lib/cashu/pledge-monitor.svelte';
 import { decodeToken } from '$lib/cashu/token';
 import { getWallet } from '$lib/cashu/mint';
 import { accountState } from '$lib/nostr/account.svelte';
@@ -52,6 +55,7 @@ function makePledge(id: string, pubkey: string = PUBKEY_A): Pledge {
 		},
 		id,
 		pubkey,
+		paymentPubkey: pubkey,
 		bountyAddress: TASK_ADDR,
 		amount: 1000,
 		cashuToken: 'cashuAtoken123',
@@ -121,9 +125,9 @@ describe('detectSpentUnretractedPledges', () => {
 
 		// A: spent, B: unspent, C: spent but retracted
 		mockWallet.checkProofsStates
-			.mockResolvedValueOnce([{ state: 'SPENT' }])    // A
-			.mockResolvedValueOnce([{ state: 'UNSPENT' }])  // B
-			.mockResolvedValueOnce([{ state: 'SPENT' }]);   // C (won't be checked — retracted)
+			.mockResolvedValueOnce([{ state: 'SPENT' }]) // A
+			.mockResolvedValueOnce([{ state: 'UNSPENT' }]) // B
+			.mockResolvedValueOnce([{ state: 'SPENT' }]); // C (won't be checked — retracted)
 
 		const retractions = [makeRetraction('3'.repeat(64))];
 		const result = await detectSpentUnretractedPledges([pledgeA, pledgeB, pledgeC], retractions);
@@ -165,7 +169,10 @@ describe('autoRetractSpentPledge', () => {
 	it('publishes retraction only (no reputation) when no solutions', async () => {
 		(accountState as { pubkey: string | null }).pubkey = PUBKEY_A;
 		const signedEvent = { id: 'signed'.padEnd(64, '0'), kind: RETRACTION_KIND } as NostrEvent;
-		(publishEvent as ReturnType<typeof vi.fn>).mockResolvedValue({ event: signedEvent, broadcast: {} });
+		(publishEvent as ReturnType<typeof vi.fn>).mockResolvedValue({
+			event: signedEvent,
+			broadcast: {}
+		});
 
 		const pledge = makePledge('1'.repeat(64), PUBKEY_A);
 		const result = await autoRetractSpentPledge(pledge, TASK_ADDR, false);
@@ -176,7 +183,10 @@ describe('autoRetractSpentPledge', () => {
 	it('publishes retraction AND reputation when solutions exist', async () => {
 		(accountState as { pubkey: string | null }).pubkey = PUBKEY_A;
 		const signedEvent = { id: 'signed'.padEnd(64, '0'), kind: RETRACTION_KIND } as NostrEvent;
-		(publishEvent as ReturnType<typeof vi.fn>).mockResolvedValue({ event: signedEvent, broadcast: {} });
+		(publishEvent as ReturnType<typeof vi.fn>).mockResolvedValue({
+			event: signedEvent,
+			broadcast: {}
+		});
 
 		const pledge = makePledge('1'.repeat(64), PUBKEY_A);
 		const result = await autoRetractSpentPledge(pledge, TASK_ADDR, true);

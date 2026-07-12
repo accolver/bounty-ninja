@@ -8,13 +8,7 @@ import {
 	bountyByAuthorFilter,
 	searchBountiesFilter
 } from '$lib/bounty/filters';
-import {
-	BOUNTY_KIND,
-	PLEDGE_KIND,
-	SOLUTION_KIND,
-	VOTE_KIND,
-	PAYOUT_KIND
-} from '$lib/bounty/kinds';
+import { BOUNTY_KIND, PLEDGE_KIND, SOLUTION_KIND, VOTE_KIND, PAYOUT_KIND } from '$lib/bounty/kinds';
 
 describe('bountyListFilter', () => {
 	it('returns a filter for bounty events with default limit', () => {

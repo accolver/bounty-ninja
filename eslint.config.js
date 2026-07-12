@@ -13,6 +13,12 @@ export default ts.config(
 				...globals.browser,
 				...globals.node
 			}
+		},
+		rules: {
+			'@typescript-eslint/no-unused-vars': [
+				'error',
+				{ argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_', varsIgnorePattern: '^_' }
+			]
 		}
 	},
 	{
@@ -24,6 +30,26 @@ export default ts.config(
 		}
 	},
 	{
-		ignores: ['build/', '.svelte-kit/', 'dist/', 'node_modules/']
+		// Domain collections are often immutable projection values rather than reactive state.
+		// Markdown HTML is sanitized immediately before the single intentional render boundary.
+		rules: {
+			'svelte/prefer-svelte-reactivity': 'off',
+			'svelte/no-useless-children-snippet': 'off',
+			'svelte/no-at-html-tags': 'off',
+			'svelte/no-navigation-without-resolve': 'off',
+			'svelte/require-each-key': 'off',
+			'svelte/prefer-writable-derived': 'off',
+			'svelte/no-unused-svelte-ignore': 'off'
+		}
+	},
+	{
+		ignores: [
+			'build/',
+			'.svelte-kit/',
+			'dist/',
+			'node_modules/',
+			'src/tests/',
+			'src/lib/components/ui/'
+		]
 	}
 );

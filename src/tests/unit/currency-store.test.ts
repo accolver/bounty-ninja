@@ -177,8 +177,7 @@ describe('CurrencyStore', () => {
 		it('exports CurrencyDisplay type', async () => {
 			const mod = await getCurrencyStore();
 			// Verify the type union members at runtime via the store
-			const values: (typeof mod)['currencyStore'] extends { display: infer D } ? D : never =
-				'usd';
+			const values: (typeof mod)['currencyStore'] extends { display: infer D } ? D : never = 'usd';
 			expect(['usd', 'sats']).toContain(values);
 		});
 	});

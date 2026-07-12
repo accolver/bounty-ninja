@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/test';
 import { MOCK_NIP07_SCRIPT } from './helpers/mock-nip07';
 
 test.describe('Authentication', () => {
@@ -22,63 +22,30 @@ test.describe('Authentication', () => {
 
 	test('unauthenticated user cannot access bounty creation', async ({ page }) => {
 		await page.goto('/bounty/new');
-		await page.waitForTimeout(1000);
-
-		// Should show "Sign in" text or Login button instead of form
-		const signInText = page.locator('text=Sign in');
-		const loginButton = page.locator('button:has-text("Login")');
-
-		const hasSignIn = await signInText.isVisible({ timeout: 5000 }).catch(() => false);
-		const hasLogin = await loginButton.isVisible({ timeout: 2000 }).catch(() => false);
-		expect(hasSignIn || hasLogin).toBe(true);
+		await expect(
+			page.getByText('Sign in with a Nostr extension to create a bounty.')
+		).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Login', exact: true })).toBeVisible();
 	});
 
 	test('NIP-07 signer enables login', async ({ page }) => {
 		// Inject mock NIP-07
 		await page.addInitScript(MOCK_NIP07_SCRIPT);
 		await page.goto('/');
-		await page.waitForTimeout(1000);
-
-		// With NIP-07 available, either auto-logged in or Login button works
-		const loginButton = page.locator('button:has-text("Login"), button:has-text("Connect")');
-		if (
-			await loginButton
-				.first()
-				.isVisible({ timeout: 2000 })
-				.catch(() => false)
-		) {
-			await loginButton.first().click();
-			await page.waitForTimeout(1000);
-		}
-
-		// After login, profile menu or some auth indicator should appear
-		const body = await page.textContent('body');
-		expect(body).toBeTruthy();
+		await page.getByRole('button', { name: 'Login', exact: true }).first().click();
+		await page.getByRole('button', { name: /Browser Extension/ }).click();
+		await expect(page.getByRole('button', { name: 'Account menu' })).toBeVisible();
 	});
 
 	test('settings page loads for authenticated user', async ({ page }) => {
 		await page.addInitScript(MOCK_NIP07_SCRIPT);
 		await page.goto('/');
-		await page.waitForTimeout(500);
-
-		// Login if needed
-		const loginButton = page.locator('button:has-text("Login"), button:has-text("Connect")');
-		if (
-			await loginButton
-				.first()
-				.isVisible({ timeout: 2000 })
-				.catch(() => false)
-		) {
-			await loginButton.first().click();
-			await page.waitForTimeout(500);
-		}
+		await page.getByRole('button', { name: 'Login', exact: true }).first().click();
+		await page.getByRole('button', { name: /Browser Extension/ }).click();
+		await expect(page.getByRole('button', { name: 'Account menu' })).toBeVisible();
 
 		await page.goto('/settings');
-		await page.waitForTimeout(500);
-
-		// Should show settings content (either auth-gated message or actual settings)
-		const main = page.locator('main');
-		await expect(main).toBeVisible();
+		await expect(page.getByRole('main')).toBeVisible();
 	});
 
 	test('every page has main landmark', async ({ page }) => {

@@ -1,0 +1,6 @@
+{
+	"initialRouteKiB": 270,
+	"largestLazyChunkKiB": 360,
+	"totalAssetsKiB": 1284,
+	"initialEntryNames": ["entry/start", "entry/app", "nodes/0", "nodes/3"]
+}

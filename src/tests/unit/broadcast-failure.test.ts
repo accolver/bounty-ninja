@@ -54,7 +54,7 @@ vi.mock('$lib/utils/constants', () => ({
 	CLIENT_TAG: 'bounty.ninja'
 }));
 
-import { publishEvent, resetEventFactory } from '$lib/nostr/signer.svelte';
+import { publishEvent, resetEventFactory, signerState } from '$lib/nostr/signer.svelte';
 import { broadcastEvent } from '$lib/nostr/publish';
 import { ingestEvent } from '$lib/nostr/event-ingestion';
 
@@ -116,6 +116,7 @@ beforeEach(() => {
 
 	// Reset the factory singleton so each test starts fresh
 	resetEventFactory();
+	signerState.setReady(TEST_PUBKEY, 'nip07');
 
 	// Simulate window.nostr being available (NIP-07 extension)
 	Object.defineProperty(globalThis, 'window', {
@@ -201,6 +202,15 @@ describe('publishEvent broadcast result', () => {
 		expect(result.broadcast.acceptedCount).toBe(1);
 		expect(result.broadcast.rejectedCount).toBe(1);
 		expect(result.broadcast.failures).toHaveLength(1);
+	});
+
+	it('rejects signer account changes before ingestion or broadcast', async () => {
+		mockSign.mockResolvedValueOnce(makeSignedEvent({ pubkey: 'f'.repeat(64) }));
+
+		await expect(publishEvent(makeTemplate())).rejects.toThrow('Signer account mismatch');
+		expect(mockedIngestEvent).not.toHaveBeenCalled();
+		expect(mockedBroadcast).not.toHaveBeenCalled();
+		expect(signerState.ready).toBe(false);
 	});
 });
 

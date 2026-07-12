@@ -23,15 +23,6 @@ Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock });
 const mockFetch = vi.fn();
 globalThis.fetch = mockFetch;
 
-// Mock AbortController
-class MockAbortController {
-	signal = { aborted: false };
-	abort() {
-		this.signal.aborted = true;
-	}
-}
-vi.stubGlobal('AbortController', MockAbortController);
-
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 /** Kraken API success response */
@@ -384,36 +375,30 @@ describe('BtcPriceService', () => {
 
 	describe('CoinGecko response validation', () => {
 		it('rejects missing bitcoin.usd field', async () => {
-			mockFetch
-				.mockRejectedValueOnce(new Error('Kraken down'))
-				.mockResolvedValueOnce({
-					ok: true,
-					json: () => Promise.resolve({ bitcoin: {} })
-				});
+			mockFetch.mockRejectedValueOnce(new Error('Kraken down')).mockResolvedValueOnce({
+				ok: true,
+				json: () => Promise.resolve({ bitcoin: {} })
+			});
 
 			await btcPrice.fetch();
 			expect(btcPrice.error).toBe('Unable to fetch BTC price');
 		});
 
 		it('rejects zero price from CoinGecko', async () => {
-			mockFetch
-				.mockRejectedValueOnce(new Error('Kraken down'))
-				.mockResolvedValueOnce({
-					ok: true,
-					json: () => Promise.resolve({ bitcoin: { usd: 0 } })
-				});
+			mockFetch.mockRejectedValueOnce(new Error('Kraken down')).mockResolvedValueOnce({
+				ok: true,
+				json: () => Promise.resolve({ bitcoin: { usd: 0 } })
+			});
 
 			await btcPrice.fetch();
 			expect(btcPrice.error).toBe('Unable to fetch BTC price');
 		});
 
 		it('rejects non-number price from CoinGecko', async () => {
-			mockFetch
-				.mockRejectedValueOnce(new Error('Kraken down'))
-				.mockResolvedValueOnce({
-					ok: true,
-					json: () => Promise.resolve({ bitcoin: { usd: 'bad' } })
-				});
+			mockFetch.mockRejectedValueOnce(new Error('Kraken down')).mockResolvedValueOnce({
+				ok: true,
+				json: () => Promise.resolve({ bitcoin: { usd: 'bad' } })
+			});
 
 			await btcPrice.fetch();
 			expect(btcPrice.error).toBe('Unable to fetch BTC price');

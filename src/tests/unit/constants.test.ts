@@ -1,10 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-	CLIENT_TAG,
-	APP_NAME,
-	SESSION_STORAGE_KEY,
-	SIGNER_TIMEOUT_MS
-} from '$lib/utils/constants';
+import { CLIENT_TAG, APP_NAME, SESSION_STORAGE_KEY, SIGNER_TIMEOUT_MS } from '$lib/utils/constants';
 
 describe('constants', () => {
 	it('CLIENT_TAG equals "bounty.ninja"', () => {

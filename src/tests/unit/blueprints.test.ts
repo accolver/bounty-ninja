@@ -18,6 +18,7 @@ const PUBKEY = 'a'.repeat(64);
 const OTHER_PUBKEY = 'b'.repeat(64);
 const BOUNTY_ADDRESS = `${BOUNTY_KIND}:${PUBKEY}:test-bounty-123`;
 const EVENT_ID = 'e'.repeat(64);
+const PAYMENT_PUBKEY = 'c'.repeat(64);
 
 /** Helper to find a tag value in an event template */
 function findTag(tags: string[][], name: string): string | undefined {
@@ -108,6 +109,7 @@ describe('pledgeBlueprint', () => {
 	const baseParams: PledgeBlueprintParams = {
 		bountyAddress: BOUNTY_ADDRESS,
 		creatorPubkey: PUBKEY,
+		paymentPubkey: PAYMENT_PUBKEY,
 		amount: 10000,
 		cashuToken: 'cashuA_test_token_abc',
 		mintUrl: 'https://mint.example.com'
@@ -118,10 +120,11 @@ describe('pledgeBlueprint', () => {
 		expect(template.kind).toBe(PLEDGE_KIND);
 	});
 
-	it('includes all required tags: a, p, amount, cashu, mint, client', () => {
+	it('includes all required tags including the Cashu payment key', () => {
 		const template = pledgeBlueprint(baseParams);
 		expect(findTag(template.tags, 'a')).toBe(BOUNTY_ADDRESS);
 		expect(findTag(template.tags, 'p')).toBe(PUBKEY);
+		expect(template.tags).toContainEqual(['payment', 'cashu', PAYMENT_PUBKEY]);
 		expect(findTag(template.tags, 'amount')).toBe('10000');
 		expect(findTag(template.tags, 'cashu')).toBe('cashuA_test_token_abc');
 		expect(findTag(template.tags, 'mint')).toBe('https://mint.example.com');
@@ -153,6 +156,7 @@ describe('solutionBlueprint', () => {
 	const baseParams: SolutionBlueprintParams = {
 		bountyAddress: BOUNTY_ADDRESS,
 		creatorPubkey: PUBKEY,
+		paymentPubkey: PAYMENT_PUBKEY,
 		description: 'Here is my solution with full implementation.'
 	};
 
@@ -165,6 +169,7 @@ describe('solutionBlueprint', () => {
 		const template = solutionBlueprint(baseParams);
 		expect(findTag(template.tags, 'a')).toBe(BOUNTY_ADDRESS);
 		expect(findTag(template.tags, 'p')).toBe(PUBKEY);
+		expect(template.tags).toContainEqual(['payment', 'cashu', PAYMENT_PUBKEY]);
 		expectClientTag(template.tags);
 	});
 
@@ -254,9 +259,12 @@ describe('payoutBlueprint', () => {
 	const baseParams: PayoutBlueprintParams = {
 		bountyAddress: BOUNTY_ADDRESS,
 		solutionId: EVENT_ID,
+		sourcePledgeId: 'f'.repeat(64),
 		solverPubkey: OTHER_PUBKEY,
+		paymentPubkey: PAYMENT_PUBKEY,
 		amount: 45000,
-		cashuToken: 'cashuA_payout_token_xyz'
+		cashuToken: 'cashuA_payout_token_xyz',
+		mintUrl: 'https://mint.example.com'
 	};
 
 	it('produces correct kind', () => {
@@ -264,14 +272,23 @@ describe('payoutBlueprint', () => {
 		expect(template.kind).toBe(PAYOUT_KIND);
 	});
 
-	it('includes all required tags: a, e, p, amount, cashu, client', () => {
+	it('includes exact solution, source pledge, mint, amount, token, and recipient tags', () => {
 		const template = payoutBlueprint(baseParams);
 		expect(findTag(template.tags, 'a')).toBe(BOUNTY_ADDRESS);
-		expect(findTag(template.tags, 'e')).toBe(EVENT_ID);
+		expect(template.tags).toContainEqual(['e', EVENT_ID, '', 'solution']);
+		expect(template.tags).toContainEqual(['e', 'f'.repeat(64), '', 'source']);
 		expect(findTag(template.tags, 'p')).toBe(OTHER_PUBKEY);
+		expect(template.tags).toContainEqual(['payment', 'cashu', PAYMENT_PUBKEY]);
 		expect(findTag(template.tags, 'amount')).toBe('45000');
 		expect(findTag(template.tags, 'cashu')).toBe('cashuA_payout_token_xyz');
+		expect(findTag(template.tags, 'mint')).toBe('https://mint.example.com');
 		expectClientTag(template.tags);
+	});
+
+	it('rejects non-canonical payment keys', () => {
+		expect(() =>
+			payoutBlueprint({ ...baseParams, paymentPubkey: PAYMENT_PUBKEY.toUpperCase() })
+		).toThrow('lowercase');
 	});
 
 	it('sets content to empty string', () => {
@@ -305,6 +322,7 @@ describe('all blueprints include client tag', () => {
 		const t = pledgeBlueprint({
 			bountyAddress: 'x',
 			creatorPubkey: 'x',
+			paymentPubkey: PAYMENT_PUBKEY,
 			amount: 1,
 			cashuToken: 'x',
 			mintUrl: 'x'
@@ -316,6 +334,7 @@ describe('all blueprints include client tag', () => {
 		const t = solutionBlueprint({
 			bountyAddress: 'x',
 			creatorPubkey: 'x',
+			paymentPubkey: PAYMENT_PUBKEY,
 			description: 'x'
 		});
 		expectClientTag(t.tags);
@@ -335,9 +354,12 @@ describe('all blueprints include client tag', () => {
 		const t = payoutBlueprint({
 			bountyAddress: 'x',
 			solutionId: 'x',
+			sourcePledgeId: 'x',
 			solverPubkey: 'x',
+			paymentPubkey: PAYMENT_PUBKEY,
 			amount: 1,
-			cashuToken: 'x'
+			cashuToken: 'x',
+			mintUrl: 'x'
 		});
 		expectClientTag(t.tags);
 	});

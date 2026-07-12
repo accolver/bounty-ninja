@@ -1,5 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { hashFilters, recordQueryFetch, getQueryMeta, isQueryFresh, clearCacheMeta, FRESHNESS } from '$lib/nostr/cache-meta';
+import {
+	hashFilters,
+	recordQueryFetch,
+	getQueryMeta,
+	isQueryFresh,
+	clearCacheMeta,
+	FRESHNESS
+} from '$lib/nostr/cache-meta';
 
 describe('cache-meta', () => {
 	beforeEach(() => {

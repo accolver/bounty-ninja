@@ -12,6 +12,7 @@ const forbidden = [
 const sourceFiles = import.meta.glob(
 	[
 		'/src/lib/components/**/*.{svelte,ts}',
+		'/src/lib/cashu/**/*.ts',
 		'/src/lib/nostr/**/*.ts',
 		'/src/routes/**/*.{svelte,ts}'
 	],
@@ -27,6 +28,15 @@ describe('production identity-key boundary', () => {
 				if (pattern.test(source)) violations.push(`${file}: ${pattern}`);
 			}
 		}
+
+		expect(violations).toEqual([]);
+	});
+
+	it('contains no raw payment private-key interfaces', () => {
+		const violations = Object.entries(sourceFiles)
+			.filter(([file]) => file.startsWith('/src/lib/cashu/'))
+			.filter(([, source]) => /\bprivkey\b|\bprivateKey\b/.test(source))
+			.map(([file]) => file);
 
 		expect(violations).toEqual([]);
 	});

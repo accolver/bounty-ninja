@@ -76,24 +76,20 @@ describe('ErrorMonitorStore', () => {
 		expect(errorMonitor.entries[maxEntries - 1].message).toBe(`Error ${maxEntries + 9}`);
 	});
 
-	it('strips 64-char hex pubkeys from error messages', () => {
+	it('fully redacts 64-char hex identifiers from error details', () => {
 		const pubkey = 'a'.repeat(64);
-		errorMonitor.capture(
-			`Failed to load profile for ${pubkey}`,
-			'error',
-			{
-				source: `relay-${pubkey}.ts:42:1`,
-				stack: `Error: user ${pubkey} not found\n    at resolve.ts:5`
-			}
-		);
+		errorMonitor.capture(`Failed to load profile for ${pubkey}`, 'error', {
+			source: `relay-${pubkey}.ts:42:1`,
+			stack: `Error: user ${pubkey} not found\n    at resolve.ts:5`
+		});
 
 		const entry = errorMonitor.entries[0];
 		expect(entry.message).not.toContain(pubkey);
-		expect(entry.message).toContain('aaaaaaaa...[redacted]');
+		expect(entry.message).toContain('[identifier-redacted]');
 		expect(entry.source).not.toContain(pubkey);
-		expect(entry.source).toContain('aaaaaaaa...[redacted]');
+		expect(entry.source).toContain('[identifier-redacted]');
 		expect(entry.stack).not.toContain(pubkey);
-		expect(entry.stack).toContain('aaaaaaaa...[redacted]');
+		expect(entry.stack).toContain('[identifier-redacted]');
 	});
 
 	it('strips multiple hex pubkeys from a single message', () => {
@@ -104,8 +100,7 @@ describe('ErrorMonitorStore', () => {
 		const entry = errorMonitor.entries[0];
 		expect(entry.message).not.toContain(pk1);
 		expect(entry.message).not.toContain(pk2);
-		expect(entry.message).toContain('11111111...[redacted]');
-		expect(entry.message).toContain('22222222...[redacted]');
+		expect(entry.message.match(/\[identifier-redacted\]/g)).toHaveLength(2);
 	});
 
 	it('does not strip shorter hex strings', () => {

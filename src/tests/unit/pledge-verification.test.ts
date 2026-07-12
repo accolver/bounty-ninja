@@ -7,7 +7,6 @@ import type { ProofIdentity, TokenInfo } from '$lib/cashu/types';
 
 const BOUNTY_ADDRESS = `37300:${'a'.repeat(64)}:bounty`;
 const TARGET = `02${'b'.repeat(64)}`;
-const REFUND = `02${'c'.repeat(64)}`;
 const IDENTITY = 'https://mint.example#proof-y' as ProofIdentity;
 
 const proof = { id: 'keyset', amount: 100, secret: 'secret', C: 'point' } as Proof;
@@ -15,6 +14,7 @@ const pledge = {
 	event: {} as Pledge['event'],
 	id: 'pledge-1',
 	pubkey: 'b'.repeat(64),
+	paymentPubkey: 'b'.repeat(64),
 	bountyAddress: BOUNTY_ADDRESS,
 	amount: 100,
 	cashuToken: 'cashuBtoken',
@@ -31,8 +31,8 @@ const decoded = {
 const state = { Y: 'proof-y', state: 'UNSPENT', witness: null } satisfies ProofState;
 const condition = {
 	target: TARGET,
-	refundKeys: [REFUND],
-	locktime: 2_000_000_000,
+	refundKeys: [],
+	locktime: null,
 	nSigs: 1,
 	nSigsRefund: 1,
 	sigFlag: 'SIG_INPUTS'
@@ -48,9 +48,6 @@ function input(overrides: Partial<PledgeValidationInput> = {}): PledgeValidation
 		proofIdentities: [IDENTITY],
 		duplicateProofs: new Set(),
 		conditions: [condition],
-		expectedP2PKTarget: TARGET,
-		expectedLocktime: 2_000_000_000,
-		expectedRefundKeys: [REFUND],
 		checkedAt: 1_900_000_000,
 		validUntil: 1_900_000_300,
 		...overrides
@@ -142,11 +139,21 @@ describe('validatePledge', () => {
 			validatePledge(input({ conditions: [{ ...condition, locktime: 1 }] })).reasons
 		).toContain('locktime_mismatch');
 		expect(
-			validatePledge(input({ conditions: [{ ...condition, refundKeys: [] }] })).reasons
+			validatePledge(input({ conditions: [{ ...condition, refundKeys: [`02${'c'.repeat(64)}`] }] }))
+				.reasons
 		).toContain('refund_policy_mismatch');
+		expect(validatePledge(input({ conditions: [{ ...condition, nSigs: 0 }] })).reasons).toContain(
+			'signature_policy_mismatch'
+		);
 		expect(
-			validatePledge(input({ conditions: [{ ...condition, nSigsRefund: 0 }] })).reasons
-		).toContain('refund_policy_mismatch');
+			validatePledge(input({ conditions: [{ ...condition, sigFlag: 'SIG_ALL' }] })).reasons
+		).toContain('signature_policy_mismatch');
+	});
+
+	it('rejects legacy pledges without an explicit payment key', () => {
+		const result = validatePledge(input({ pledge: { ...pledge, paymentPubkey: null } }));
+		expect(result.status).toBe('invalid');
+		expect(result.reasons).toContain('missing_payment_key');
 	});
 
 	it('rejects mixed proof conditions', () => {

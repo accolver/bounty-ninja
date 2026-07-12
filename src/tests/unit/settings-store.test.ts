@@ -30,11 +30,7 @@ interface CacheLimits {
 	maxAgeDays: number;
 }
 
-const DEFAULT_RELAYS = [
-	'wss://relay.damus.io',
-	'wss://nos.lol',
-	'wss://relay.primal.net'
-];
+const DEFAULT_RELAYS = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.primal.net'];
 const DEFAULT_MINT = 'https://mint.minibits.cash/Bitcoin';
 const DEFAULT_CACHE_LIMITS: CacheLimits = { maxEvents: 10_000, maxAgeDays: 30 };
 

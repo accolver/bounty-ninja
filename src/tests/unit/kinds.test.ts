@@ -1,11 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-	BOUNTY_KIND,
-	SOLUTION_KIND,
-	PLEDGE_KIND,
-	VOTE_KIND,
-	PAYOUT_KIND
-} from '$lib/bounty/kinds';
+import { BOUNTY_KIND, SOLUTION_KIND, PLEDGE_KIND, VOTE_KIND, PAYOUT_KIND } from '$lib/bounty/kinds';
 
 describe('bounty event kinds', () => {
 	it('BOUNTY_KIND is 37300', () => {
