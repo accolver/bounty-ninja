@@ -5,43 +5,50 @@ A decentralized, censorship-resistant bounty board built on
 fund them with bitcoin ecash, submit solutions, vote on winners, and coordinate
 pledger-controlled releases — all client-side, zero backend.
 
-> **Payment safety status:** payment writes are currently disabled while wallet
-> signing, token validation, and crash-safe recovery are hardened. The Nostr
-> bounty and fee-free solution flows remain available. Never paste an `nsec` or
-> raw private key into this application.
+> **Payment safety status:** payment writes default to disabled and are not
+> approved for real funds. The implemented payment path is a manual Minibits
+> handoff, not an integrated wallet signer. The Nostr bounty and fee-free
+> solution flows remain available. See `PAYMENTS_TEST.md` and
+> `LAUNCH_CHECKLIST.md`.
 
 **Live:** [bounty.ninja](https://bounty.ninja)
 
 ## How It Works
 
 1. **Post** a bounty as a Nostr event (Kind 37300)
-2. **Fund** it by attaching P2PK-locked Cashu ecash tokens — pledgers retain
-   custody
-3. **Solve** by submitting proof of work with an anti-spam fee
+2. **Fund** it by attaching a validated, permanent P2PK-locked Cashu token
+3. **Solve** by submitting proof of work and a Cashu payout public key
 4. **Vote** — funders vote weighted by their pledge amount (66% quorum)
 5. **Payout** — after consensus, each pledger releases their own funds to the winner
 
-No accounts or application custodian. Identity signing uses a NIP-07 browser
-extension or NIP-46 remote signer; the application never accepts identity
-private keys.
+No accounts or application custodian. NIP-07 or NIP-46 signs Nostr events only.
+Cashu authorization stays in the user's external wallet; the application never
+accepts identity or payment secret keys.
+
+The current manual workflow supports Minibits-created tokens that permanently
+require one `SIG_INPUTS` signature and have **no locktime or refund keys**.
+Deadlines do not unlock funds. Release and reclaim require the same backed-up
+Minibits wallet: pledgers manually create solver-locked outputs for release or
+use Minibits **Revert** on the original pending send before retracting. No other
+external wallet or automated payment signer is currently claimed compatible.
 
 ## Tech Stack
 
-| Layer      | Technology                             |
-| ---------- | -------------------------------------- |
-| Framework  | SvelteKit 2 (static SPA, `ssr: false`) |
-| Reactivity | Svelte 5 Runes                         |
-| Nostr      | Applesauce v5 ecosystem + nostr-idb    |
-| Payments   | @cashu/cashu-ts v3 (P2PK via NUT-11)   |
-| UI         | shadcn-svelte (next) + Tailwind CSS 4  |
-| Runtime    | Bun                                    |
-| Testing    | Vitest + Playwright                    |
-| Deploy     | Cloudflare Pages                       |
+| Layer      | Technology                                      |
+| ---------- | ----------------------------------------------- |
+| Framework  | SvelteKit 2 (static SPA, `ssr: false`)          |
+| Reactivity | Svelte 5 Runes                                  |
+| Nostr      | Applesauce v5 ecosystem + nostr-idb             |
+| Payments   | cashu-ts 3.4.1 + manual Minibits NUT-11 handoff |
+| UI         | shadcn-svelte (next) + Tailwind CSS 4           |
+| Runtime    | Bun 1.3.5                                       |
+| Testing    | Vitest + Playwright                             |
+| Deploy     | Cloudflare Pages                                |
 
 ## Prerequisites
 
-- [Bun](https://bun.sh/) >= 1.0
-- [Node.js](https://nodejs.org/) >= 22
+- [Bun](https://bun.sh/) 1.3.5
+- [Node.js](https://nodejs.org/) 22.23.1
 - [Docker](https://www.docker.com/) (for the local relay, optional)
 - A NIP-07 browser extension (e.g., [Alby](https://getalby.com/),
   [nos2x](https://github.com/nicholasgasior/nos2x)) for signing
@@ -121,13 +128,18 @@ src/
 | 73002 | Pledge (Cashu ecash attachment)               |
 | 1018  | Consensus vote                                |
 | 73004 | Payout record                                 |
+| 73005 | Bounty or pledge retraction                   |
+| 73006 | Reputation attestation                        |
 
 ## Bounty Lifecycle
 
 ```
-draft → open → in_review → completed
-         ↘ expired    ↗ cancelled
+draft → open → in_review → consensus_reached → releasing → completed
+         ↘ expired                                      ↗ cancelled
 ```
+
+Lifecycle and voting use only validated financial events. Completion requires
+one valid source-bound payout for every active validated pledge.
 
 ## License
 

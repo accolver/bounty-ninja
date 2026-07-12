@@ -27,49 +27,49 @@
 
 ## 4. Route and Lifecycle Consistency
 
-- [ ] 4.1 Replace independent list/detail lifecycle calculations with the shared projection in `bounties.svelte.ts` and `bounty-detail.svelte.ts`
-- [ ] 4.2 Add per-bounty payout loading, pass validated retractions into detail derivation, and reject non-bounty `naddr` kinds
-- [ ] 4.3 Merge validated `naddr` relay hints with configured relays using bounded connection rules and tests
-- [ ] 4.4 Update search and profile routes to use projected bounty summaries and include authored solutions, validated pledges, releases, and reputation
-- [ ] 4.5 Correct completion to require one valid payout per active validated source pledge and distinguish consensus, releasing, completed, expired, and cancelled states
-- [ ] 4.6 Separate remembered account, signer-ready, and authenticated state and verify signed event pubkeys match the active account
+- [x] 4.1 Replace independent list/detail lifecycle calculations with the shared projection in `bounties.svelte.ts` and `bounty-detail.svelte.ts`
+- [x] 4.2 Add per-bounty payout loading, pass validated retractions into detail derivation, and reject non-bounty `naddr` kinds
+- [x] 4.3 Merge validated `naddr` relay hints with configured relays using bounded connection rules and tests
+- [x] 4.4 Update search and profile routes to use projected bounty summaries and include authored solutions, validated pledges, releases, and reputation
+- [x] 4.5 Correct completion to require one valid payout per active validated source pledge and distinguish consensus, releasing, completed, expired, and cancelled states
+- [x] 4.6 Separate remembered account, signer-ready, and authenticated state and verify signed event pubkeys match the active account
 
 ## 5. Wallet Signing and Recoverable Payments
 
-- [ ] 5.1 Specify and implement a typed Cashu payment signer capability in `src/lib/cashu/` with no raw secret-key interface
-- [ ] 5.2 Validate exact NUT-11 primary/refund/locktime semantics against supported `cashu-ts` and mint behavior; add real-protocol integration fixtures
-- [ ] 5.3 Correct pledge output conditions so public proofs never become anyone-spendable after locktime
-- [ ] 5.4 Extend Kind 73004 blueprints and validators with exact source pledge and mint references, one payout per source pledge
-- [ ] 5.5 Refactor release to create solver-locked outputs directly or return every intermediate proof on failure
-- [ ] 5.6 Add a versioned IndexedDB payment operation journal with prepared, spending, outputs-created, signed, published, confirmed, recovery-required, and failed states
-- [ ] 5.7 Persist operation state before every irreversible transition and implement idempotent resume using the exact signed event
-- [ ] 5.8 Add recovery/export UI that survives reload and cannot be dismissed before safe wallet handoff or explicit acknowledgement
+- [x] 5.1 Specify and implement a typed Cashu payment signer capability in `src/lib/cashu/` with no raw secret-key interface
+- [x] 5.2 Validate exact NUT-11 primary/refund/locktime semantics against supported `cashu-ts` and mint behavior; add real-protocol integration fixtures
+- [x] 5.3 Correct pledge output conditions so public proofs never become anyone-spendable after locktime
+- [x] 5.4 Extend Kind 73004 blueprints and validators with exact source pledge and mint references, one payout per source pledge
+- [x] 5.5 Refactor release to create solver-locked outputs directly or return every intermediate proof on failure
+- [x] 5.6 Add a versioned IndexedDB payment operation journal with prepared, spending, outputs-created, signed, published, confirmed, recovery-required, and failed states
+- [x] 5.7 Persist operation state before every irreversible transition and implement idempotent resume using the exact signed event
+- [x] 5.8 Add recovery/export UI that survives reload and cannot be dismissed before safe wallet handoff or explicit acknowledgement
 - [ ] 5.9 Integrate at least one compatible external wallet/payment signer and keep the production flag disabled until interoperability tests pass
 
 ## 6. Cache, Offline, and Availability
 
-- [ ] 6.1 Integrate verified cache-first queries into home and bounty detail before relay revalidation
-- [ ] 6.2 Add service-worker SPA navigation fallback, controlled update activation, and pending-payment compatibility checks
-- [ ] 6.3 Track browser, relay, mint, cache freshness, and publication readiness as distinct states with actionable retry UI
-- [ ] 6.4 Connect saved cache limits to scheduled eviction, protect active-user events, and restrict clearing to app-owned databases
-- [ ] 6.5 Keep cached/local search available offline and merge relay search results incrementally without timeout data loss
+- [x] 6.1 Integrate verified cache-first queries into home and bounty detail before relay revalidation
+- [x] 6.2 Add service-worker SPA navigation fallback, controlled update activation, and pending-payment compatibility checks
+- [x] 6.3 Track browser, relay, mint, cache freshness, and publication readiness as distinct states with actionable retry UI
+- [x] 6.4 Connect saved cache limits to scheduled eviction, protect active-user events, and restrict clearing to app-owned databases
+- [x] 6.5 Keep cached/local search available offline and merge relay search results incrementally without timeout data loss
 
 ## 7. Test and Release Gates
 
-- [ ] 7.1 Build hermetic Playwright setup with a clean local relay, deterministic mock mint, blocked public traffic, and browser installation in CI
-- [ ] 7.2 Replace conditional shell assertions with full create, validate pledge, solve, vote, release, claim, retract, reload, and offline lifecycle tests
-- [ ] 7.3 Add adversarial and crash-boundary scenarios for all audit exploits and irreversible payment transitions
+- [x] 7.1 Build hermetic Playwright setup with a clean local relay, deterministic mock mint, blocked public traffic, and browser installation in CI
+- [x] 7.2 Replace conditional shell assertions with full create, validate pledge, solve, vote, release, claim, retract, reload, and offline lifecycle tests
+- [x] 7.3 Add adversarial and crash-boundary scenarios for all audit exploits and irreversible payment transitions
 - [ ] 7.4 Run Chromium, Firefox, WebKit, and 375px mobile projects with accessibility checks and retained failure artifacts
-- [ ] 7.5 Add Vitest coverage thresholds and stricter branch coverage for validation, projection, signer, publishing, state-machine, sanitization, and recovery modules
-- [ ] 7.6 Fix current Svelte warnings and formatting failures, narrow formatter scope appropriately, and make lint a required gate
+- [x] 7.5 Add Vitest coverage thresholds and stricter branch coverage for validation, projection, signer, publishing, state-machine, sanitization, and recovery modules
+- [x] 7.6 Fix current Svelte warnings and formatting failures, narrow formatter scope appropriately, and make lint a required gate
 
 ## 8. Reproducible Operations and Launch
 
-- [ ] 8.1 Pin Bun, Node, Wrangler, nak/relay image, GitHub Actions, and security/payment-critical direct dependencies
-- [ ] 8.2 Update `.github/workflows/ci.yml` to run the complete quality suite, build once, checksum and retain the artifact, serialize production deploys, and use a protected environment
-- [ ] 8.3 Replace the aggregate bundle script with Vite-manifest initial-route, largest-lazy-chunk, and total-asset budgets; remove warning suppression
-- [ ] 8.4 Add deployed header/custom-domain smoke tests, release identity, post-deploy validation, and automatic failure reporting
-- [ ] 8.5 Add privacy-scrubbed diagnostic export/monitoring without pubkeys, event content, tokens, proofs, or secret URLs
-- [ ] 8.6 Create `SECURITY.md` and operational runbooks for payment incidents, outages, disclosure, credential rotation, rollback, and recovery drills
-- [ ] 8.7 Reconcile `PRD.md`, README, OpenSpec main specs, payment guide, branding, lifecycle, test-count, and performance claims with implemented behavior
+- [x] 8.1 Pin Bun, Node, Wrangler, nak/relay image, GitHub Actions, and security/payment-critical direct dependencies
+- [x] 8.2 Update `.github/workflows/ci.yml` to run the complete quality suite, build once, checksum and retain the artifact, serialize production deploys, and use a protected environment
+- [x] 8.3 Replace the aggregate bundle script with Vite-manifest initial-route, largest-lazy-chunk, and total-asset budgets; remove warning suppression
+- [x] 8.4 Add deployed header/custom-domain smoke tests, release identity, post-deploy validation, and automatic failure reporting
+- [x] 8.5 Add privacy-scrubbed diagnostic export/monitoring without pubkeys, event content, tokens, proofs, or secret URLs
+- [x] 8.6 Create `SECURITY.md` and operational runbooks for payment incidents, outages, disclosure, credential rotation, rollback, and recovery drills
+- [x] 8.7 Reconcile `PRD.md`, README, OpenSpec main specs, payment guide, branding, lifecycle, test-count, and performance claims with implemented behavior
 - [ ] 8.8 Complete test-funds beta, independent NUT-11/payment review, recovery drill, accessibility audit, and launch checklist before enabling payment writes

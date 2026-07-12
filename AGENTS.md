@@ -8,8 +8,8 @@
 
 **Bounty.ninja** is a decentralized, censorship-resistant bounty board / labor
 marketplace. Users post bounties as Nostr events, fund them with P2PK-locked
-Cashu ecash, submit solutions, vote on winners, and receive automatic payouts.
-Zero backend — entirely client-side.
+Cashu ecash, submit solutions, vote on winners, and coordinate pledger-controlled
+manual releases. Zero backend — entirely client-side.
 
 **Domain:** https://bounty.ninja — deployed on Cloudflare Pages.
 
@@ -31,7 +31,7 @@ Zero backend — entirely client-side.
 | Nostr Types      | **nostr-tools**                                     | Use `NostrEvent`, `Filter` types from here — NOT from NDK                             |
 | Cashu            | **@cashu/cashu-ts** v3                              | P2PK locking via NUT-11 for trustless escrow                                          |
 | Reactive Streams | **RxJS**                                            | Bridged to Svelte 5 Runes in class-based stores                                       |
-| Testing          | **Vitest** (unit/integration), **Playwright** (E2E) | 578+ unit/integration, 16 E2E tests                                                   |
+| Testing          | **Vitest** (unit/integration), **Playwright** (E2E) | Use runner output for current test totals                                             |
 | Build            | **Vite 7**                                          | Ships with SvelteKit                                                                  |
 | Tool Management  | **mise**                                            | Manages Bun, Node versions + task runner                                              |
 | Deploy           | **Cloudflare Pages**                                | `mise run deploy` (build + wrangler pages deploy)                                     |
@@ -288,17 +288,21 @@ mise run deploy:preview  # Deploy to preview URL
 
 Cloudflare project: `bounty-ninja`.
 
-## Performance Targets
+## Performance Gates
 
-- First Contentful Paint < 1.5s
-- Time to Interactive < 3s
-- Bundle size < 400KB gzipped (actual: ~355KB)
-- Lighthouse score > 90
+- Enforced gzip budgets are defined only in `bundle-budgets.json`: initial home
+  route, largest lazy asset, and total JavaScript/CSS.
+- Lighthouse and mobile timing values are targets until a dated production
+  audit records measured results in `LAUNCH_CHECKLIST.md`.
 
-## Current State (Feb 2026)
+## Current State (July 2026)
 
 - **Phases 1-4 complete**, Phase 5 ~95%
-- 578+ tests passing, 0 TypeScript errors
+- Use the current quality-suite output for test and TypeScript status; do not
+  maintain static passing-test counts here.
+- Production payment writes default disabled. The implemented workflow is a
+  manual Minibits handoff with permanent no-locktime P2PK proofs; launch gates
+  remain in `LAUNCH_CHECKLIST.md`.
 - Client-side caching fully implemented (SWR, LRU eviction, prefetching, quota
   monitoring)
 - Logo: Hooded Figure (green hood, gold eyes) — `static/logo-icon.svg`
