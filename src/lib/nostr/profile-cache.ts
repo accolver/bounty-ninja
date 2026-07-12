@@ -28,7 +28,6 @@ export interface CachedProfile {
 
 const MAX_PROFILES = 500;
 const FRESH_MS = 15 * 60 * 1000; // 15 min
-const STALE_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 /** LRU map: pubkey → CachedProfile. Oldest entries evicted when over MAX_PROFILES. */
 const profileMap = new Map<string, CachedProfile>();

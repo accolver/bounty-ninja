@@ -13,6 +13,7 @@ import type { Mint, Wallet } from '@cashu/cashu-ts';
 import { getCashu } from './lazy';
 import { getDefaultMint } from '$lib/utils/env';
 import { MintConnectionError } from './types';
+import { availability } from '$lib/stores/availability.svelte';
 
 /** Maximum number of connection retries. */
 const MAX_RETRIES = 2;
@@ -114,12 +115,15 @@ export async function getWallet(mintUrl?: string): Promise<Wallet> {
 
 	const cached = walletCache.get(url);
 	if (cached) {
+		availability.mintReady();
 		return cached;
 	}
+	availability.checkingMint();
 
 	// Check negative cache — if this mint recently failed, don't retry
 	const failedAt = failureCache.get(url);
 	if (failedAt && Date.now() - failedAt < FAILURE_CACHE_TTL_MS) {
+		availability.mintUnavailable();
 		throw new MintConnectionError(url, new Error('Mint recently unreachable (cached failure)'));
 	}
 
@@ -132,10 +136,12 @@ export async function getWallet(mintUrl?: string): Promise<Wallet> {
 	} catch (err) {
 		// Cache the failure to prevent repeated retry storms
 		failureCache.set(url, Date.now());
+		availability.mintUnavailable();
 		throw err;
 	}
 
 	walletCache.set(url, wallet);
+	availability.mintReady();
 	return wallet;
 }
 

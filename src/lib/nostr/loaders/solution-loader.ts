@@ -9,9 +9,11 @@ import { solutionsForBountyFilter } from '$lib/bounty/filters';
  * Create a loader that subscribes to solution events (Kind 73001)
  * for a specific bounty address from all default relays.
  */
-export function createSolutionLoader(bountyAddress: string): { unsubscribe(): void } {
+export function createSolutionLoader(
+	bountyAddress: string,
+	relayUrls: readonly string[] = getDefaultRelays()
+): { unsubscribe(): void } {
 	const filter = solutionsForBountyFilter(bountyAddress);
-	const relayUrls = getDefaultRelays();
 	const subscriptions: Subscription[] = [];
 
 	for (const url of relayUrls) {

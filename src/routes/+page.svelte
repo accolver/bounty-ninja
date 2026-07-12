@@ -17,11 +17,11 @@
 	import Target from '@lucide/svelte/icons/target';
 	import { fade, fly } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
-	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import type { BountySummary, BountyStatus } from '$lib/bounty/types';
 	import { config } from '$lib/config';
 	import { pageLoading } from '$lib/stores/page-loading.svelte';
+	import { availability } from '$lib/stores/availability.svelte';
 
 	// --- Read initial query params ---
 	const initialParams = browser
@@ -47,10 +47,16 @@
 	const initStatus = parseInitialStatus(initialParams.get('status'));
 	const initSort = initialParams.get('sort');
 	const validSorts = ['reward', 'newest', 'solutions'] as const;
+	type SortOption = (typeof validSorts)[number];
 
 	// Start bounty list subscriptions when the page mounts (idempotent)
 	$effect(() => {
 		bountyList.init();
+	});
+
+	$effect(() => {
+		if (bountyList.loading || bountyList.items.length === 0) availability.clearCacheFreshness();
+		else availability.setCacheFreshness(bountyList.stale);
 	});
 
 	// Full-page loading overlay: show for at least 1s, skip entirely if data was cached.
@@ -75,10 +81,8 @@
 	let animate = $state(false);
 
 	let selectedTag = $state(initialParams.get('tag') ?? '');
-	let sortBy = $state<'reward' | 'newest' | 'solutions'>(
-		initSort && validSorts.includes(initSort as any)
-			? (initSort as 'reward' | 'newest' | 'solutions')
-			: 'reward'
+	let sortBy = $state<SortOption>(
+		initSort && validSorts.includes(initSort as SortOption) ? (initSort as SortOption) : 'reward'
 	);
 
 	// Status filter — initialized from URL or defaults
@@ -211,6 +215,11 @@
 			<div out:fade={{ duration: 300 }} onoutroend={() => pageLoading.showNavLogo(1000)}>
 				<LoadingLogo />
 			</div>
+		{/if}
+		{#if bountyList.stale && bountyList.items.length > 0}
+			<p class="mb-4 border-y border-warning/40 py-2 text-sm text-warning" role="status">
+				Showing verified cached results while relays reconnect.
+			</p>
 		{/if}
 		<div class="flex gap-8" class:animate-fade-in={!hadDataAtMount && !showOverlay}>
 			<Sidebar bind:selectedTag />

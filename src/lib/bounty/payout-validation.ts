@@ -1,6 +1,6 @@
 import type { CashuTokenVerification } from '$lib/cashu/types';
 import { normalizeMintUrl } from '$lib/cashu/proof-identity';
-import { toCompressedPubkey } from '$lib/cashu/p2pk';
+import { nut11KeyMatchesXOnly } from '$lib/cashu/p2pk';
 import type { Payout, PayoutValidation, Pledge, Solution } from './types';
 
 export interface PayoutValidationContext {
@@ -22,6 +22,7 @@ export function validatePayout(payout: Payout, context: PayoutValidationContext)
 	const token = context.payoutTokenVerifications.get(payout.id);
 
 	if (!context.winner) reasons.push('consensus_not_unique');
+	if (!payout.paymentPubkey) reasons.push('missing_payment_key');
 	if (!payout.sourcePledgeId) reasons.push('missing_source_pledge');
 	else if (!sourcePledge) reasons.push('unknown_or_inactive_source_pledge');
 	if (payout.bountyAddress !== context.bountyAddress) reasons.push('wrong_bounty');
@@ -33,6 +34,10 @@ export function validatePayout(payout: Payout, context: PayoutValidationContext)
 	if (context.winner) {
 		if (payout.solutionId !== context.winner.id) reasons.push('wrong_solution');
 		if (payout.solverPubkey !== context.winner.pubkey) reasons.push('wrong_recipient');
+		if (!context.winner.paymentPubkey) reasons.push('winner_missing_payment_key');
+		if (payout.paymentPubkey && payout.paymentPubkey !== context.winner.paymentPubkey) {
+			reasons.push('payment_key_mismatch');
+		}
 	}
 	if (!Number.isSafeInteger(payout.amount) || payout.amount <= 0) reasons.push('invalid_amount');
 	if (payout.sourcePledgeId && context.alreadyReleasedPledgeIds.has(payout.sourcePledgeId)) {
@@ -55,9 +60,12 @@ export function validatePayout(payout: Payout, context: PayoutValidationContext)
 		reasons.push('missing_token_verification');
 	} else {
 		if (token.decodedAmount !== payout.amount) reasons.push('token_amount_mismatch');
-		if (context.winner) {
+		if (context.winner?.paymentPubkey) {
 			try {
-				if (token.p2pkTarget?.toLowerCase() !== toCompressedPubkey(context.winner.pubkey)) {
+				if (
+					!token.p2pkTarget ||
+					!nut11KeyMatchesXOnly(token.p2pkTarget, context.winner.paymentPubkey)
+				) {
 					reasons.push('token_target_mismatch');
 				}
 			} catch {

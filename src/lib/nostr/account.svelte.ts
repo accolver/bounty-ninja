@@ -17,7 +17,7 @@ import { pool } from './relay-pool';
 export type LoginMethod = 'nip07' | 'bunker';
 
 export type LoginError = {
-	type: 'no-extension' | 'rejected' | 'timeout' | 'unknown' | 'bunker-error';
+	type: 'no-extension' | 'rejected' | 'timeout' | 'unknown' | 'bunker-error' | 'mismatch';
 	message: string;
 };
 
@@ -25,9 +25,11 @@ export type LoginError = {
  * Reactive account state store using Svelte 5 runes.
  * Tracks current user's public key and derived properties.
  */
-class AccountState {
-	/** Hex-encoded public key, or null if not logged in */
+export class AccountState {
+	/** Active signer-verified public key. */
 	pubkey = $state<string | null>(null);
+	/** Last explicitly authenticated account restored for display/reconnect only. */
+	rememberedPubkey = $state<string | null>(null);
 
 	/** Whether a login operation is in progress */
 	loading = $state(false);
@@ -47,9 +49,11 @@ class AccountState {
 		return nip19.npubEncode(this.pubkey);
 	}
 
-	/** Whether the user is currently logged in */
-	get isLoggedIn(): boolean {
-		return this.pubkey !== null;
+	/** Authentication requires an active account matching a ready signer. */
+	get isAuthenticated(): boolean {
+		return (
+			this.pubkey !== null && signerState.ready && signerState.pubkey === this.pubkey.toLowerCase()
+		);
 	}
 
 	constructor() {
@@ -63,7 +67,7 @@ class AccountState {
 		try {
 			const stored = localStorage.getItem(SESSION_STORAGE_KEY);
 			if (stored && /^[0-9a-f]{64}$/i.test(stored)) {
-				this.pubkey = stored;
+				this.rememberedPubkey = stored.toLowerCase();
 			}
 		} catch {
 			// localStorage may be unavailable
@@ -73,8 +77,8 @@ class AccountState {
 	/** Persist session to localStorage */
 	private persistSession(): void {
 		try {
-			if (this.pubkey) {
-				localStorage.setItem(SESSION_STORAGE_KEY, this.pubkey);
+			if (this.rememberedPubkey) {
+				localStorage.setItem(SESSION_STORAGE_KEY, this.rememberedPubkey);
 			} else {
 				localStorage.removeItem(SESSION_STORAGE_KEY);
 			}
@@ -92,6 +96,10 @@ class AccountState {
 		this.loading = true;
 
 		try {
+			await clearBunkerSigner(true);
+			resetEventFactory();
+			signerState.clearReady();
+			this.pubkey = null;
 			if (!signerState.available && !window.nostr) {
 				this.error = {
 					type: 'no-extension',
@@ -115,8 +123,11 @@ class AccountState {
 				return;
 			}
 
-			this.pubkey = pubkey;
+			const normalized = pubkey.toLowerCase();
+			this.pubkey = normalized;
+			this.rememberedPubkey = normalized;
 			this.loginMethod = 'nip07';
+			signerState.setReady(normalized, 'nip07');
 			this.persistSession();
 		} catch (err) {
 			if (err instanceof Error && err.message === 'timeout') {
@@ -144,6 +155,8 @@ class AccountState {
 		this.error = null;
 		this.bunkerConnecting = true;
 		this.loading = true;
+		signerState.clearReady();
+		this.pubkey = null;
 
 		try {
 			// Check if we already have an active bunker connection (e.g., after logout + re-login)
@@ -154,8 +167,11 @@ class AccountState {
 					if (typeof pubkey === 'string' && /^[0-9a-f]{64}$/i.test(pubkey)) {
 						setBunkerSigner(existingSigner);
 						resetEventFactory();
-						this.pubkey = pubkey;
+						const normalized = pubkey.toLowerCase();
+						this.pubkey = normalized;
+						this.rememberedPubkey = normalized;
 						this.loginMethod = 'bunker';
+						signerState.setReady(normalized, 'bunker');
 						this.persistSession();
 						return;
 					}
@@ -210,8 +226,11 @@ class AccountState {
 			setBunkerSigner(signer);
 			resetEventFactory();
 
-			this.pubkey = pubkey;
+			const normalized = pubkey.toLowerCase();
+			this.pubkey = normalized;
+			this.rememberedPubkey = normalized;
 			this.loginMethod = 'bunker';
+			signerState.setReady(normalized, 'bunker');
 			this.persistSession();
 		} catch (err) {
 			if (err instanceof Error && err.message === 'timeout') {
@@ -241,6 +260,7 @@ class AccountState {
 	 */
 	async logout(): Promise<void> {
 		this.pubkey = null;
+		signerState.clearReady();
 		this.error = null;
 		const wasBunker = this.loginMethod === 'bunker';
 		this.loginMethod = null;
@@ -250,7 +270,6 @@ class AccountState {
 			await clearBunkerSigner(true);
 		}
 		resetEventFactory();
-		this.persistSession();
 	}
 
 	/**
@@ -286,11 +305,21 @@ class AccountState {
 				};
 				return;
 			}
+			const normalized = pubkey.toLowerCase();
+			if (this.rememberedPubkey && normalized !== this.rememberedPubkey) {
+				this.error = {
+					type: 'mismatch',
+					message: 'The connected signer does not control the remembered account.'
+				};
+				return;
+			}
 
 			setBunkerSigner(signer);
 			resetEventFactory();
-			this.pubkey = pubkey;
+			this.pubkey = normalized;
+			this.rememberedPubkey = normalized;
 			this.loginMethod = 'bunker';
+			signerState.setReady(normalized, 'bunker');
 			this.persistSession();
 		} catch {
 			this.error = {
@@ -309,12 +338,12 @@ class AccountState {
 	 */
 	async disconnectBunker(): Promise<void> {
 		await clearBunkerSigner(true);
-		if (this.loginMethod === 'bunker') {
-			this.pubkey = null;
-			this.loginMethod = null;
-			resetEventFactory();
-			this.persistSession();
-		}
+		this.pubkey = null;
+		this.rememberedPubkey = null;
+		signerState.clearReady();
+		this.loginMethod = null;
+		resetEventFactory();
+		this.persistSession();
 	}
 }
 

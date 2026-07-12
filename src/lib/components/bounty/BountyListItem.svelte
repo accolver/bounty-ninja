@@ -27,7 +27,9 @@
 >
 	<!-- Title + metadata -->
 	<div class="min-w-0 flex-1">
-		<h3 class="truncate text-base font-semibold text-foreground group-hover:text-primary transition-colors">
+		<h3
+			class="truncate text-base font-semibold text-foreground group-hover:text-primary transition-colors"
+		>
 			{bounty.title}
 		</h3>
 		<p class="mt-1.5 flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -39,7 +41,8 @@
 			{/if}
 			{#if bounty.solutionCount > 0}
 				<span>
-					{bounty.solutionCount} {bounty.solutionCount === 1 ? 'solution' : 'solutions'}
+					{bounty.solutionCount}
+					{bounty.solutionCount === 1 ? 'solution' : 'solutions'}
 				</span>
 				<span aria-hidden="true">&middot;</span>
 			{/if}
@@ -50,6 +53,8 @@
 	<!-- Status badge + chevron -->
 	<div class="flex shrink-0 items-center gap-3">
 		<BountyStatusBadge status={bounty.status} />
-		<ChevronRight class="h-4 w-4 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5" />
+		<ChevronRight
+			class="h-4 w-4 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5"
+		/>
 	</div>
 </a>

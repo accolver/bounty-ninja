@@ -67,7 +67,7 @@
 				</div>
 				<h3 class="text-sm font-semibold text-foreground">3. Review & Pay</h3>
 				<p class="text-xs text-muted-foreground">
-					Pick the best solution and release payment — it's instant via Bitcoin, no middlemen.
+					Funders vote, then each pledger manually releases their portion to the winner.
 				</p>
 			</div>
 		</div>

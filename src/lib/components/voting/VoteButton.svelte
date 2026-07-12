@@ -41,7 +41,7 @@
 
 	// Determine disabled reasons for tooltip
 	const disabledReason = $derived.by(() => {
-		if (!accountState.isLoggedIn) return 'Sign in to vote';
+		if (!accountState.isAuthenticated) return 'Sign in to vote';
 		if (!hasPledged) return 'Only pledgers can vote';
 		return null;
 	});
@@ -65,7 +65,7 @@
 	let submitting = $state(false);
 
 	async function vote(choice: 'approve' | 'reject') {
-		if (!accountState.isLoggedIn || !hasPledged || submitting) return;
+		if (!accountState.isAuthenticated || !hasPledged || submitting) return;
 
 		if (existingVote === choice) {
 			toastStore.info(`You have already voted to ${choice} this solution`);
@@ -184,7 +184,7 @@
 		<p class="text-xs text-warning" role="status">Wait {rateLimitRemaining}s before voting again</p>
 	{:else if !connectivity.online}
 		<p class="text-xs text-warning" role="alert">Offline — cannot vote</p>
-	{:else if accountState.isLoggedIn && hasPledged}
+	{:else if accountState.isAuthenticated && hasPledged}
 		<p
 			class="text-xs text-muted-foreground"
 			aria-label="Your vote weight: {userVoteWeight.toLocaleString()} sats"

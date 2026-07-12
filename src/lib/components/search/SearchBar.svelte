@@ -2,7 +2,6 @@
 	import { goto } from '$app/navigation';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import SearchIcon from '@lucide/svelte/icons/search';
-	import { connectivity } from '$lib/stores/connectivity.svelte';
 
 	const {
 		variant = 'compact',
@@ -61,8 +60,7 @@
 			type="search"
 			bind:value={query}
 			onkeydown={handleKeydown}
-			disabled={!connectivity.online}
-			placeholder={connectivity.online ? 'Search bounties...' : 'Search unavailable offline'}
+			placeholder="Search bounties..."
 			class={variant === 'hero' ? 'h-12 pl-10 text-lg' : 'h-9 pl-9 text-sm'}
 		/>
 	</div>

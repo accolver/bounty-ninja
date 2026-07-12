@@ -70,3 +70,27 @@ export function createBountyByAuthorLoader(pubkey: string): { unsubscribe(): voi
 		}
 	};
 }
+
+export function createBountyLoader(
+	kind: number,
+	pubkey: string,
+	dTag: string,
+	relayUrls: readonly string[] = getDefaultRelays()
+): { unsubscribe(): void } {
+	const filter = { kinds: [kind], authors: [pubkey], '#d': [dTag] };
+	const subscriptions: Subscription[] = [];
+	for (const url of relayUrls) {
+		try {
+			subscriptions.push(
+				pool
+					.relay(url)
+					.subscription(filter)
+					.pipe(onlyEvents(), ingestEventsFrom('relay'))
+					.subscribe()
+			);
+		} catch {
+			// Skip unreachable relays.
+		}
+	}
+	return { unsubscribe: () => subscriptions.forEach((subscription) => subscription.unsubscribe()) };
+}

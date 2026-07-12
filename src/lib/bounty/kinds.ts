@@ -12,6 +12,8 @@ export const VOTE_KIND = 1018;
 
 /** Kind 73004 — Regular — Payout record */
 export const PAYOUT_KIND = 73004;
+export const PAYOUT_SOLUTION_MARKER = 'solution';
+export const PAYOUT_SOURCE_MARKER = 'source';
 
 /** Kind 73005 — Regular — Retraction (bounty cancellation / pledge withdrawal) */
 export const RETRACTION_KIND = 73005;

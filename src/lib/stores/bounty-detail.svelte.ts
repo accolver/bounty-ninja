@@ -1,7 +1,7 @@
 import type { Subscription } from 'rxjs';
 import { combineLatest } from 'rxjs';
 import type { NostrEvent } from 'nostr-tools';
-import type { BountyDetail } from '$lib/bounty/types';
+import type { BountyDetail, FinancialProjection, Retraction } from '$lib/bounty/types';
 import { eventStore } from '$lib/nostr/event-store';
 import { parseBountyDetail } from '$lib/bounty/helpers';
 import {
@@ -12,20 +12,20 @@ import {
 	RETRACTION_KIND
 } from '$lib/bounty/kinds';
 import { parseRetraction } from '$lib/bounty/helpers';
-import type { Retraction } from '$lib/bounty/types';
-import { pool } from '$lib/nostr/relay-pool';
-import { ingestEventsFrom } from '$lib/nostr/event-ingestion';
-import { onlyEvents } from 'applesauce-relay';
 import { getDefaultRelays } from '$lib/utils/env';
-import { createPledgeLoader } from '$lib/nostr/loaders/pledge-loader';
-import { createSolutionLoader } from '$lib/nostr/loaders/solution-loader';
-import { createVoteLoader } from '$lib/nostr/loaders/vote-loader';
 import { createProfileLoader } from '$lib/nostr/loaders/profile-loader';
+import { createBountyLoader } from '$lib/nostr/loaders/bounty-loader';
+import { mergeRelayHints } from '$lib/nostr/relay-hints';
 import {
 	detectSpentUnretractedPledges,
 	autoRetractSpentPledge
 } from '$lib/cashu/pledge-monitor.svelte';
 import { parsePledge } from '$lib/bounty/helpers';
+import { createRelatedEventsLoader } from '$lib/nostr/loaders/related-events-loader';
+import { verifyPayoutsForBounty, verifyPledgesForBounty } from '$lib/cashu/financial-verifier';
+import { projectFinancialState } from '$lib/bounty/financial-state';
+import { projectionRegistry } from '$lib/stores/projections.svelte';
+import { loadCachedEvents } from '$lib/nostr/cache';
 
 /**
  * Reactive store for a single bounty's full detail.
@@ -34,6 +34,7 @@ import { parsePledge } from '$lib/bounty/helpers';
  */
 export class BountyDetailStore {
 	#bounty = $state<BountyDetail | null>(null);
+	#projection = $state<FinancialProjection | null>(null);
 	#loading = $state(true);
 	#error = $state<string | null>(null);
 	#retractions = $state<Retraction[]>([]);
@@ -45,10 +46,34 @@ export class BountyDetailStore {
 	#spentCheckTimer: ReturnType<typeof setTimeout> | null = null;
 	#loadingTimer: ReturnType<typeof setTimeout> | null = null;
 	#taskAddress: string | null = null;
+	#relatedEventsComplete = false;
+	#rebuildVersion = 0;
+	#loadGeneration = 0;
+	#stale = $state(false);
+	#events: {
+		bounty?: NostrEvent;
+		pledges: NostrEvent[];
+		solutions: NostrEvent[];
+		votes: NostrEvent[];
+		payouts: NostrEvent[];
+		retractions: NostrEvent[];
+	} = { pledges: [], solutions: [], votes: [], payouts: [], retractions: [] };
 
 	/** The full bounty detail, or null if not loaded */
 	get bounty(): BountyDetail | null {
 		return this.#bounty;
+	}
+
+	get projection(): FinancialProjection | null {
+		return this.#projection;
+	}
+
+	get relatedEventsComplete(): boolean {
+		return this.#relatedEventsComplete;
+	}
+
+	get stale(): boolean {
+		return this.#stale;
 	}
 
 	/** Whether the initial load is still in progress */
@@ -80,11 +105,18 @@ export class BountyDetailStore {
 	 * Load a bounty and all related events.
 	 * Cleans up any previous subscriptions first.
 	 */
-	load(bountyAddress: string, kind: number, pubkey: string, dTag: string) {
+	load(
+		bountyAddress: string,
+		kind: number,
+		pubkey: string,
+		dTag: string,
+		relayHints: readonly string[] = []
+	) {
 		this.destroy();
 		this.#loading = true;
 		this.#error = null;
 		this.#taskAddress = bountyAddress;
+		this.#relatedEventsComplete = false;
 
 		// Safety timeout: stop showing spinner after 8s even if no data arrives.
 		// This gives relays ample time to respond while avoiding infinite loading.
@@ -123,48 +155,15 @@ export class BountyDetailStore {
 				NostrEvent[],
 				NostrEvent[]
 			]) => {
-				// Parse retractions
-				const parsedRetractions = retractionEvents
-					.map(parseRetraction)
-					.filter((r): r is Retraction => r !== null);
-				this.#retractions = parsedRetractions;
-
-				// Track retracted pledge IDs
-				const retractedIds = new Set<string>();
-				for (const r of parsedRetractions) {
-					if (r.type === 'pledge' && r.pledgeEventId) {
-						retractedIds.add(r.pledgeEventId);
-					}
-				}
-				this.#retractedPledgeIds = retractedIds;
-
-				// Filter out retracted pledges
-				const activePledgeEvents = pledgeEvents.filter((e) => !retractedIds.has(e.id));
-
-				if (bountyEvent) {
-					this.#bounty = parseBountyDetail(
-						bountyEvent,
-						activePledgeEvents,
-						solutionEvents,
-						voteEvents,
-						payoutEvents,
-						[] // delete events — legacy fallback
-					);
-
-					// Data arrived — stop loading and cancel the safety timeout
-					this.#loading = false;
-					if (this.#loadingTimer) {
-						clearTimeout(this.#loadingTimer);
-						this.#loadingTimer = null;
-					}
-
-					// Schedule spent-pledge detection (debounced — only after data settles)
-					this.#scheduleSpentCheck(
-						activePledgeEvents,
-						parsedRetractions,
-						solutionEvents.length > 0
-					);
-				}
+				this.#events = {
+					bounty: bountyEvent,
+					pledges: pledgeEvents,
+					solutions: solutionEvents,
+					votes: voteEvents,
+					payouts: payoutEvents,
+					retractions: retractionEvents
+				};
+				void this.#rebuild();
 				// Don't set loading=false here — wait for bountyEvent or timeout
 			},
 			error: (err: unknown) => {
@@ -173,53 +172,105 @@ export class BountyDetailStore {
 			}
 		});
 
-		// Start relay loaders to feed events into EventStore
-		this.#relaySubs.push(createPledgeLoader(bountyAddress));
-		this.#relaySubs.push(createSolutionLoader(bountyAddress));
-		this.#relaySubs.push(createVoteLoader(bountyAddress));
+		const relayUrls = mergeRelayHints(getDefaultRelays(), relayHints);
+		const generation = this.#loadGeneration;
+		void this.#hydrateAndStartRelays(generation, bountyAddress, kind, pubkey, dTag, relayUrls);
+	}
+
+	async #hydrateAndStartRelays(
+		generation: number,
+		bountyAddress: string,
+		kind: number,
+		pubkey: string,
+		dTag: string,
+		relayUrls: readonly string[]
+	) {
+		try {
+			await loadCachedEvents([
+				{ kinds: [kind], authors: [pubkey], '#d': [dTag] },
+				{
+					kinds: [PLEDGE_KIND, SOLUTION_KIND, VOTE_KIND, PAYOUT_KIND, RETRACTION_KIND],
+					'#a': [bountyAddress]
+				}
+			]);
+			if (generation !== this.#loadGeneration) return;
+			this.#stale = this.#events.bounty !== undefined;
+		} catch {
+			// Relay loading remains available when IndexedDB is unavailable.
+		}
+		if (generation !== this.#loadGeneration) return;
+		this.#relaySubs.push(
+			createRelatedEventsLoader(bountyAddress, relayUrls, () => {
+				this.#relatedEventsComplete = true;
+				this.#stale = false;
+				void this.#rebuild();
+			})
+		);
+		this.#relaySubs.push(createBountyLoader(kind, pubkey, dTag, relayUrls));
 		this.#relaySubs.push(createProfileLoader([pubkey]));
-
-		// Load retraction events from relays
-		this.#loadRetractionsFromRelays(bountyAddress);
-
-		// Also load the bounty event itself from relays via a direct subscription
-		this.#loadBountyFromRelays(kind, pubkey, dTag);
 	}
 
-	#loadRetractionsFromRelays(bountyAddress: string) {
-		const filter = { kinds: [RETRACTION_KIND], '#a': [bountyAddress] };
-		const relayUrls = getDefaultRelays();
-
-		for (const url of relayUrls) {
-			try {
-				const sub = pool
-					.relay(url)
-					.subscription(filter)
-					.pipe(onlyEvents(), ingestEventsFrom('relay'))
-					.subscribe();
-				this.#relaySubs.push(sub);
-			} catch {
-				// Skip unreachable relays
-			}
+	async #rebuild() {
+		const version = ++this.#rebuildVersion;
+		const events = this.#events;
+		if (!events.bounty) return;
+		const detail = parseBountyDetail(
+			events.bounty,
+			events.pledges,
+			events.solutions,
+			events.votes,
+			events.payouts,
+			[],
+			events.retractions
+		);
+		if (!detail) return;
+		const retractions = events.retractions
+			.map(parseRetraction)
+			.filter((item): item is Retraction => item !== null);
+		const votes = [...detail.votesBySolution.values()].flat();
+		const [pledgeVerifications, payoutTokenVerifications] = await Promise.all([
+			verifyPledgesForBounty(detail, detail.pledges),
+			verifyPayoutsForBounty(detail, detail.payouts)
+		]);
+		if (version !== this.#rebuildVersion) return;
+		const now = Math.floor(Date.now() / 1000);
+		const projection = projectFinancialState({
+			bounty: detail,
+			pledges: detail.pledges,
+			pledgeVerifications,
+			solutions: detail.solutions,
+			votes,
+			payouts: detail.payouts,
+			payoutTokenVerifications,
+			retractions,
+			relatedEventsComplete: this.#relatedEventsComplete,
+			now
+		});
+		this.#projection = projection;
+		projectionRegistry.replace(`detail:${projection.bountyAddress}`, [projection]);
+		this.#retractions = [...projection.authorizedRetractions];
+		this.#retractedPledgeIds = new Set(
+			projection.authorizedRetractions
+				.filter((item) => item.type === 'pledge' && item.pledgeEventId)
+				.map((item) => item.pledgeEventId as string)
+		);
+		this.#bounty = {
+			...detail,
+			status: projection.status,
+			totalPledged: projection.validatedFunding,
+			solutionCount: projection.solutions.length,
+			payouts: [...projection.validPayouts]
+		};
+		this.#loading = false;
+		if (this.#loadingTimer) {
+			clearTimeout(this.#loadingTimer);
+			this.#loadingTimer = null;
 		}
-	}
-
-	#loadBountyFromRelays(kind: number, pubkey: string, dTag: string) {
-		const filter = { kinds: [kind], authors: [pubkey], '#d': [dTag] };
-		const relayUrls = getDefaultRelays();
-
-		for (const url of relayUrls) {
-			try {
-				const sub = pool
-					.relay(url)
-					.subscription(filter)
-					.pipe(onlyEvents(), ingestEventsFrom('relay'))
-					.subscribe();
-				this.#relaySubs.push(sub);
-			} catch {
-				// Skip unreachable relays
-			}
-		}
+		this.#scheduleSpentCheck(
+			events.pledges,
+			[...projection.authorizedRetractions],
+			events.solutions.length > 0
+		);
 	}
 
 	/**
@@ -257,6 +308,9 @@ export class BountyDetailStore {
 
 	/** Clean up all subscriptions */
 	destroy() {
+		this.#loadGeneration++;
+		this.#rebuildVersion++;
+		if (this.#projection) projectionRegistry.remove(`detail:${this.#projection.bountyAddress}`);
 		this.#combinedSub?.unsubscribe();
 		this.#combinedSub = null;
 		if (this.#spentCheckTimer) {
@@ -271,5 +325,9 @@ export class BountyDetailStore {
 			sub.unsubscribe();
 		}
 		this.#relaySubs = [];
+		this.#projection = null;
+		this.#relatedEventsComplete = false;
+		this.#stale = false;
+		this.#events = { pledges: [], solutions: [], votes: [], payouts: [], retractions: [] };
 	}
 }

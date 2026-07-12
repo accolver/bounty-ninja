@@ -72,7 +72,7 @@
 			<RelayIndicator />
 			<ThemeToggle />
 
-			{#if accountState.isLoggedIn}
+			{#if accountState.isAuthenticated}
 				<ProfileMenu />
 			{:else}
 				<LoginButton />

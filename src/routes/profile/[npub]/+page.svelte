@@ -4,12 +4,9 @@
 	import type { NostrEvent } from 'nostr-tools';
 	import { nip19 } from 'nostr-tools';
 	import { eventStore } from '$lib/nostr/event-store';
-	import { BOUNTY_KIND } from '$lib/bounty/kinds';
-	import { parseBountySummary } from '$lib/bounty/helpers';
 	import { createProfileLoader } from '$lib/nostr/loaders/profile-loader';
 	import { createBountyByAuthorLoader } from '$lib/nostr/loaders/bounty-loader';
-	import type { BountySummary } from '$lib/bounty/types';
-	import { untrack } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import BountyCard from '$lib/components/bounty/BountyCard.svelte';
 	import LoadingLogo from '$lib/components/shared/LoadingLogo.svelte';
@@ -23,14 +20,38 @@
 	import CredibilityBadge from '$lib/components/reputation/CredibilityBadge.svelte';
 	import { reputationStore } from '$lib/stores/reputation.svelte';
 	import { pageLoading } from '$lib/stores/page-loading.svelte';
+	import { resolve } from '$app/paths';
+	import { bountyList } from '$lib/stores/bounties.svelte';
+	import { projectionRegistry } from '$lib/stores/projections.svelte';
 
 	const { data } = $props();
 
 	const npub = $derived(nip19.npubEncode(data.pubkey));
 
 	let profile = $state<Record<string, string> | null>(null);
-	let bounties = $state<BountySummary[]>([]);
 	let loading = $state(true);
+	const bounties = $derived(bountyList.items.filter((item) => item.pubkey === data.pubkey));
+	const authoredSolutions = $derived(
+		projectionRegistry.items.flatMap((projection) =>
+			projection.solutions.filter((solution) => solution.pubkey === data.pubkey)
+		)
+	);
+	const validatedPledges = $derived(
+		projectionRegistry.items.flatMap((projection) =>
+			projection.activePledges.filter((pledge) => pledge.pubkey === data.pubkey)
+		)
+	);
+	const validReleases = $derived(
+		projectionRegistry.items.flatMap((projection) =>
+			projection.validPayouts.filter((payout) => payout.pubkey === data.pubkey)
+		)
+	);
+	const validatedPledgeAmount = $derived(
+		validatedPledges.reduce((sum, pledge) => sum + pledge.amount, 0)
+	);
+	const validReleaseAmount = $derived(
+		validReleases.reduce((sum, payout) => sum + payout.amount, 0)
+	);
 
 	// Full-page loading overlay: show for at least 1s, skip entirely if data resolves synchronously.
 	let minTimeElapsed = $state(false);
@@ -38,6 +59,7 @@
 
 	$effect(() => {
 		const subs: Array<Subscription | { unsubscribe(): void }> = [];
+		bountyList.init();
 
 		// Subscribe to profile metadata from EventStore
 		const profileSub = eventStore
@@ -54,18 +76,6 @@
 				}
 			});
 		subs.push(profileSub);
-
-		// Subscribe to bounties by this author from EventStore
-		const bountySub = eventStore
-			.timeline({ kinds: [BOUNTY_KIND], authors: [data.pubkey] })
-			.subscribe((events: NostrEvent[]) => {
-				bounties = events.map(parseBountySummary).filter((s): s is BountySummary => s !== null);
-				// Only stop loading when we have actual data
-				if (events.length > 0) {
-					loading = false;
-				}
-			});
-		subs.push(bountySub);
 
 		// Start relay loaders
 		subs.push(createProfileLoader([data.pubkey]));
@@ -93,11 +103,12 @@
 		};
 	});
 
-	if (!minTimeElapsed) {
-		setTimeout(() => {
+	onMount(() => {
+		const timer = setTimeout(() => {
 			minTimeElapsed = true;
 		}, 1000);
-	}
+		return () => clearTimeout(timer);
+	});
 
 	const dataReady = $derived(!loading || bounties.length > 0);
 	const showOverlay = $derived(needsOverlay && (!dataReady || !minTimeElapsed));
@@ -183,6 +194,28 @@
 				</section>
 			{/if}
 
+			<section class="space-y-4 border-t border-border pt-5" aria-label="Projected activity">
+				<h2 class="text-lg font-semibold text-foreground">Activity</h2>
+				<div class="flex flex-wrap gap-x-8 gap-y-4">
+					<div>
+						<p class="text-xs uppercase text-muted-foreground">Solutions submitted</p>
+						<p class="text-lg font-semibold text-foreground">{authoredSolutions.length}</p>
+					</div>
+					<div>
+						<p class="text-xs uppercase text-muted-foreground">Validated pledges</p>
+						<p class="text-lg font-semibold text-foreground">
+							{validatedPledges.length} · {validatedPledgeAmount.toLocaleString()} sats
+						</p>
+					</div>
+					<div>
+						<p class="text-xs uppercase text-muted-foreground">Valid releases</p>
+						<p class="text-lg font-semibold text-foreground">
+							{validReleases.length} · {validReleaseAmount.toLocaleString()} sats
+						</p>
+					</div>
+				</div>
+			</section>
+
 			<!-- Bounties by this author -->
 			<section>
 				<div class="mb-4 flex items-center justify-between">
@@ -190,7 +223,7 @@
 						{isOwnProfile ? 'My Bounties' : 'Bounties'} ({bounties.length})
 					</h2>
 					{#if isOwnProfile}
-						<a href="/bounty/new">
+						<a href={resolve('/bounty/new')}>
 							<Button variant="default" size="sm" class="gap-1.5">
 								<Plus class="size-4" />
 								Create Bounty

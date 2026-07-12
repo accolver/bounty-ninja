@@ -47,7 +47,7 @@
 
 	// Reset selection when results change
 	$effect(() => {
-		activeResults;
+		void activeResults;
 		selectedIndex = -1;
 	});
 

@@ -2,6 +2,7 @@ import type { NostrEvent } from 'nostr-tools';
 import type { PublishResponse } from 'applesauce-relay';
 import { pool } from './relay-pool';
 import { getDefaultRelays } from '$lib/utils/env';
+import { availability } from '$lib/stores/availability.svelte';
 
 /**
  * Result of a multi-relay broadcast operation.
@@ -28,8 +29,10 @@ export interface BroadcastResult {
  */
 export async function broadcastEvent(event: NostrEvent): Promise<BroadcastResult> {
 	const relayUrls = getDefaultRelays();
+	availability.publicationStarted();
 
 	if (relayUrls.length === 0) {
+		availability.publicationFailed();
 		throw new Error('No relays configured. Cannot broadcast event.');
 	}
 
@@ -67,12 +70,14 @@ export async function broadcastEvent(event: NostrEvent): Promise<BroadcastResult
 	const success = acceptedCount > 0;
 
 	if (!success) {
+		availability.publicationFailed();
 		const totalFailed = rejectedCount + failures.length;
 		throw new Error(
 			`Event rejected by all ${totalFailed} relay(s). ` +
 				`${rejectedCount} rejected, ${failures.length} connection failures.`
 		);
 	}
+	availability.publicationSucceeded();
 
 	if (failures.length > 0 || rejectedCount > 0) {
 		console.info(

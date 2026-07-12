@@ -14,6 +14,31 @@
 import type { Proof, P2PKOptions, Wallet } from '@cashu/cashu-ts';
 import type { P2PKLockParams, SwapResult } from './types';
 
+/** The event protocol uses canonical lowercase x-only secp256k1 public keys. */
+export function isXOnlyPubkey(pubkeyHex: string): boolean {
+	return /^[0-9a-f]{64}$/.test(pubkeyHex);
+}
+
+export function assertXOnlyPubkey(pubkeyHex: string): void {
+	if (!isXOnlyPubkey(pubkeyHex)) {
+		throw new Error('Invalid payment pubkey: expected lowercase 32-byte x-only hex');
+	}
+}
+
+/** Extract an x-coordinate from a valid x-only or compressed NUT-11 key. */
+export function nut11KeyXCoordinate(pubkeyHex: string): string {
+	const key = pubkeyHex.toLowerCase();
+	if (/^[0-9a-f]{64}$/.test(key)) return key;
+	if (/^(02|03)[0-9a-f]{64}$/.test(key)) return key.slice(2);
+	throw new Error('Invalid NUT-11 pubkey: expected x-only or compressed secp256k1 hex');
+}
+
+/** Compare a NUT-11 key to a canonical event payment key by x-coordinate. */
+export function nut11KeyMatchesXOnly(nut11Key: string, paymentPubkey: string): boolean {
+	assertXOnlyPubkey(paymentPubkey);
+	return nut11KeyXCoordinate(nut11Key) === paymentPubkey;
+}
+
 /**
  * Normalize a public key to compressed SEC1 format (02-prefixed) as required by NUT-11.
  *
@@ -24,10 +49,13 @@ import type { P2PKLockParams, SwapResult } from './types';
  *
  * @param pubkeyHex - Hex-encoded public key (x-only 64 chars or compressed 66 chars).
  * @returns Compressed public key in hex (66 chars with 02/03 prefix).
- * @throws If the key length is neither 64 nor 66 characters.
+ * @throws If the key is not valid-length hexadecimal.
  */
 export function toCompressedPubkey(pubkeyHex: string): string {
 	const key = pubkeyHex.toLowerCase();
+	if (!/^[0-9a-f]+$/.test(key)) {
+		throw new Error('Invalid pubkey: expected hexadecimal characters');
+	}
 	if (key.length === 66 && (key.startsWith('02') || key.startsWith('03'))) {
 		return key;
 	}
@@ -48,7 +76,7 @@ export function toCompressedPubkey(pubkeyHex: string): string {
  *
  * @param pubkeyHex - Hex-encoded public key to lock to (x-only 32-byte or compressed 33-byte).
  * @param refundLocktimeUnix - Optional Unix timestamp after which refund keys can spend.
- * @param refundKeys - Optional refund public keys (defaults to empty — anyone can spend after locktime).
+ * @param refundKeys - Refund public keys required whenever a locktime is set.
  * @returns P2PKOptions suitable for @cashu/cashu-ts operations.
  */
 export function createP2PKLock(
@@ -56,19 +84,45 @@ export function createP2PKLock(
 	refundLocktimeUnix?: number,
 	refundKeys?: string[]
 ): P2PKOptions {
+	if (refundLocktimeUnix !== undefined) {
+		if (!Number.isSafeInteger(refundLocktimeUnix) || refundLocktimeUnix <= 0) {
+			throw new Error('P2PK locktime must be a positive Unix timestamp');
+		}
+		if (!refundKeys || refundKeys.length === 0) {
+			throw new Error('P2PK locktime requires at least one refund key');
+		}
+	} else if (refundKeys && refundKeys.length > 0) {
+		throw new Error('P2PK refund keys require a locktime');
+	}
+
+	const normalizedRefundKeys = refundKeys?.map(toCompressedPubkey);
+	if (normalizedRefundKeys && new Set(normalizedRefundKeys).size !== normalizedRefundKeys.length) {
+		throw new Error('P2PK refund keys must be unique');
+	}
+
 	const options: P2PKOptions = {
-		pubkey: toCompressedPubkey(pubkeyHex)
+		pubkey: toCompressedPubkey(pubkeyHex),
+		requiredSignatures: 1,
+		sigFlag: 'SIG_INPUTS'
 	};
 
 	if (refundLocktimeUnix !== undefined) {
 		options.locktime = refundLocktimeUnix;
 	}
 
-	if (refundKeys && refundKeys.length > 0) {
-		options.refundKeys = refundKeys.map(toCompressedPubkey);
+	if (normalizedRefundKeys && normalizedRefundKeys.length > 0) {
+		options.refundKeys = normalizedRefundKeys;
+		options.requiredRefundSignatures = 1;
 	}
 
 	return options;
+}
+
+/** Fail closed when a mint does not advertise NUT-11 P2PK support. */
+export function assertNut11Support(wallet: Wallet): void {
+	if (!wallet.getMintInfo().isSupported(11).supported) {
+		throw new Error('Mint does not advertise NUT-11 P2PK support');
+	}
 }
 
 /**
@@ -115,9 +169,14 @@ export async function lockProofsToKey(
 		};
 	}
 
-	const p2pkOptions = createP2PKLock(pubkeyHex, refundLocktimeUnix);
+	const p2pkOptions = createP2PKLock(
+		pubkeyHex,
+		refundLocktimeUnix,
+		refundLocktimeUnix === undefined ? undefined : [pubkeyHex]
+	);
 
 	try {
+		assertNut11Support(wallet);
 		const fees = wallet.getFeesForProofs(proofs);
 		const sendAmount = amount - fees;
 

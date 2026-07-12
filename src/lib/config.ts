@@ -28,7 +28,9 @@ export const config = {
 			'wss://eden.nostr.land'
 		],
 		searchRelay: 'wss://search.nos.today',
-		clientTag: 'bounty.ninja'
+		clientTag: 'bounty.ninja',
+		maxRelayHints: 3,
+		maxRelayConnections: 10
 	},
 
 	// Payments

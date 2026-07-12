@@ -53,6 +53,8 @@ export interface Pledge {
 	event: NostrEvent;
 	id: string;
 	pubkey: string;
+	/** Cashu spending key declared by the event, or null for a legacy event. */
+	paymentPubkey: string | null;
 	bountyAddress: string;
 	amount: number;
 	cashuToken: string;
@@ -65,6 +67,8 @@ export interface Solution {
 	event: NostrEvent;
 	id: string;
 	pubkey: string;
+	/** Cashu payout key declared by the solver, or null for a legacy solution. */
+	paymentPubkey: string | null;
 	bountyAddress: string;
 	description: string;
 	antiSpamTokens: string[];
@@ -93,6 +97,8 @@ export interface Payout {
 	bountyAddress: string;
 	solutionId: string;
 	solverPubkey: string;
+	/** Cashu key receiving this payout, or null for a legacy payout. */
+	paymentPubkey: string | null;
 	amount: number;
 	cashuToken: string;
 	/** Exact source pledge reference. Null identifies a legacy, untrusted payout. */

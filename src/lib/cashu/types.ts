@@ -17,12 +17,14 @@ export type ProofIdentity = string & { readonly __proofIdentity: unique symbol }
 
 export type PledgeInvalidReason =
 	| 'wrong_bounty'
+	| 'missing_payment_key'
 	| 'decode_failed'
 	| 'wrong_unit'
 	| 'missing_proofs'
 	| 'invalid_amount'
 	| 'amount_mismatch'
 	| 'mint_mismatch'
+	| 'nut11_unsupported'
 	| 'mint_unavailable'
 	| 'proof_state_mismatch'
 	| 'spent_proof'
@@ -32,6 +34,7 @@ export type PledgeInvalidReason =
 	| 'p2pk_target_mismatch'
 	| 'locktime_mismatch'
 	| 'refund_policy_mismatch'
+	| 'signature_policy_mismatch'
 	| 'inconsistent_proof_conditions';
 
 /** Result of validating one pledge against its bounty and supported mint guarantees. */
@@ -49,10 +52,13 @@ export interface PledgeVerification {
 
 export type CashuTokenInvalidReason =
 	| 'decode_failed'
+	| 'missing_payment_key'
 	| 'wrong_unit'
 	| 'missing_proofs'
 	| 'invalid_amount'
 	| 'mint_mismatch'
+	| 'nut11_unsupported'
+	| 'mint_unavailable'
 	| 'amount_mismatch'
 	| 'proof_state_mismatch'
 	| 'spent_proof'
@@ -107,8 +113,8 @@ export interface P2PKLockParams {
 	 */
 	refundLocktimeUnix?: number;
 	/**
-	 * Optional hex-encoded public keys that can spend after locktime expires.
-	 * If omitted, proofs become spendable by anyone after locktime.
+	 * Hex-encoded public keys that can spend after locktime expires.
+	 * Required whenever `refundLocktimeUnix` is present.
 	 */
 	refundKeys?: string[];
 }

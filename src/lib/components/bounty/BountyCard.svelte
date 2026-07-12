@@ -5,6 +5,7 @@
 	import SatAmount from '$lib/components/shared/SatAmount.svelte';
 	import TimeAgo from '$lib/components/shared/TimeAgo.svelte';
 	import ProfileLink from '$lib/components/shared/ProfileLink.svelte';
+	import { resolve } from '$app/paths';
 
 	const { bounty }: { bounty: BountySummary } = $props();
 
@@ -21,16 +22,20 @@
 	const overflowCount = $derived(Math.max(0, bounty.tags.length - 3));
 </script>
 
-<a
-	href="/bounty/{naddr}"
-	class="group flex flex-col rounded-xl border border-border bg-card transition-all duration-200
+<article
+	class="group relative flex flex-col rounded-xl border border-border bg-card transition-all duration-200
 		hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5
 		focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-	aria-label="Bounty: {bounty.title}"
 >
+	<a
+		href={resolve('/bounty/[naddr]', { naddr })}
+		class="absolute inset-0 rounded-xl hover:cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+		aria-label="Bounty: {bounty.title}"
+	></a>
+
 	<!-- Header: Creator + Time -->
-	<div class="flex items-center justify-between px-4 pt-4 pb-2">
-		<span class="text-xs text-muted-foreground" onclick={(e) => e.preventDefault()}>
+	<div class="relative z-10 flex items-center justify-between px-4 pt-4 pb-2 pointer-events-none">
+		<span class="text-xs text-muted-foreground pointer-events-auto">
 			<ProfileLink pubkey={bounty.pubkey} size="sm" showAvatar={false} />
 		</span>
 		<TimeAgo timestamp={bounty.createdAt} />
@@ -86,4 +91,4 @@
 			</div>
 		{/if}
 	</div>
-</a>
+</article>

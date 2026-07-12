@@ -1,6 +1,17 @@
 import type { EventTemplate } from 'nostr-tools';
-import { BOUNTY_KIND, PLEDGE_KIND, SOLUTION_KIND, VOTE_KIND, PAYOUT_KIND, RETRACTION_KIND, REPUTATION_KIND } from './kinds';
+import {
+	BOUNTY_KIND,
+	PLEDGE_KIND,
+	SOLUTION_KIND,
+	VOTE_KIND,
+	PAYOUT_KIND,
+	PAYOUT_SOLUTION_MARKER,
+	PAYOUT_SOURCE_MARKER,
+	RETRACTION_KIND,
+	REPUTATION_KIND
+} from './kinds';
 import { CLIENT_TAG } from '$lib/utils/constants';
+import { assertXOnlyPubkey } from '$lib/cashu/p2pk';
 
 /**
  * Blueprint parameters for creating a bounty event (kind 37300).
@@ -32,6 +43,8 @@ export interface PledgeBlueprintParams {
 	bountyAddress: string;
 	/** Pubkey of the bounty creator (for p-tag) */
 	creatorPubkey: string;
+	/** Lowercase x-only Cashu payment key controlling the pledge proofs */
+	paymentPubkey: string;
 	/** Pledge amount in sats */
 	amount: number;
 	/** Serialized Cashu token (P2PK-locked) */
@@ -50,6 +63,8 @@ export interface SolutionBlueprintParams {
 	bountyAddress: string;
 	/** Pubkey of the bounty creator (for p-tag) */
 	creatorPubkey: string;
+	/** Lowercase x-only Cashu payment key for receiving a payout */
+	paymentPubkey: string;
 	/** Markdown description of the solution */
 	description: string;
 	/** Serialized Cashu token(s) for anti-spam fee — multiple tokens can sum to the required amount */
@@ -80,12 +95,18 @@ export interface PayoutBlueprintParams {
 	bountyAddress: string;
 	/** Event ID of the winning solution */
 	solutionId: string;
+	/** Exact pledge event whose value this payout releases */
+	sourcePledgeId: string;
 	/** Pubkey of the solver receiving the payout */
 	solverPubkey: string;
+	/** Lowercase x-only Cashu payment key declared by the winning solution */
+	paymentPubkey: string;
 	/** Payout amount in sats */
 	amount: number;
 	/** Serialized Cashu token for the payout */
 	cashuToken: string;
+	/** Cashu mint that issued the source and payout proofs */
+	mintUrl: string;
 }
 
 /**
@@ -128,9 +149,11 @@ export function bountyBlueprint(params: BountyBlueprintParams): EventTemplate {
  * References the bounty via an 'a' tag and includes the locked Cashu token.
  */
 export function pledgeBlueprint(params: PledgeBlueprintParams): EventTemplate {
+	assertXOnlyPubkey(params.paymentPubkey);
 	const tags: string[][] = [
 		['a', params.bountyAddress],
 		['p', params.creatorPubkey],
+		['payment', 'cashu', params.paymentPubkey],
 		['amount', String(params.amount)],
 		['cashu', params.cashuToken],
 		['mint', params.mintUrl],
@@ -150,9 +173,11 @@ export function pledgeBlueprint(params: PledgeBlueprintParams): EventTemplate {
  * References the bounty via an 'a' tag and optionally includes an anti-spam token.
  */
 export function solutionBlueprint(params: SolutionBlueprintParams): EventTemplate {
+	assertXOnlyPubkey(params.paymentPubkey);
 	const tags: string[][] = [
 		['a', params.bountyAddress],
 		['p', params.creatorPubkey],
+		['payment', 'cashu', params.paymentPubkey],
 		['client', CLIENT_TAG]
 	];
 
@@ -199,12 +224,16 @@ export function voteBlueprint(params: VoteBlueprintParams): EventTemplate {
  * Records the Cashu token transfer to the solver.
  */
 export function payoutBlueprint(params: PayoutBlueprintParams): EventTemplate {
+	assertXOnlyPubkey(params.paymentPubkey);
 	const tags: string[][] = [
 		['a', params.bountyAddress],
-		['e', params.solutionId],
+		['e', params.solutionId, '', PAYOUT_SOLUTION_MARKER],
+		['e', params.sourcePledgeId, '', PAYOUT_SOURCE_MARKER],
 		['p', params.solverPubkey],
+		['payment', 'cashu', params.paymentPubkey],
 		['amount', String(params.amount)],
 		['cashu', params.cashuToken],
+		['mint', params.mintUrl],
 		['client', CLIENT_TAG]
 	];
 

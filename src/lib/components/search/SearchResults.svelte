@@ -3,12 +3,21 @@
 	import BountyCard from '$lib/components/bounty/BountyCard.svelte';
 	import EmptyState from '$lib/components/shared/EmptyState.svelte';
 	import type { BountySummary } from '$lib/bounty/types';
+	import { bountyList } from '$lib/stores/bounties.svelte';
+	import { onMount } from 'svelte';
 
 	let statusFilter = $state<'all' | 'open' | 'completed'>('all');
 	let minReward = $state(0);
 
+	onMount(() => bountyList.init());
+
+	const projectedResults = $derived.by(() => {
+		const resultIds = new Set(searchStore.results.map((item) => item.id));
+		return bountyList.items.filter((item) => resultIds.has(item.id));
+	});
+
 	const filteredResults = $derived(
-		searchStore.results.filter((b: BountySummary) => {
+		projectedResults.filter((b: BountySummary) => {
 			if (statusFilter !== 'all' && b.status !== statusFilter) return false;
 			if (b.rewardAmount < minReward) return false;
 			return true;
@@ -39,7 +48,7 @@
 	</div>
 
 	<!-- Results -->
-	{#if searchStore.loading}
+	{#if projectedResults.length === 0 && (searchStore.loading || (searchStore.results.length > 0 && bountyList.loading))}
 		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 			{#each Array(3) as _}
 				<div class="h-40 animate-pulse py-4 border-b border-border"></div>
@@ -49,11 +58,14 @@
 		<div class="rounded-lg border border-warning/50 bg-warning/10 p-4 text-center" role="alert">
 			<p class="text-sm text-warning">{searchStore.error}</p>
 		</div>
-	{:else if filteredResults.length === 0}
+	{:else if filteredResults.length === 0 && !searchStore.loading}
 		<EmptyState
 			message={`No bounties found for "${searchStore.query}". Try different keywords or check your spelling.`}
 		/>
 	{:else}
+		{#if searchStore.loading}
+			<p class="text-xs text-muted-foreground" role="status">Searching relays...</p>
+		{/if}
 		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 			{#each filteredResults as bounty (bounty.id)}
 				<BountyCard {bounty} />

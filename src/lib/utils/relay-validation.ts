@@ -15,6 +15,12 @@ export function isValidRelayUrl(url: string): { valid: boolean; error?: string }
 		if (!parsed.hostname || parsed.hostname.length < 3) {
 			return { valid: false, error: 'Invalid hostname' };
 		}
+		if (parsed.username || parsed.password) {
+			return { valid: false, error: 'Credentials are not allowed' };
+		}
+		if (parsed.search || parsed.hash) {
+			return { valid: false, error: 'Query strings and fragments are not allowed' };
+		}
 		return { valid: true };
 	} catch {
 		return { valid: false, error: 'Invalid URL format' };

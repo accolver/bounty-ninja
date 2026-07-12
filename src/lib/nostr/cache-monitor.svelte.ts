@@ -1,5 +1,16 @@
 import { getCacheEventCount, estimateCacheSize, emergencyEviction } from './cache-eviction';
 import { getProfileCacheStats } from './profile-cache';
+import { getSavedEvictionConfig } from './cache-settings';
+import { SESSION_STORAGE_KEY } from '$lib/utils/constants';
+
+function getProtectedUserPubkey(): string | null {
+	try {
+		const pubkey = localStorage.getItem(SESSION_STORAGE_KEY);
+		return pubkey && /^[0-9a-f]{64}$/i.test(pubkey) ? pubkey.toLowerCase() : null;
+	} catch {
+		return null;
+	}
+}
 
 /**
  * Format bytes into a human-readable string.
@@ -101,8 +112,10 @@ class CacheMonitor {
 
 				// Emergency eviction at 80%
 				if (this.quotaPercent >= 80) {
-					console.warn(`[cache-monitor] Storage quota at ${this.quotaPercent.toFixed(1)}% — triggering emergency eviction`);
-					await emergencyEviction(null);
+					console.warn(
+						`[cache-monitor] Storage quota at ${this.quotaPercent.toFixed(1)}% — triggering emergency eviction`
+					);
+					await emergencyEviction(getProtectedUserPubkey(), getSavedEvictionConfig());
 				}
 			}
 		} catch {

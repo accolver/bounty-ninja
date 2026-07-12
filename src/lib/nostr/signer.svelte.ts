@@ -35,6 +35,13 @@ export class SignerUnavailableError extends Error {
 	}
 }
 
+export class SignerAccountMismatchError extends Error {
+	constructor(expected: string, actual: string) {
+		super(`Signer account mismatch: expected ${expected}, received ${actual}`);
+		this.name = 'SignerAccountMismatchError';
+	}
+}
+
 /**
  * Result of a publishEvent operation.
  */
@@ -135,11 +142,30 @@ export function resetEventFactory(): void {
  * @throws {SignerTimeoutError} if signing takes longer than 30s
  */
 export async function publishEvent(template: EventTemplate): Promise<PublishResult> {
+	const signedEvent = await signEventTemplate(template);
+	const broadcast = await publishSignedEvent(signedEvent);
+	return { event: signedEvent, broadcast };
+}
+
+/** Sign without publishing so payment journals can persist the exact event first. */
+export async function signEventTemplate(template: EventTemplate): Promise<NostrEvent> {
+	if (!signerState.ready || !signerState.pubkey) throw new SignerUnavailableError();
 	const factory = getEventFactory();
 
 	// Sign with timeout guard
 	const signedEvent = await signWithTimeout(factory, template, SIGNER_TIMEOUT_MS);
+	if (signedEvent.pubkey.toLowerCase() !== signerState.pubkey) {
+		const expected = signerState.pubkey;
+		signerState.clearReady();
+		resetEventFactory();
+		throw new SignerAccountMismatchError(expected, signedEvent.pubkey);
+	}
 
+	return signedEvent;
+}
+
+/** Publish an already-signed event. Retries therefore never request a new signature. */
+export async function publishSignedEvent(signedEvent: NostrEvent): Promise<BroadcastResult> {
 	// Optimistic insert — event appears in UI immediately
 	if (!ingestEvent(signedEvent, 'local')) {
 		throw new Error('Signed event failed local validation');
@@ -167,7 +193,7 @@ export async function publishEvent(template: EventTemplate): Promise<PublishResu
 		};
 	}
 
-	return { event: signedEvent, broadcast };
+	return broadcast;
 }
 
 /**
@@ -205,6 +231,9 @@ async function signWithTimeout(
 class SignerState {
 	available = $state(false);
 	checking = $state(true);
+	ready = $state(false);
+	pubkey = $state<string | null>(null);
+	method = $state<'nip07' | 'bunker' | null>(null);
 
 	private retryCount = 0;
 	private intervalId: ReturnType<typeof setInterval> | null = null;
@@ -255,6 +284,18 @@ class SignerState {
 		this.checking = true;
 		this.stopPolling();
 		this.detect();
+	}
+
+	setReady(pubkey: string, method: 'nip07' | 'bunker'): void {
+		this.pubkey = pubkey.toLowerCase();
+		this.method = method;
+		this.ready = true;
+	}
+
+	clearReady(): void {
+		this.pubkey = null;
+		this.method = null;
+		this.ready = false;
 	}
 
 	destroy(): void {

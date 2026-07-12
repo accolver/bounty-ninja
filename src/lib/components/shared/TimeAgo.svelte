@@ -30,6 +30,10 @@
 	});
 </script>
 
-<time datetime={isoString} title={new Date(timestamp * 1000).toLocaleString()} class="text-xs text-muted-foreground">
+<time
+	datetime={isoString}
+	title={new Date(timestamp * 1000).toLocaleString()}
+	class="text-xs text-muted-foreground"
+>
 	{relativeText}
 </time>

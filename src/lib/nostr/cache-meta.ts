@@ -73,9 +73,7 @@ export function recordQueryFetch(filterHash: string, eventCount: number): void {
 	// Prune old entries (keep max 200)
 	const keys = Object.keys(store.queries);
 	if (keys.length > 200) {
-		const sorted = keys.sort(
-			(a, b) => store.queries[a].lastFetched - store.queries[b].lastFetched
-		);
+		const sorted = keys.sort((a, b) => store.queries[a].lastFetched - store.queries[b].lastFetched);
 		for (const key of sorted.slice(0, keys.length - 200)) {
 			delete store.queries[key];
 		}

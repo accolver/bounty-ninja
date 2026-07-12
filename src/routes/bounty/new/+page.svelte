@@ -11,7 +11,7 @@
 </svelte:head>
 
 <ErrorBoundary>
-	{#if accountState.isLoggedIn}
+	{#if accountState.isAuthenticated}
 		<section class="mx-auto max-w-5xl space-y-6">
 			<h1 class="text-2xl font-bold text-foreground">Create a Bounty</h1>
 			<BountyForm />

@@ -130,7 +130,10 @@ export interface AntiSpamFeeValidation {
  * @param requiredFee - The minimum fee in sats required by the bounty.
  * @returns Validation result with decoded info or error message.
  */
-export async function validateAntiSpamFee(tokenStr: string, requiredFee: number): Promise<AntiSpamFeeValidation> {
+export async function validateAntiSpamFee(
+	tokenStr: string,
+	requiredFee: number
+): Promise<AntiSpamFeeValidation> {
 	// No fee required — always valid
 	if (requiredFee <= 0) {
 		return { valid: true };

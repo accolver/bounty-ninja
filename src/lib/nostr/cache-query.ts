@@ -100,7 +100,6 @@ export class CachedQuery {
 		if (this.#destroyed) return;
 
 		const relayUrls = getDefaultRelays();
-		let receivedCount = 0;
 
 		for (const url of relayUrls) {
 			try {
@@ -110,7 +109,6 @@ export class CachedQuery {
 					.pipe(onlyEvents(), ingestEventsFrom('relay'))
 					.subscribe({
 						next: () => {
-							receivedCount++;
 							if (!this.#destroyed) {
 								this.events = eventStore.getByFilters(this.#filters);
 								this.fromCache = false;

@@ -21,6 +21,7 @@
 	import { connectivity } from '$lib/stores/connectivity.svelte';
 	import { arePaymentWritesEnabled } from '$lib/utils/env';
 	import PaymentUnavailable from '$lib/components/shared/PaymentUnavailable.svelte';
+	import { normalizeMinibitsPaymentPubkey } from '$lib/cashu/manual-token-verifier';
 
 	const paymentWritesEnabled = arePaymentWritesEnabled();
 
@@ -43,6 +44,7 @@
 
 	let description = $state('');
 	let deliverableUrl = $state('');
+	let paymentKeyInput = $state('');
 	const feeAmount = $derived(requiredFee);
 	let submitting = $state(false);
 
@@ -71,7 +73,8 @@
 		description.trim().length > 0 ||
 			deliverableUrl.trim().length > 0 ||
 			feeTokens.length > 0 ||
-			feeTokenInput.trim().length > 0
+			feeTokenInput.trim().length > 0 ||
+			paymentKeyInput.trim().length > 0
 	);
 
 	// ── Fee token management ─────────────────────────────────────
@@ -131,7 +134,7 @@
 	}
 
 	const canSubmit = $derived(
-		(bountyStatus === 'open' || bountyStatus === 'in_review') && accountState.isLoggedIn
+		(bountyStatus === 'open' || bountyStatus === 'in_review') && accountState.isAuthenticated
 	);
 
 	const isUrlValid = $derived.by(() => {
@@ -147,6 +150,13 @@
 	const descriptionLengthValid = $derived(description.length <= DESCRIPTION_MAX);
 
 	const isFeeValid = $derived(feeAmount === 0 || (Number.isInteger(feeAmount) && feeAmount > 0));
+	const paymentPubkey = $derived.by(() => {
+		try {
+			return normalizeMinibitsPaymentPubkey(paymentKeyInput);
+		} catch {
+			return null;
+		}
+	});
 
 	const isValid = $derived(
 		description.trim().length > 0 &&
@@ -154,6 +164,7 @@
 			isFeeValid &&
 			isFeeTokenValid &&
 			isUrlValid &&
+			paymentPubkey !== null &&
 			!submitting &&
 			!isRateLimited &&
 			connectivity.online &&
@@ -175,6 +186,7 @@
 		submitting = true;
 
 		try {
+			if (!paymentPubkey) throw new Error('A valid Minibits payout key is required');
 			// Use the real Cashu token(s) pasted by the user as the anti-spam fee.
 			// Tokens are NOT P2PK-locked — they are immediately claimable by the bounty creator.
 			const antiSpamTokens = feeAmount > 0 ? feeTokens.map((t) => t.raw) : undefined;
@@ -182,6 +194,7 @@
 			const template = solutionBlueprint({
 				bountyAddress,
 				creatorPubkey,
+				paymentPubkey,
 				description: description.trim(),
 				antiSpamTokens,
 				deliverableUrl: deliverableUrl.trim() || undefined
@@ -210,6 +223,7 @@
 	function resetForm() {
 		description = '';
 		deliverableUrl = '';
+		paymentKeyInput = '';
 		feeTokenInput = '';
 		feeTokens = [];
 		feeDecodeError = '';
@@ -319,6 +333,33 @@
 				{:else}
 					<p id="solution-url-help" class="text-xs text-muted-foreground">
 						Link to your code repository, demo, or deliverable.
+					</p>
+				{/if}
+			</div>
+
+			<!-- Anti-spam fee (set by bounty creator, immutable) -->
+			<div class="space-y-2 border-t border-border pt-4">
+				<label for="solution-payment-key" class="text-sm font-medium text-foreground"
+					>Minibits payout public key <span class="text-destructive">*</span></label
+				>
+				<Input
+					id="solution-payment-key"
+					bind:value={paymentKeyInput}
+					disabled={submitting}
+					placeholder="npub1... or public-key hex"
+					autocomplete="off"
+					spellcheck={false}
+					aria-invalid={paymentKeyInput.length > 0 && paymentPubkey === null}
+				/>
+				{#if paymentKeyInput.length > 0 && paymentPubkey === null}
+					<p class="text-xs text-destructive" role="alert">
+						Enter a valid npub, x-only key, or compressed public key.
+					</p>
+				{:else}
+					<p class="text-xs text-muted-foreground">
+						Payout tokens will be public on Nostr but locked to this Minibits key. Using a dedicated
+						wallet improves privacy. Back it up before submitting; a lost wallet cannot claim
+						winnings. Never enter a private key.
 					</p>
 				{/if}
 			</div>

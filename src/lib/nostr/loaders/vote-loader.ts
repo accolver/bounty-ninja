@@ -9,9 +9,11 @@ import { votesForBountyFilter } from '$lib/bounty/filters';
  * Create a loader that subscribes to vote events (Kind 1018)
  * for a specific bounty address from all default relays.
  */
-export function createVoteLoader(bountyAddress: string): { unsubscribe(): void } {
+export function createVoteLoader(
+	bountyAddress: string,
+	relayUrls: readonly string[] = getDefaultRelays()
+): { unsubscribe(): void } {
 	const filter = votesForBountyFilter(bountyAddress);
-	const relayUrls = getDefaultRelays();
 	const subscriptions: Subscription[] = [];
 
 	for (const url of relayUrls) {

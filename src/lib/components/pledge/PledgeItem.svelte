@@ -28,7 +28,7 @@
 	const isPledgeAuthor = $derived(accountState.pubkey === pledge.pubkey);
 
 	/** Check if this pledger has released (has a corresponding Kind 73004 event) */
-	const hasReleased = $derived(payouts.some((p) => p.pubkey === pledge.pubkey));
+	const hasReleased = $derived(payouts.some((p) => p.sourcePledgeId === pledge.id));
 
 	// Trigger token verification reactively
 	$effect(() => {
@@ -128,7 +128,7 @@
 		{/if}
 		<div class="flex items-center gap-2">
 			{#if isPledgeAuthor && !isRetracted && !hasReleased && bountyAddress}
-				<RetractPledgeButton {bountyAddress} pledgeEventId={pledge.id} {hasSolutions} />
+				<RetractPledgeButton {bountyAddress} {pledge} {hasSolutions} />
 			{/if}
 			<TimeAgo timestamp={pledge.createdAt} />
 		</div>

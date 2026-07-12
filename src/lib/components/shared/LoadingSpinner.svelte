@@ -10,7 +10,9 @@
 </script>
 
 <span
-	class="loading-spinner inline-block rounded-full border-current border-t-transparent {sizeClasses[size]} {className}"
+	class="loading-spinner inline-block rounded-full border-current border-t-transparent {sizeClasses[
+		size
+	]} {className}"
 	role="status"
 	aria-label="Loading"
 >

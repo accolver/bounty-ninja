@@ -1,0 +1,1 @@
+export const PAYMENT_JOURNAL_SCHEMA_VERSION = 2;

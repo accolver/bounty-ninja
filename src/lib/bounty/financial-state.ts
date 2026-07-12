@@ -28,9 +28,9 @@ function deriveProjectedStatus(
 ): BountyStatus {
 	if (cancelled) return 'cancelled';
 	if (releaseComplete) return 'completed';
-	if (input.bounty.deadline !== null && input.bounty.deadline <= input.now) return 'expired';
 	if (validatedFunding === 0) return 'draft';
 	if (releasedCount > 0) return 'releasing';
+	if (input.bounty.deadline !== null && input.bounty.deadline <= input.now) return 'expired';
 	if (consensusState === 'unique') return 'consensus_reached';
 	if (solutionCount > 0) return 'in_review';
 	return 'open';

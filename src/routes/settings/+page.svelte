@@ -8,15 +8,21 @@
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { errorMonitor } from '$lib/stores/error-monitor.svelte';
 	import { cacheMonitor } from '$lib/nostr/cache-monitor.svelte';
-	import { currencyStore, type CurrencyDisplay } from '$lib/stores/currency.svelte';
+	import { currencyStore } from '$lib/stores/currency.svelte';
 	import { btcPrice } from '$lib/services/btc-price.svelte';
 	import { getDefaultRelays, getDefaultMint } from '$lib/utils/env';
 	import { isValidRelayUrl } from '$lib/utils/relay-validation';
 	import { pool } from '$lib/nostr/relay-pool';
 	import { onMount } from 'svelte';
+	import { createDiagnosticExport } from '$lib/diagnostics';
+	import {
+		loadCacheLimits,
+		saveCacheLimits as persistCacheLimits,
+		getSavedEvictionConfig
+	} from '$lib/nostr/cache-settings';
+	import { scheduleEviction } from '$lib/nostr/cache-eviction';
 
 	const SETTINGS_KEY = storageKey('settings');
-	const CACHE_LIMITS_KEY = storageKey('cache-limits');
 
 	/** Load settings from localStorage with safe fallback */
 	function loadSettings(): { relays: string[]; mint: string } {
@@ -42,22 +48,6 @@
 	let newRelay = $state('');
 	let relayError = $state<string | null>(null);
 
-	// Cache limits state
-	interface CacheLimits {
-		maxEvents: number;
-		maxAgeDays: number;
-	}
-
-	function loadCacheLimits(): CacheLimits {
-		try {
-			const raw = localStorage.getItem(CACHE_LIMITS_KEY);
-			if (raw) return JSON.parse(raw);
-		} catch {
-			/* ignore parse errors */
-		}
-		return { maxEvents: 10_000, maxAgeDays: 30 };
-	}
-
 	let cacheLimits = $state(loadCacheLimits());
 	let clearingCache = $state(false);
 	let errorLogOpen = $state(false);
@@ -72,7 +62,11 @@
 
 	function saveCacheLimits() {
 		try {
-			localStorage.setItem(CACHE_LIMITS_KEY, JSON.stringify(cacheLimits));
+			persistCacheLimits(cacheLimits);
+			void scheduleEviction(
+				accountState.pubkey ?? accountState.rememberedPubkey,
+				getSavedEvictionConfig()
+			);
 			toastStore.success('Cache limits saved');
 		} catch {
 			toastStore.error('Cache limits could not be saved — storage full');
@@ -82,16 +76,10 @@
 	async function clearCache() {
 		clearingCache = true;
 		try {
-			const { deleteAllEvents } = await import('nostr-idb');
-			const { getDatabase } = await import('$lib/nostr/cache');
-			const db = getDatabase();
-			if (db) {
-				await deleteAllEvents(db);
-				await cacheMonitor.refresh();
-				toastStore.success('Cache cleared successfully');
-			} else {
-				toastStore.error('Cache database not initialized');
-			}
+			const { clearEventCache } = await import('$lib/nostr/cache');
+			await clearEventCache();
+			await cacheMonitor.refresh();
+			toastStore.success('Cache cleared successfully');
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);
 			toastStore.error(`Failed to clear cache: ${message}`);
@@ -143,6 +131,29 @@
 		saveSettings(settings);
 		toastStore.success('Mint reset to default');
 	}
+
+	async function exportDiagnostics() {
+		let releaseId = 'development';
+		try {
+			const response = await fetch('/release.json', { cache: 'no-store' });
+			if (response.ok) releaseId = String((await response.json()).commit ?? 'development');
+		} catch {
+			// Local and preview builds may not include release metadata.
+		}
+		const diagnostics = createDiagnosticExport(errorMonitor.entries, {
+			releaseId,
+			pathname: window.location.pathname,
+			userAgent: navigator.userAgent
+		});
+		const blob = new Blob([JSON.stringify(diagnostics, null, 2)], { type: 'application/json' });
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement('a');
+		link.href = url;
+		link.download = `bounty-ninja-diagnostics-${Date.now()}.json`;
+		link.click();
+		URL.revokeObjectURL(url);
+		toastStore.success('Privacy-scrubbed diagnostics exported');
+	}
 </script>
 
 <svelte:head>
@@ -150,7 +161,7 @@
 </svelte:head>
 
 <ErrorBoundary>
-	{#if !accountState.isLoggedIn}
+	{#if !accountState.isAuthenticated}
 		<section class="mx-auto max-w-lg space-y-4 py-12 text-center">
 			<h1 class="text-2xl font-bold text-foreground">Settings</h1>
 			<p class="text-muted-foreground">Sign in with a Nostr extension to manage your settings.</p>
@@ -370,17 +381,20 @@
 								>
 								Error Log ({errorMonitor.count})
 							</button>
-							<Button
-								variant="ghost"
-								size="sm"
-								onclick={() => {
-									errorMonitor.clear();
-									toastStore.success('Error log cleared');
-								}}
-								class="text-destructive hover:text-destructive"
-							>
-								Clear
-							</Button>
+							<div class="flex items-center gap-2">
+								<Button variant="outline" size="sm" onclick={exportDiagnostics}>Export</Button>
+								<Button
+									variant="ghost"
+									size="sm"
+									onclick={() => {
+										errorMonitor.clear();
+										toastStore.success('Error log cleared');
+									}}
+									class="text-destructive hover:text-destructive"
+								>
+									Clear
+								</Button>
+							</div>
 						</div>
 
 						{#if errorLogOpen}

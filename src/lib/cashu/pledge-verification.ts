@@ -9,6 +9,7 @@ import type {
 } from './types';
 import { getCashu } from './lazy';
 import { normalizeMintUrl } from './proof-identity';
+import { nut11KeyMatchesXOnly } from './p2pk';
 
 export const PLEDGE_VERIFICATION_POLICY_VERSION = 1;
 
@@ -30,20 +31,14 @@ export interface PledgeValidationInput {
 	proofIdentities: readonly ProofIdentity[];
 	duplicateProofs: ReadonlySet<ProofIdentity>;
 	conditions: readonly (P2PKProofCondition | null)[];
-	expectedP2PKTarget: string;
-	expectedLocktime: number | null;
-	expectedRefundKeys: readonly string[];
 	checkedAt: number;
 	validUntil: number | null;
 	mintUnavailable?: boolean;
+	nut11Supported?: boolean;
 }
 
 function sortedKeys(keys: readonly string[]): string[] {
 	return [...keys].map((key) => key.toLowerCase()).sort();
-}
-
-function sameStrings(left: readonly string[], right: readonly string[]): boolean {
-	return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function result(
@@ -81,7 +76,8 @@ export function validatePledge(input: PledgeValidationInput): PledgeVerification
 		reasons.push('invalid_amount');
 	}
 	const proofSum = decoded.proofs.reduce((sum, proof) => sum + proof.amount, 0);
-	if (decoded.amount !== pledge.amount || proofSum !== decoded.amount) reasons.push('amount_mismatch');
+	if (decoded.amount !== pledge.amount || proofSum !== decoded.amount)
+		reasons.push('amount_mismatch');
 
 	let normalizedMint: string | null = null;
 	try {
@@ -103,6 +99,7 @@ export function validatePledge(input: PledgeValidationInput): PledgeVerification
 			reasons.push('pending_proof');
 		}
 	}
+	if (input.nut11Supported === false) reasons.push('nut11_unsupported');
 
 	if (input.proofIdentities.length !== decoded.proofs.length) reasons.push('proof_state_mismatch');
 	const identities = new Set(input.proofIdentities);
@@ -116,17 +113,23 @@ export function validatePledge(input: PledgeValidationInput): PledgeVerification
 	if (input.conditions.length !== decoded.proofs.length) reasons.push('not_p2pk');
 	if (input.conditions.some((condition) => condition === null)) reasons.push('not_p2pk');
 	const conditions = input.conditions.filter((item): item is P2PKProofCondition => item !== null);
-	const expectedTarget = input.expectedP2PKTarget.toLowerCase();
-	const expectedRefundKeys = sortedKeys(input.expectedRefundKeys);
+	if (!pledge.paymentPubkey) reasons.push('missing_payment_key');
 	for (const condition of conditions) {
-		if (condition.target.toLowerCase() !== expectedTarget) reasons.push('p2pk_target_mismatch');
-		if (condition.locktime !== input.expectedLocktime) reasons.push('locktime_mismatch');
+		try {
+			if (!pledge.paymentPubkey || !nut11KeyMatchesXOnly(condition.target, pledge.paymentPubkey)) {
+				reasons.push('p2pk_target_mismatch');
+			}
+		} catch {
+			reasons.push('p2pk_target_mismatch');
+		}
+		if (condition.locktime !== null) reasons.push('locktime_mismatch');
+		if (condition.refundKeys.length > 0) reasons.push('refund_policy_mismatch');
 		if (
-			!sameStrings(sortedKeys(condition.refundKeys), expectedRefundKeys) ||
+			!Number.isSafeInteger(condition.nSigs) ||
 			condition.nSigs < 1 ||
-			(expectedRefundKeys.length > 0 && condition.nSigsRefund < 1)
+			condition.sigFlag !== 'SIG_INPUTS'
 		) {
-			reasons.push('refund_policy_mismatch');
+			reasons.push('signature_policy_mismatch');
 		}
 	}
 	const fingerprints = new Set(

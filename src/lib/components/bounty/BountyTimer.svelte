@@ -36,7 +36,9 @@
 
 {#if deadline !== null}
 	<span
-		class="inline-flex items-center gap-1 text-xs {isExpired ? 'text-destructive' : 'text-muted-foreground'}"
+		class="inline-flex items-center gap-1 text-xs {isExpired
+			? 'text-destructive'
+			: 'text-muted-foreground'}"
 		aria-label={isExpired ? 'Deadline expired' : `Time remaining: ${countdownText}`}
 	>
 		{#if !isExpired}

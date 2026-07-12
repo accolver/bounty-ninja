@@ -5,12 +5,14 @@ import {
 	PLEDGE_KIND,
 	VOTE_KIND,
 	PAYOUT_KIND,
+	PAYOUT_SOURCE_MARKER,
 	RETRACTION_KIND,
 	REPUTATION_KIND
 } from '$lib/bounty/kinds';
 import { getTagValue } from '$lib/nostr/nostr-tags';
 import { CLIENT_TAG } from '$lib/utils/constants';
 import { safeEventUrl } from '$lib/utils/safe-event-url';
+import { isXOnlyPubkey } from '$lib/cashu/p2pk';
 
 const DOMAIN_KINDS = new Set([
 	BOUNTY_KIND,
@@ -54,8 +56,22 @@ const SINGLETON_TAGS = new Set([
 	'vote',
 	'type',
 	'r',
-	'client'
+	'client',
+	'payment'
 ]);
+
+function validatePaymentTag(event: NostrEvent, required: boolean): string[] {
+	const tags = event.tags.filter((tag) => tag[0] === 'payment');
+	if (tags.length === 0) return required ? ["Event missing required 'payment' tag"] : [];
+	if (tags.length > 1) return ["Tag 'payment' must not be repeated"];
+	const tag = tags[0];
+	if (tag.length !== 3) return ["Payment tag must be ['payment', 'cashu', <x-only-key>]"];
+	if (tag[1] !== 'cashu') return ["Payment tag scheme must be 'cashu'"];
+	if (!isXOnlyPubkey(tag[2] ?? '')) {
+		return ['Payment tag key must be lowercase 64-character x-only hex'];
+	}
+	return [];
+}
 
 /**
  * Result of tag validation for a Nostr event.
@@ -137,7 +153,7 @@ function validateBountyTags(event: NostrEvent): string[] {
  * Validate required tags for a pledge event (kind 73002).
  */
 function validatePledgeTags(event: NostrEvent): string[] {
-	const errors: string[] = [];
+	const errors: string[] = validatePaymentTag(event, false);
 
 	const aTag = getTagValue(event, 'a');
 	if (!aTag) {
@@ -172,7 +188,7 @@ function validatePledgeTags(event: NostrEvent): string[] {
  * Validate required tags for a solution event (kind 73001).
  */
 function validateSolutionTags(event: NostrEvent): string[] {
-	const errors: string[] = [];
+	const errors: string[] = validatePaymentTag(event, false);
 
 	const aTag = getTagValue(event, 'a');
 	if (!aTag) {
@@ -227,7 +243,8 @@ function validateVoteTags(event: NostrEvent): string[] {
  * Validate required tags for a payout event (kind 73004).
  */
 function validatePayoutTags(event: NostrEvent): string[] {
-	const errors: string[] = [];
+	const sourceBound = event.tags.some((tag) => tag[0] === 'e' && tag[3] === PAYOUT_SOURCE_MARKER);
+	const errors: string[] = validatePaymentTag(event, sourceBound);
 
 	const aTag = getTagValue(event, 'a');
 	if (!aTag) {
@@ -236,11 +253,17 @@ function validatePayoutTags(event: NostrEvent): string[] {
 		errors.push(`Payout 'a' tag has invalid format: ${aTag}`);
 	}
 
-	const eTag = getTagValue(event, 'e');
-	if (!eTag) {
+	const solutionTags = event.tags.filter(
+		(tag) => tag[0] === 'e' && tag[3] !== PAYOUT_SOURCE_MARKER
+	);
+	const solutionId = solutionTags[0]?.[1];
+	if (!solutionId) {
 		errors.push("Payout event missing required 'e' tag (solution event ID)");
-	} else if (!isHex64(eTag)) {
-		errors.push(`Payout 'e' tag must be a valid event ID (64-char hex), got: ${eTag}`);
+	} else if (!isHex64(solutionId)) {
+		errors.push(`Payout 'e' tag must be a valid event ID (64-char hex), got: ${solutionId}`);
+	}
+	if (solutionTags.length > 1) {
+		errors.push('Payout event must reference exactly one solution');
 	}
 
 	const pTag = getTagValue(event, 'p');
@@ -248,6 +271,24 @@ function validatePayoutTags(event: NostrEvent): string[] {
 		errors.push("Payout event missing required 'p' tag (bounty creator pubkey)");
 	} else if (!isHex64(pTag)) {
 		errors.push(`Payout 'p' tag must be a valid pubkey (64-char hex), got: ${pTag}`);
+	}
+
+	const sourceTags = event.tags.filter((tag) => tag[0] === 'e' && tag[3] === PAYOUT_SOURCE_MARKER);
+	const mint = getTagValue(event, 'mint');
+	if (sourceTags.length > 1) {
+		errors.push('Payout event must reference exactly one source pledge');
+	}
+	if (sourceTags.length === 1 && !isHex64(sourceTags[0][1] ?? '')) {
+		errors.push("Payout source 'e' tag must be a valid event ID (64-char hex)");
+	}
+	if (sourceTags.length > 0 && !mint) {
+		errors.push("Source-bound payout event missing required 'mint' tag");
+	}
+	if (mint && sourceTags.length === 0) {
+		errors.push('Payout mint requires an exact source pledge reference');
+	}
+	if (mint && !isValidUrl(mint)) {
+		errors.push(`Payout 'mint' tag must be a valid URL, got: ${mint}`);
 	}
 
 	return errors;

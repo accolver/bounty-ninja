@@ -2,7 +2,7 @@
  * Escrow operations for the Bounty.ninja bounty lifecycle.
  *
  * Pledger-controlled escrow model:
- * 1. Pledger creates P2PK-locked tokens to their OWN pubkey (self-custody)
+ * 1. Pledger creates P2PK-locked tokens to their payment key (self-custody)
  * 2. After vote consensus (66%), each pledger releases their portion
  *    by swapping self-locked proofs for solver-locked proofs
  * 3. Each pledger publishes a Kind 73004 payout event with solver-locked tokens
@@ -18,27 +18,26 @@ import type { NostrEvent } from 'nostr-tools';
 import type { DecodedPledge, MintResult, SwapResult } from './types';
 import { DoubleSpendError } from './types';
 import { decodeToken, encodeToken, getProofsAmount } from './token';
-import { createP2PKLock } from './p2pk';
+import { assertNut11Support, createP2PKLock } from './p2pk';
 import { getWallet } from './mint';
+import { requestP2PKSignatures, type CashuPaymentSigner } from './payment-signer';
 
 /**
  * Create a P2PK-locked pledge token for a bounty.
  *
- * The pledger locks tokens to their OWN pubkey (self-custody). Only the
+ * The pledger locks tokens to their payment pubkey (self-custody). Only the
  * pledger can spend these tokens at the mint. The bounty creator has no
  * control over the funds.
  *
  * @param proofs - The pledger's spendable proofs to lock.
- * @param pledgerPubkey - Hex-encoded public key of the pledger (lock target).
+ * @param paymentPubkey - Lowercase x-only key exposed by the Cashu payment signer.
  * @param mintUrl - Optional mint URL override. Uses default mint if omitted.
- * @param locktime - Optional Unix timestamp (bounty deadline) as a social signal.
  * @returns MintResult with the P2PK-locked proofs on success.
  */
 export async function createPledgeToken(
 	proofs: Proof[],
-	pledgerPubkey: string,
-	mintUrl?: string,
-	locktime?: number
+	paymentPubkey: string,
+	mintUrl?: string
 ): Promise<MintResult> {
 	if (proofs.length === 0) {
 		return { success: false, proofs: [], error: 'No proofs provided' };
@@ -51,7 +50,8 @@ export async function createPledgeToken(
 
 	try {
 		const wallet = await getWallet(mintUrl);
-		const p2pkOptions = createP2PKLock(pledgerPubkey, locktime);
+		assertNut11Support(wallet);
+		const p2pkOptions = createP2PKLock(paymentPubkey);
 		const fees = wallet.getFeesForProofs(proofs);
 		const sendAmount = amount - fees;
 
@@ -129,19 +129,19 @@ export async function collectPledgeTokens(pledgeEvents: NostrEvent[]): Promise<D
 /**
  * Release a pledger's self-locked tokens to the winning solver.
  *
- * Called by a pledger after vote consensus is reached. The pledger signs
- * their P2PK-locked proofs with their private key, swaps them at the mint
- * for fresh proofs, then re-locks the fresh proofs to the solver's pubkey.
+ * Called by a pledger after vote consensus is reached. Their configured
+ * payment signer authorizes the P2PK proofs without exposing secret material,
+ * then the proofs are swapped and re-locked to the solver's payment pubkey.
  *
  * @param pledge - The decoded pledge to release.
- * @param pledgerPrivkey - The pledger's private key (hex) for signing P2PK proofs.
- * @param solverPubkey - Hex-encoded public key of the winning solver.
+ * @param paymentSigner - Wallet-scoped capability for authorizing P2PK proofs.
+ * @param solverPaymentPubkey - Lowercase x-only payment key declared by the winning solution.
  * @returns MintResult with solver-locked proofs on success.
  */
 export async function releasePledgeToSolver(
 	pledge: DecodedPledge,
-	pledgerPrivkey: string,
-	solverPubkey: string
+	paymentSigner: CashuPaymentSigner,
+	solverPaymentPubkey: string
 ): Promise<MintResult> {
 	if (pledge.proofs.length === 0) {
 		return { success: false, proofs: [], error: 'No proofs to release' };
@@ -154,9 +154,14 @@ export async function releasePledgeToSolver(
 
 	try {
 		const wallet = await getWallet(pledge.mint);
+		assertNut11Support(wallet);
 
-		// Step 1: Sign P2PK-locked proofs with pledger's private key and swap for unlocked proofs
-		const signedProofs = wallet.signP2PKProofs(pledge.proofs, pledgerPrivkey);
+		const signedProofs = await requestP2PKSignatures(paymentSigner, {
+			mintUrl: pledge.mint,
+			proofs: pledge.proofs,
+			purpose: 'release'
+		});
+		const p2pkOptions = createP2PKLock(solverPaymentPubkey);
 		const swapFees = wallet.getFeesForProofs(signedProofs);
 		const swapAmount = totalAmount - swapFees;
 
@@ -168,24 +173,8 @@ export async function releasePledgeToSolver(
 			};
 		}
 
-		const { send: unlockedProofs } = await wallet.send(swapAmount, signedProofs, {
-			privkey: pledgerPrivkey
-		});
-
-		// Step 2: Re-lock fresh proofs to solver pubkey via P2PK
-		const p2pkOptions = createP2PKLock(solverPubkey);
-		const lockFees = wallet.getFeesForProofs(unlockedProofs);
-		const lockAmount = getProofsAmount(unlockedProofs) - lockFees;
-
-		if (lockAmount <= 0) {
-			return {
-				success: false,
-				proofs: [],
-				error: `Insufficient amount after lock fees: ${getProofsAmount(unlockedProofs)} sats - ${lockFees} fee`
-			};
-		}
-
-		const { send: solverProofs } = await wallet.send(lockAmount, unlockedProofs, undefined, {
+		// One atomic swap consumes the authorized pledge and creates solver-locked outputs.
+		const { send: solverProofs } = await wallet.send(swapAmount, signedProofs, undefined, {
 			send: {
 				type: 'p2pk',
 				options: p2pkOptions
@@ -212,20 +201,19 @@ export async function releasePledgeToSolver(
 /**
  * Reclaim a pledger's self-locked tokens.
  *
- * Since the pledger holds the primary P2PK key, reclaim is a simple swap:
- * sign proofs with the pledger's private key and swap at the mint for
- * unlocked proofs. No refund path is needed.
+ * Since the pledger controls the primary P2PK payment signer, reclaim is a
+ * simple authorized swap for unlocked proofs. No refund path is needed.
  *
  * This can be called at any time — the locktime is a social signal only,
  * not a spending restriction for the primary key holder.
  *
  * @param pledge - The decoded pledge to reclaim.
- * @param pledgerPrivkey - The pledger's private key (hex) for signing.
+ * @param paymentSigner - Wallet-scoped capability for authorizing P2PK proofs.
  * @returns SwapResult with the reclaimed (unlocked) proofs.
  */
 export async function reclaimPledge(
 	pledge: DecodedPledge,
-	pledgerPrivkey: string
+	paymentSigner: CashuPaymentSigner
 ): Promise<SwapResult> {
 	if (pledge.proofs.length === 0) {
 		return {
@@ -263,11 +251,12 @@ export async function reclaimPledge(
 			};
 		}
 
-		// Sign with pledger's primary key — always valid (no locktime restriction)
-		const signedProofs = wallet.signP2PKProofs(pledge.proofs, pledgerPrivkey);
-		const { keep, send } = await wallet.send(receiveAmount, signedProofs, {
-			privkey: pledgerPrivkey
+		const signedProofs = await requestP2PKSignatures(paymentSigner, {
+			mintUrl: pledge.mint,
+			proofs: pledge.proofs,
+			purpose: 'reclaim'
 		});
+		const { keep, send } = await wallet.send(receiveAmount, signedProofs);
 
 		return {
 			success: true,

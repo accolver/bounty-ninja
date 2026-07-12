@@ -34,7 +34,7 @@
 			item.action();
 			return;
 		}
-		if (item.requiresAuth && !accountState.isLoggedIn) {
+		if (item.requiresAuth && !accountState.isAuthenticated) {
 			toastStore.info('Sign in with a Nostr extension to create a bounty');
 			return;
 		}

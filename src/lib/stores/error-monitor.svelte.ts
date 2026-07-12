@@ -1,7 +1,7 @@
 /**
  * Lightweight client-side error monitoring store.
  * Captures global errors and unhandled rejections in a circular buffer.
- * Privacy-safe: strips Nostr pubkeys (64-char hex strings) from messages.
+ * Privacy-safe: redacts identifiers, bearer tokens, and URLs from messages.
  * No external dependencies — errors stay local for debugging.
  */
 
@@ -13,14 +13,6 @@ export interface ErrorEntry {
 	source?: string;
 	type: ErrorEntryType;
 	stack?: string;
-}
-
-/** Regex matching 64-character lowercase hex strings (Nostr pubkeys / event IDs) */
-const HEX_PUBKEY_RE = /\b[0-9a-f]{64}\b/gi;
-
-/** Replace hex pubkeys with a truncated redacted form for privacy */
-function stripPubkeys(input: string): string {
-	return input.replace(HEX_PUBKEY_RE, (match) => `${match.slice(0, 8)}...[redacted]`);
 }
 
 class ErrorMonitorStore {
@@ -66,10 +58,10 @@ class ErrorMonitorStore {
 	): void {
 		const entry: ErrorEntry = {
 			timestamp: Date.now(),
-			message: stripPubkeys(message),
+			message: sanitizeDiagnosticText(message),
 			type,
-			source: options?.source ? stripPubkeys(options.source) : undefined,
-			stack: options?.stack ? stripPubkeys(options.stack) : undefined
+			source: options?.source ? sanitizeDiagnosticText(options.source) : undefined,
+			stack: options?.stack ? sanitizeDiagnosticText(options.stack) : undefined
 		};
 
 		if (this.#entries.length >= this.maxEntries) {
@@ -97,9 +89,7 @@ class ErrorMonitorStore {
 
 		this.#onErrorHandler = (event: ErrorEvent) => {
 			this.capture(event.message || 'Unknown error', 'error', {
-				source: event.filename
-					? `${event.filename}:${event.lineno}:${event.colno}`
-					: undefined,
+				source: event.filename ? `${event.filename}:${event.lineno}:${event.colno}` : undefined,
 				stack: event.error?.stack
 			});
 		};
@@ -139,3 +129,4 @@ class ErrorMonitorStore {
 
 /** Singleton error monitor instance */
 export const errorMonitor = new ErrorMonitorStore();
+import { sanitizeDiagnosticText } from '$lib/diagnostics';

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { config } from '$lib/config';
 	import { fade } from 'svelte/transition';
 	import { BountyDetailStore } from '$lib/stores/bounty-detail.svelte';
@@ -7,6 +7,8 @@
 	import LoadingLogo from '$lib/components/shared/LoadingLogo.svelte';
 	import ErrorBoundary from '$lib/components/shared/ErrorBoundary.svelte';
 	import { pageLoading } from '$lib/stores/page-loading.svelte';
+	import { resolve } from '$app/paths';
+	import { availability } from '$lib/stores/availability.svelte';
 
 	const { data } = $props();
 
@@ -17,7 +19,7 @@
 	let needsOverlay = $state(false);
 
 	$effect(() => {
-		store.load(data.bountyAddress, data.kind, data.pubkey, data.dTag);
+		store.load(data.bountyAddress, data.kind, data.pubkey, data.dTag, data.relays);
 
 		// Check whether data resolved synchronously from cache.
 		// Use untrack to avoid creating a reactive dependency on store state
@@ -33,11 +35,12 @@
 		};
 	});
 
-	if (!minTimeElapsed) {
-		setTimeout(() => {
+	onMount(() => {
+		const timer = setTimeout(() => {
 			minTimeElapsed = true;
 		}, 1000);
-	}
+		return () => clearTimeout(timer);
+	});
 
 	const dataReady = $derived(!!store.bounty || store.error || !store.loading);
 	const showOverlay = $derived(needsOverlay && (!dataReady || !minTimeElapsed));
@@ -45,6 +48,11 @@
 	// Sync overlay state to layout so footer can be hidden during loading
 	$effect(() => {
 		pageLoading.active = showOverlay;
+	});
+
+	$effect(() => {
+		if (!store.bounty) availability.clearCacheFreshness();
+		else availability.setCacheFreshness(store.stale);
 	});
 </script>
 
@@ -63,6 +71,14 @@
 		{/if}
 
 		<div class:animate-fade-in={needsOverlay && !showOverlay}>
+			{#if store.stale && store.bounty}
+				<p
+					class="mx-auto mb-4 max-w-5xl border-y border-warning/40 py-2 text-sm text-warning"
+					role="status"
+				>
+					Showing verified cached bounty data while relays reconnect.
+				</p>
+			{/if}
 			{#if store.error}
 				<div
 					class="mx-auto max-w-5xl rounded-lg border border-destructive/50 bg-destructive/10 p-8 text-center"
@@ -70,7 +86,13 @@
 					<p class="text-sm text-destructive">{store.error}</p>
 				</div>
 			{:else if store.bounty}
-				<BountyDetailView detail={store.bounty} />
+				{#if store.projection}
+					<BountyDetailView
+						detail={store.bounty}
+						projection={store.projection}
+						retractions={store.retractions}
+					/>
+				{/if}
 			{:else if !store.loading}
 				<div class="mx-auto max-w-5xl py-8 text-center space-y-3">
 					<p class="text-base font-medium text-foreground">Bounty not found</p>
@@ -80,7 +102,7 @@
 					</p>
 					<div class="flex items-center justify-center gap-3 pt-2">
 						<a
-							href="/"
+							href={resolve('/')}
 							class="inline-flex cursor-pointer items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
 						>
 							Browse Bounties

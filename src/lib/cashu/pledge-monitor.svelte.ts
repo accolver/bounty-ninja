@@ -11,7 +11,6 @@
  * regardless of whether the pledger used our UI or their Cashu wallet directly.
  */
 
-import { tokenValidator } from './token-validator.svelte';
 import { decodeToken } from './token';
 import { getWallet } from './mint';
 import { accountState } from '$lib/nostr/account.svelte';
@@ -21,9 +20,6 @@ import type { Pledge, Retraction } from '$lib/bounty/types';
 
 /** Pledges whose tokens have been spent but no retraction event exists */
 type SpentPledgeId = string;
-
-/** Check interval for token spendability (30 seconds) */
-const CHECK_INTERVAL_MS = 30_000;
 
 /**
  * Check if a pledge's tokens have been spent at the mint.
@@ -57,9 +53,7 @@ export async function detectSpentUnretractedPledges(
 	retractions: Retraction[]
 ): Promise<SpentPledgeId[]> {
 	const retractedIds = new Set(
-		retractions
-			.filter((r) => r.type === 'pledge' && r.pledgeEventId)
-			.map((r) => r.pledgeEventId!)
+		retractions.filter((r) => r.type === 'pledge' && r.pledgeEventId).map((r) => r.pledgeEventId!)
 	);
 
 	const spentUnretracted: SpentPledgeId[] = [];
@@ -115,7 +109,8 @@ export async function autoRetractSpentPledge(
 				taskAddress,
 				type: 'pledge_retraction',
 				retractionEventId: signed.id,
-				description: 'Retracted pledge after solutions were submitted (auto-detected from token reclaim)'
+				description:
+					'Retracted pledge after solutions were submitted (auto-detected from token reclaim)'
 			});
 			await publishEvent(repTemplate);
 		}

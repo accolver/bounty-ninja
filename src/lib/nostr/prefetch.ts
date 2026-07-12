@@ -1,6 +1,6 @@
 import { loadCachedEvents } from './cache';
 import { loadProfile, batchLoadProfiles } from './profile-cache';
-import { BOUNTY_KIND, PLEDGE_KIND, SOLUTION_KIND } from '$lib/bounty/kinds';
+import { PLEDGE_KIND, SOLUTION_KIND } from '$lib/bounty/kinds';
 
 type PrefetchType = 'bounty' | 'profile';
 

@@ -23,7 +23,7 @@
 		onError?: (error: Error) => void;
 	} = $props();
 
-	function handleError(error: unknown, reset: () => void) {
+	function handleError(error: unknown, _reset: () => void) {
 		const err = error instanceof Error ? error : new Error(String(error));
 
 		// Notify via toast

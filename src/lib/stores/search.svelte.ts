@@ -1,8 +1,8 @@
 import type { Subscription } from 'rxjs';
-import { catchError, EMPTY } from 'rxjs';
-import { take, timeout, toArray } from 'rxjs/operators';
+import { take, timeout } from 'rxjs/operators';
 import type { NostrEvent } from 'nostr-tools';
 import type { BountySummary } from '$lib/bounty/types';
+import { loadCachedEvents } from '$lib/nostr/cache';
 import { eventStore } from '$lib/nostr/event-store';
 import { ingestEventsFrom } from '$lib/nostr/event-ingestion';
 import { pool } from '$lib/nostr/relay-pool';
@@ -18,8 +18,8 @@ const SEARCH_RELAY_TIMEOUT = 5_000;
 /**
  * Reactive search store using Svelte 5 runes.
  *
- * Local-first: immediately searches the in-memory EventStore for instant results,
- * then enhances with NIP-50 relay results when they arrive.
+ * Local-first: immediately searches the in-memory EventStore, hydrates verified
+ * cached events, then enhances with NIP-50 relay results when they arrive.
  */
 class SearchStore {
 	#results = $state<BountySummary[]>([]);
@@ -27,6 +27,7 @@ class SearchStore {
 	#error = $state<string | null>(null);
 	#query = $state('');
 	#relaySubscription: Subscription | null = null;
+	#searchVersion = 0;
 
 	/** Current search results */
 	get results(): BountySummary[] {
@@ -52,11 +53,13 @@ class SearchStore {
 	 * Execute a search query with local-first strategy.
 	 *
 	 * 1. Immediately searches the local EventStore (instant)
-	 * 2. Fires off a NIP-50 relay search in parallel
-	 * 3. Merges relay results in when they arrive (deduped by event id)
+	 * 2. Hydrates and searches verified IndexedDB events
+	 * 3. Fires off a NIP-50 relay search in parallel
+	 * 4. Merges relay results as they arrive (deduped by event id)
 	 */
 	search(query: string): void {
 		this.#cancelRelaySubscription();
+		const version = ++this.#searchVersion;
 		this.#query = query;
 
 		const trimmed = query.trim();
@@ -72,8 +75,20 @@ class SearchStore {
 		// 1. Instant local search
 		this.#localSearch(trimmed);
 
-		// 2. Async relay enhancement
+		// 2. Hydrate verified IndexedDB events without blocking local or relay results
+		void this.#cachedSearch(trimmed, version);
+
+		// 3. Async relay enhancement
 		this.#relaySearch(trimmed);
+	}
+
+	async #cachedSearch(query: string, version: number): Promise<void> {
+		try {
+			await loadCachedEvents([{ kinds: [BOUNTY_KIND] }]);
+			if (version === this.#searchVersion) this.#localSearch(query, true);
+		} catch {
+			// IndexedDB may be unavailable; in-memory and relay search remain usable.
+		}
 	}
 
 	/**
@@ -81,7 +96,7 @@ class SearchStore {
 	 * case-insensitive substring match on title and tags.
 	 * Results appear immediately.
 	 */
-	#localSearch(query: string): void {
+	#localSearch(query: string, merge = false): void {
 		const lowerQuery = query.toLowerCase();
 
 		eventStore
@@ -93,18 +108,19 @@ class SearchStore {
 						.map(parseBountySummary)
 						.filter((s): s is BountySummary => s !== null);
 
-					this.#results = summaries.filter((item) => {
+					const matches = summaries.filter((item) => {
 						const titleMatch = item.title.toLowerCase().includes(lowerQuery);
 						const tagMatch = item.tags.some((tag) => tag.toLowerCase().includes(lowerQuery));
 						return titleMatch || tagMatch;
 					});
+					this.#results = merge ? this.#mergeResults(this.#results, matches) : matches;
 				}
 			});
 	}
 
 	/**
-	 * Async NIP-50 relay search. Merges results into existing local results,
-	 * deduplicating by event id. Silently gives up on timeout/error.
+	 * Async NIP-50 relay search. Merges each result as it arrives so a later
+	 * timeout cannot discard events already received.
 	 */
 	#relaySearch(query: string): void {
 		const filter = searchBountiesFilter(query);
@@ -117,35 +133,14 @@ class SearchStore {
 
 			this.#relaySubscription = relay
 				.subscription(filter)
-				.pipe(
-					onlyEvents(),
-					ingestEventsFrom('search'),
-					timeout(SEARCH_RELAY_TIMEOUT),
-					toArray(),
-					catchError(() => {
-						// Timeout or relay error — local results already shown, just stop
-						this.#loading = false;
-						return EMPTY;
-					})
-				)
+				.pipe(onlyEvents(), ingestEventsFrom('search'), timeout(SEARCH_RELAY_TIMEOUT))
 				.subscribe({
-					next: (events: NostrEvent[]) => {
-						const relaySummaries = events
-							.map(parseBountySummary)
-							.filter((s): s is BountySummary => s !== null);
-
-						// Merge relay results with existing local results, deduped by id
-						const existingIds = new Set(this.#results.map((r) => r.id));
-						const newResults = relaySummaries.filter((s) => !existingIds.has(s.id));
-
-						if (newResults.length > 0) {
-							this.#results = [...this.#results, ...newResults];
-						}
-
-						this.#loading = false;
+					next: (event: NostrEvent) => {
+						const summary = parseBountySummary(event);
+						if (summary) this.#results = this.#mergeResults(this.#results, [summary]);
 					},
 					error: () => {
-						// Should not reach here due to catchError
+						// Local and any relay results already received remain visible.
 						this.#loading = false;
 					},
 					complete: () => {
@@ -158,6 +153,12 @@ class SearchStore {
 		}
 	}
 
+	#mergeResults(current: BountySummary[], incoming: BountySummary[]): BountySummary[] {
+		const existingIds = new Set(current.map((result) => result.id));
+		const additions = incoming.filter((result) => !existingIds.has(result.id));
+		return additions.length > 0 ? [...current, ...additions] : current;
+	}
+
 	/** Cancel any in-flight relay subscription */
 	#cancelRelaySubscription(): void {
 		this.#relaySubscription?.unsubscribe();
@@ -167,6 +168,7 @@ class SearchStore {
 	/** Reset all state to initial values */
 	clear(): void {
 		this.#cancelRelaySubscription();
+		this.#searchVersion++;
 		this.#results = [];
 		this.#loading = false;
 		this.#error = null;

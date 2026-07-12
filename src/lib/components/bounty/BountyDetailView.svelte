@@ -1,6 +1,5 @@
 <script lang="ts">
-	import type { BountyDetail } from '$lib/bounty/types';
-	import { tallyVotes } from '$lib/bounty/voting';
+	import type { BountyDetail, FinancialProjection } from '$lib/bounty/types';
 	import { BOUNTY_KIND } from '$lib/bounty/kinds';
 	import { accountState } from '$lib/nostr/account.svelte';
 	import BountyStatusBadge from './BountyStatusBadge.svelte';
@@ -36,9 +35,11 @@
 
 	const {
 		detail,
+		projection,
 		retractions = []
 	}: {
 		detail: BountyDetail;
+		projection: FinancialProjection;
 		retractions?: Retraction[];
 	} = $props();
 
@@ -49,29 +50,12 @@
 	const isCreator = $derived(accountState.pubkey === detail.pubkey);
 
 	/** Build a map of pubkey → total pledge amount for voting */
-	const pledgesByPubkey = $derived.by(() => {
-		const map = new Map<string, number>();
-		for (const p of detail.pledges) {
-			map.set(p.pubkey, (map.get(p.pubkey) ?? 0) + p.amount);
-		}
-		return map;
-	});
+	const pledgesByPubkey = $derived(projection.votingPowerByPubkey);
 
 	/** Find the winning solution (approved by consensus) */
-	const winningSolution = $derived.by(() => {
-		// Check if any payout references a solution
-		if (detail.payouts.length > 0) {
-			const solutionId = detail.payouts[0].solutionId;
-			return detail.solutions.find((s) => s.id === solutionId);
-		}
-		// Check for consensus-approved solutions (pre-payout)
-		for (const solution of detail.solutions) {
-			const votes = detail.votesBySolution.get(solution.id) ?? [];
-			const tally = tallyVotes(votes, pledgesByPubkey, detail.totalPledged);
-			if (tally.isApproved) return solution;
-		}
-		return undefined;
-	});
+	const winningSolution = $derived(
+		projection.consensus.state === 'unique' ? projection.consensus.winner : undefined
+	);
 
 	/** Whether the bounty is in a release phase */
 	const isReleasePhase = $derived(
@@ -79,14 +63,7 @@
 	);
 
 	/** Tally cache: solution ID → VoteTally */
-	const tallyBySolution = $derived.by(() => {
-		const map = new Map<string, ReturnType<typeof tallyVotes>>();
-		for (const solution of detail.solutions) {
-			const votes = detail.votesBySolution.get(solution.id) ?? [];
-			map.set(solution.id, tallyVotes(votes, pledgesByPubkey, detail.totalPledged));
-		}
-		return map;
-	});
+	const tallyBySolution = $derived(projection.consensus.tallies);
 
 	/** Approval percent for a solution (% of total vote weight that is approve) */
 	function getApprovalPercent(solutionId: string): number {
@@ -117,7 +94,7 @@
 
 	/** Whether the current user is a pledger (for showing/hiding vote controls) */
 	const currentUserIsPledger = $derived(
-		accountState.isLoggedIn && accountState.pubkey
+		accountState.isAuthenticated && accountState.pubkey
 			? (pledgesByPubkey.get(accountState.pubkey) ?? 0) > 0
 			: false
 	);
@@ -128,8 +105,8 @@
 	let solutionFormOpen = $state(false);
 
 	/** Release progress stats for pledges header */
-	const uniquePledgers = $derived(new Set(detail.pledges.map((p) => p.pubkey)).size);
-	const releasedPledgers = $derived(new Set(detail.payouts.map((p) => p.pubkey)).size);
+	const uniquePledgers = $derived(new Set(projection.activePledges.map((p) => p.pubkey)).size);
+	const releasedPledgers = $derived(new Set(projection.validPayouts.map((p) => p.pubkey)).size);
 
 	let pledgeFormOpen = $state(false);
 </script>
@@ -291,7 +268,7 @@
 					<h2 class="text-base font-semibold text-foreground">
 						Solutions ({detail.solutions.length})
 					</h2>
-					{#if canSubmitSolution && accountState.isLoggedIn}
+					{#if canSubmitSolution && accountState.isAuthenticated}
 						<Button onclick={() => (solutionFormOpen = true)}>
 							<FileTextIcon class="size-4" />
 							Submit a solution
@@ -411,10 +388,13 @@
 				<PayoutTrigger
 					{bountyAddress}
 					{winningSolution}
-					pledges={detail.pledges}
-					payouts={detail.payouts}
+					pledges={[...projection.activePledges]}
+					payouts={[...projection.validPayouts]}
 				/>
-				<SolverClaim payouts={detail.payouts} pledges={detail.pledges} />
+				<SolverClaim
+					payouts={[...projection.validPayouts]}
+					pledges={[...projection.activePledges]}
+				/>
 			</section>
 		{/if}
 	</ErrorBoundary>

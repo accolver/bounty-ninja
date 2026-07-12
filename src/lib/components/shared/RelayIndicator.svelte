@@ -1,65 +1,83 @@
 <script lang="ts">
-	import { pool } from '$lib/nostr/relay-pool';
+	import { pool, connectDefaultRelays } from '$lib/nostr/relay-pool';
+	import { availability } from '$lib/stores/availability.svelte';
+	import { errorMonitor } from '$lib/stores/error-monitor.svelte';
 
-	type RelayInfo = {
-		url: string;
-		connected: boolean;
-	};
+	type RelayInfo = { url: string; connected: boolean };
 
 	let relays = $state<RelayInfo[]>([]);
 	let open = $state(false);
+	let checkingMint = $state(false);
 	let menuRef = $state<HTMLDivElement | null>(null);
 	let triggerRef = $state<HTMLButtonElement | null>(null);
 
-	function shortenUrl(url: string): string {
-		return url.replace(/^wss?:\/\//, '').replace(/\/$/, '');
-	}
-
 	function updateRelayStatus() {
-		const relayMap = pool.relays;
 		const entries: RelayInfo[] = [];
-
-		for (const [url, relay] of relayMap) {
+		for (const [url, relay] of pool.relays) {
 			let connected = false;
 			try {
 				connected = relay.connected ?? false;
 			} catch {
-				connected = false;
+				// A relay can throw while its WebSocket is being replaced.
 			}
 			entries.push({ url, connected });
 		}
-
 		relays = entries;
+		availability.setRelayCoverage(
+			entries.filter((relay) => relay.connected).length,
+			entries.length
+		);
 	}
 
-	const connectedCount = $derived(relays.filter((r) => r.connected).length);
-	const totalCount = $derived(relays.length);
+	function retryRelays() {
+		availability.checkingRelays(relays.length);
+		connectDefaultRelays();
+		setTimeout(updateRelayStatus, 500);
+	}
 
-	/** Track whether we've ever received a connection result */
-	let hasAttempted = $state(false);
-
-	$effect(() => {
-		if (totalCount > 0 && (connectedCount > 0 || relays.some((r) => !r.connected))) {
-			hasAttempted = true;
+	async function retryMint() {
+		checkingMint = true;
+		try {
+			const { clearWalletCache, getDefaultWallet } = await import('$lib/cashu/mint');
+			clearWalletCache();
+			await getDefaultWallet();
+		} catch {
+			errorMonitor.capture('Mint availability check failed', 'boundary', {
+				source: 'availability'
+			});
+		} finally {
+			checkingMint = false;
 		}
-	});
+	}
 
-	/**
-	 * Dot color gradient:
-	 * - muted/gray: initial state before any connection attempts
-	 * - red/destructive: 0 relays connected (all failed)
-	 * - warning/yellow: some but not all connected (<75%)
-	 * - success/green: most or all connected (>=75%)
-	 */
 	const dotColor = $derived.by(() => {
-		if (totalCount === 0 || !hasAttempted) return 'bg-muted-foreground';
-		if (connectedCount === 0) return 'bg-destructive';
-		const ratio = connectedCount / totalCount;
-		if (ratio >= 0.75) return 'bg-success';
-		return 'bg-warning';
+		if (
+			availability.browser.status === 'offline' ||
+			availability.relays.status === 'unavailable' ||
+			availability.publication.status === 'failed'
+		) {
+			return 'bg-destructive';
+		}
+		if (
+			availability.relays.status === 'partial' ||
+			availability.mint.status === 'unavailable' ||
+			availability.cache.status === 'stale'
+		) {
+			return 'bg-warning';
+		}
+		if (availability.relays.status === 'checking') return 'bg-muted-foreground';
+		return 'bg-success';
 	});
 
-	const statusLabel = $derived(`${connectedCount}/${totalCount} relays connected`);
+	const statusLabel = $derived.by(() => {
+		if (availability.browser.status === 'offline') return 'Availability: browser offline';
+		if (availability.relays.status === 'unavailable') return 'Availability: relays unavailable';
+		if (availability.publication.status === 'failed') return 'Availability: publication failed';
+		if (availability.relays.status === 'partial') return 'Availability: partial relay coverage';
+		if (availability.mint.status === 'unavailable') return 'Availability: mint unavailable';
+		if (availability.cache.status === 'stale') return 'Availability: cached data is stale';
+		return 'Availability: ready';
+	});
 
 	$effect(() => {
 		updateRelayStatus();
@@ -67,46 +85,29 @@
 		return () => clearInterval(interval);
 	});
 
-	function toggle() {
-		open = !open;
-	}
-
-	function close() {
-		open = false;
-	}
-
-	/** Close dropdown when clicking outside */
 	$effect(() => {
 		if (!open) return;
-
 		function onClickOutside(event: MouseEvent) {
 			const target = event.target as Node;
 			if (menuRef && !menuRef.contains(target) && triggerRef && !triggerRef.contains(target)) {
-				close();
+				open = false;
 			}
 		}
-
-		const timer = setTimeout(() => {
-			document.addEventListener('click', onClickOutside, true);
-		}, 0);
-
+		const timer = setTimeout(() => document.addEventListener('click', onClickOutside, true), 0);
 		return () => {
 			clearTimeout(timer);
 			document.removeEventListener('click', onClickOutside, true);
 		};
 	});
 
-	/** Close dropdown on Escape key */
 	$effect(() => {
 		if (!open) return;
-
 		function onKeyDown(event: KeyboardEvent) {
 			if (event.key === 'Escape') {
-				close();
+				open = false;
 				triggerRef?.focus();
 			}
 		}
-
 		document.addEventListener('keydown', onKeyDown);
 		return () => document.removeEventListener('keydown', onKeyDown);
 	});
@@ -116,10 +117,10 @@
 	<button
 		bind:this={triggerRef}
 		type="button"
-		onclick={toggle}
+		onclick={() => (open = !open)}
 		class="inline-flex cursor-pointer items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
 		aria-expanded={open}
-		aria-haspopup="menu"
+		aria-haspopup="dialog"
 		aria-label={statusLabel}
 		title={statusLabel}
 	>
@@ -129,33 +130,110 @@
 	{#if open}
 		<div
 			bind:this={menuRef}
-			class="absolute right-0 top-full z-50 mt-1 w-64 rounded-lg border border-border bg-card shadow-lg"
-			role="menu"
-			aria-label="Relay status"
+			class="absolute right-0 top-full z-50 mt-1 w-72 rounded-lg border border-border bg-card shadow-lg"
+			role="dialog"
+			aria-label="Availability status"
 		>
 			<div class="border-b border-border px-3 py-2">
-				<p class="text-xs font-medium text-foreground">
-					Relays ({connectedCount}/{totalCount} connected)
-				</p>
+				<p class="text-xs font-medium text-foreground">Availability</p>
 			</div>
-			<div class="py-1">
-				{#each relays as relay (relay.url)}
-					<div class="flex items-center gap-2 px-3 py-1.5 text-sm" role="menuitem">
-						<span
-							class="inline-block h-2 w-2 shrink-0 rounded-full {relay.connected
-								? 'bg-success'
-								: 'bg-destructive'}"
-							aria-hidden="true"
-						></span>
-						<span class="truncate text-foreground">{shortenUrl(relay.url)}</span>
-						<span class="ml-auto text-xs {relay.connected ? 'text-success' : 'text-destructive'}">
-							{relay.connected ? 'Connected' : 'Disconnected'}
+			<dl class="divide-y divide-border px-3 text-xs">
+				<div class="flex items-center gap-3 py-2">
+					<dt class="w-20 text-muted-foreground">Browser</dt>
+					<dd class="flex flex-1 items-center justify-between gap-2 text-foreground">
+						<span>{availability.browser.status === 'online' ? 'Online' : 'Offline'}</span>
+						{#if availability.browser.status === 'offline'}
+							<button
+								type="button"
+								onclick={() => window.location.reload()}
+								class="hover:cursor-pointer text-foreground underline underline-offset-2 transition-colors hover:text-primary"
+								>Retry</button
+							>
+						{/if}
+					</dd>
+				</div>
+				<div class="flex items-center gap-3 py-2">
+					<dt class="w-20 text-muted-foreground">Relays</dt>
+					<dd class="flex flex-1 items-center justify-between gap-2 text-foreground">
+						<span>{availability.relays.connected}/{availability.relays.total} connected</span>
+						{#if availability.relays.status !== 'ready'}
+							<button
+								type="button"
+								onclick={retryRelays}
+								class="hover:cursor-pointer text-foreground underline underline-offset-2 transition-colors hover:text-primary"
+								>Retry</button
+							>
+						{/if}
+					</dd>
+				</div>
+				<div class="flex items-center gap-3 py-2">
+					<dt class="w-20 text-muted-foreground">Mint</dt>
+					<dd class="flex flex-1 items-center justify-between gap-2 text-foreground">
+						<span>
+							{availability.mint.status === 'ready'
+								? 'Ready'
+								: availability.mint.status === 'unavailable'
+									? 'Unavailable'
+									: availability.mint.status === 'checking'
+										? 'Checking…'
+										: 'Not checked'}
 						</span>
-					</div>
-				{:else}
-					<div class="px-3 py-2 text-xs text-muted-foreground">No relays configured</div>
-				{/each}
-			</div>
+						{#if availability.mint.status !== 'ready'}
+							<button
+								type="button"
+								onclick={retryMint}
+								disabled={checkingMint}
+								class="hover:cursor-pointer text-foreground underline underline-offset-2 transition-colors hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+								>Check</button
+							>
+						{/if}
+					</dd>
+				</div>
+				<div class="flex items-center gap-3 py-2">
+					<dt class="w-20 text-muted-foreground">Cache</dt>
+					<dd class="flex flex-1 items-center justify-between gap-2 text-foreground">
+						<span>
+							{availability.cache.status === 'fresh'
+								? 'Fresh'
+								: availability.cache.status === 'stale'
+									? 'Stale'
+									: 'Checking…'}
+						</span>
+						{#if availability.cache.status === 'stale'}
+							<button
+								type="button"
+								onclick={retryRelays}
+								class="hover:cursor-pointer text-foreground underline underline-offset-2 transition-colors hover:text-primary"
+								>Refresh</button
+							>
+						{/if}
+					</dd>
+				</div>
+				<div class="flex items-center gap-3 py-2">
+					<dt class="w-20 text-muted-foreground">Publishing</dt>
+					<dd class="flex flex-1 items-center justify-between gap-2 text-foreground">
+						<span>
+							{availability.publication.status === 'ready'
+								? 'Ready'
+								: availability.publication.status === 'publishing'
+									? 'Publishing…'
+									: availability.publication.status === 'failed'
+										? 'Failed'
+										: availability.publication.status === 'blocked'
+											? 'Blocked'
+											: 'Checking…'}
+						</span>
+						{#if availability.publication.status === 'failed' || availability.publication.status === 'blocked'}
+							<button
+								type="button"
+								onclick={retryRelays}
+								class="hover:cursor-pointer text-foreground underline underline-offset-2 transition-colors hover:text-primary"
+								>Retry relays</button
+							>
+						{/if}
+					</dd>
+				</div>
+			</dl>
 		</div>
 	{/if}
 </div>

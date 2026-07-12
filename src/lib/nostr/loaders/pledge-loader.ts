@@ -108,9 +108,11 @@ export function createAllPayoutsLoader(): { unsubscribe(): void } {
  * Create a loader that subscribes to pledge events (Kind 73002)
  * for a specific bounty address from all default relays.
  */
-export function createPledgeLoader(bountyAddress: string): { unsubscribe(): void } {
+export function createPledgeLoader(
+	bountyAddress: string,
+	relayUrls: readonly string[] = getDefaultRelays()
+): { unsubscribe(): void } {
 	const filter = pledgesForBountyFilter(bountyAddress);
-	const relayUrls = getDefaultRelays();
 	const subscriptions: Subscription[] = [];
 
 	for (const url of relayUrls) {

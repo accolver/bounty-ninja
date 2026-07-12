@@ -11,8 +11,13 @@ import type {
 } from './types';
 import { deriveBountyStatus } from './state-machine';
 import { tallyVotes } from './voting';
+import { PAYOUT_SOURCE_MARKER } from './kinds';
 import { validateEventTags } from '$lib/nostr/tag-validator';
 import { getTagValue, getTagValues } from '$lib/nostr/nostr-tags';
+
+function getCashuPaymentPubkey(event: NostrEvent): string | null {
+	return event.tags.find((tag) => tag[0] === 'payment')?.[2] ?? null;
+}
 
 /**
  * Extract a title from a bounty event using the fallback chain:
@@ -87,6 +92,7 @@ export function parsePledge(event: NostrEvent): Pledge | null {
 		event,
 		id: event.id,
 		pubkey: event.pubkey,
+		paymentPubkey: getCashuPaymentPubkey(event),
 		bountyAddress,
 		amount: Number.isNaN(amount) ? 0 : amount,
 		cashuToken,
@@ -120,6 +126,7 @@ export function parseSolution(event: NostrEvent): Solution | null {
 		event,
 		id: event.id,
 		pubkey: event.pubkey,
+		paymentPubkey: getCashuPaymentPubkey(event),
 		bountyAddress,
 		description: event.content ?? '',
 		antiSpamTokens,
@@ -178,11 +185,14 @@ export function parsePayout(event: NostrEvent, pledgerPubkeys?: string[]): Payou
 	}
 
 	const bountyAddress = getTagValue(event, 'a') ?? '';
-	const solutionId = getTagValue(event, 'e') ?? '';
+	const solutionId =
+		event.tags.find((tag) => tag[0] === 'e' && tag[3] !== PAYOUT_SOURCE_MARKER)?.[1] ?? '';
 	const solverPubkey = getTagValue(event, 'p') ?? '';
 	const amountRaw = getTagValue(event, 'amount');
 	const amount = amountRaw ? parseInt(amountRaw, 10) : 0;
 	const cashuToken = getTagValue(event, 'cashu') ?? '';
+	const sourcePledgeId =
+		event.tags.find((tag) => tag[0] === 'e' && tag[3] === PAYOUT_SOURCE_MARKER)?.[1] ?? null;
 
 	return {
 		event,
@@ -191,9 +201,10 @@ export function parsePayout(event: NostrEvent, pledgerPubkeys?: string[]): Payou
 		bountyAddress,
 		solutionId,
 		solverPubkey,
+		paymentPubkey: getCashuPaymentPubkey(event),
 		amount: Number.isNaN(amount) ? 0 : amount,
 		cashuToken,
-		sourcePledgeId: null,
+		sourcePledgeId,
 		mintUrl: getTagValue(event, 'mint') ?? null,
 		createdAt: event.created_at
 	};

@@ -20,7 +20,7 @@
 	const disabledReason = $derived(
 		!canPledge
 			? 'This bounty is no longer accepting pledges'
-			: !accountState.isLoggedIn
+			: !accountState.isAuthenticated
 				? 'Sign in to fund this bounty'
 				: null
 	);
@@ -36,7 +36,7 @@
 		<CoinsIcon class="size-4" />
 		<span>No longer accepting pledges</span>
 	</div>
-{:else if !accountState.isLoggedIn}
+{:else if !accountState.isAuthenticated}
 	<!-- Authenticated required -->
 	<div class="flex flex-col items-start gap-2">
 		<p class="text-sm text-muted-foreground">Sign in to fund this bounty</p>

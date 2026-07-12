@@ -2,7 +2,6 @@
 	import type { BountyDetail, Pledge } from '$lib/bounty/types';
 	import { accountState } from '$lib/nostr/account.svelte';
 	import SatAmount from '$lib/components/shared/SatAmount.svelte';
-	import PaymentUnavailable from '$lib/components/shared/PaymentUnavailable.svelte';
 
 	const { detail }: { detail: BountyDetail } = $props();
 	let dismissed = $state(false);
@@ -19,7 +18,7 @@
 			detail.status === 'expired' &&
 			detail.payouts.length === 0 &&
 			myPledges.length > 0 &&
-			accountState.isLoggedIn
+			accountState.isAuthenticated
 	);
 </script>
 
@@ -28,10 +27,10 @@
 		<div class="space-y-3">
 			<p class="font-semibold text-warning">This bounty expired with an unreleased pledge.</p>
 			<p class="text-sm text-foreground">
-				Your declared pledge is <SatAmount amount={myTotalPledged} />. In-app reclaim is disabled
-				until a Cashu wallet can authorize recovery without exposing your Nostr identity key.
+				Your declared pledge is <SatAmount amount={myTotalPledged} />. Open each pledge below and
+				use Reclaim / retract. The guided flow requires Minibits Revert and verifies every source
+				proof is spent before publishing a retraction.
 			</p>
-			<PaymentUnavailable action="Pledge reclaim" />
 			<button
 				type="button"
 				onclick={() => (dismissed = true)}

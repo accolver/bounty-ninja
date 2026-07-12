@@ -73,9 +73,9 @@
 		<div class="space-y-2">
 			<p class="text-sm text-muted-foreground">
 				{#if payouts.length === 1}
-					Claim your tokens by importing the Cashu token below into your wallet.
+					Claim your token in the backed-up Minibits wallet whose public key you submitted.
 				{:else}
-					Claim each token below by importing them into your wallet.
+					Claim each token in the backed-up Minibits wallet whose public key you submitted.
 				{/if}
 			</p>
 
@@ -110,6 +110,11 @@
 								Copy
 							{/if}
 						</button>
+						<a
+							href={`cashu:${payout.cashuToken}`}
+							class="inline-flex shrink-0 items-center rounded-md border border-border bg-card px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted hover:cursor-pointer focus-visible:ring-2 focus-visible:ring-ring"
+							aria-label="Open token in a compatible Cashu wallet">Open</a
+						>
 					</div>
 				</div>
 			{/each}
@@ -117,8 +122,9 @@
 
 		<!-- Security warning -->
 		<p class="text-xs text-muted-foreground">
-			<span class="font-medium text-warning">Important:</span> Cashu tokens are bearer instruments. Anyone
-			with these tokens can redeem them. Import them into your wallet promptly.
+			<span class="font-medium text-warning">Important:</span> These public tokens are P2PK-locked to
+			the Minibits key declared in your solution. Only that wallet can spend them. Copy, QR, and the generic
+			Cashu link and copied value carry the exact same token; verify the amount before importing.
 		</p>
 	</div>
 {/if}

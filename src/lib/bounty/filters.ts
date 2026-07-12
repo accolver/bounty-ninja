@@ -1,5 +1,13 @@
 import type { Filter } from 'nostr-tools';
-import { BOUNTY_KIND, PLEDGE_KIND, SOLUTION_KIND, VOTE_KIND, PAYOUT_KIND, RETRACTION_KIND, REPUTATION_KIND } from './kinds';
+import {
+	BOUNTY_KIND,
+	PLEDGE_KIND,
+	SOLUTION_KIND,
+	VOTE_KIND,
+	PAYOUT_KIND,
+	RETRACTION_KIND,
+	REPUTATION_KIND
+} from './kinds';
 
 /**
  * Filter to fetch a list of bounty events.
