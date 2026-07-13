@@ -37,7 +37,7 @@ describe('reproducible tooling', () => {
 		expect(workflow).toContain('bun run test:e2e');
 		expect(workflow).toContain('environment: production');
 		expect(workflow).toContain('group: production-deploy');
-		expect(workflow).toContain('timeout-minutes: 35');
+		expect(workflow).toContain('timeout-minutes: 60');
 		expect(workflow).toContain('timeout-minutes: 15');
 		expect(workflow).toContain('--branch=main');
 		expect(workflow).toContain('bun run release:create');
