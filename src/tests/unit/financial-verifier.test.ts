@@ -47,7 +47,7 @@ const bounty = {
 
 function pledge(id = '3'.repeat(64)): Pledge {
 	return {
-		event: { ...bounty.event, id, kind: 73002, pubkey: AUTHOR },
+		event: { ...bounty.event, id, kind: 7302, pubkey: AUTHOR },
 		id,
 		pubkey: AUTHOR,
 		paymentPubkey: `02${'c'.repeat(64)}`,
@@ -62,7 +62,7 @@ function pledge(id = '3'.repeat(64)): Pledge {
 
 function payout(id = '4'.repeat(64)): Payout {
 	return {
-		event: { ...bounty.event, id, kind: 73004, pubkey: AUTHOR },
+		event: { ...bounty.event, id, kind: 7304, pubkey: AUTHOR },
 		id,
 		pubkey: AUTHOR,
 		bountyAddress: ADDRESS,

@@ -19,6 +19,14 @@ vi.mock('$lib/nostr/event-ingestion', () => ({
 	ingestEvent: vi.fn().mockReturnValue(true)
 }));
 
+vi.mock('nostr-tools', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('nostr-tools')>();
+	return {
+		...actual,
+		verifyEvent: vi.fn(() => true)
+	};
+});
+
 // Mock the broadcast module
 vi.mock('$lib/nostr/publish', () => ({
 	broadcastEvent: vi.fn()

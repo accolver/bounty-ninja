@@ -41,8 +41,8 @@ drill, or accessibility audit is claimed complete by this document.
   persistence or financial projection.
 - `@cashu/cashu-ts` 3.4.1 for Cashu v3/v4 token decoding, mint proof-state
   checks, and NUT-11 inspection.
-- NIP-07 browser extensions and NIP-46 remote signers sign Nostr events only.
-  The application never requests or handles a Nostr identity secret.
+- NIP-07 browser extensions, NIP-46 remote signers, and the memory-only advanced
+  signer flow may sign Nostr events. Private signer material is never persisted.
 - A versioned IndexedDB payment journal records irreversible manual workflows
   before wallet handoff and preserves exact signed events for retry.
 
@@ -59,17 +59,18 @@ unavailable do not create voting power or release authority.
 | Kind  | Record                 | Required relationship/payment data                                                                                             |
 | ----- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | 37300 | Bounty definition      | `d`, title, reward; optional expiration, mint, and topic tags                                                                  |
-| 73001 | Solution               | Bounty `a` reference and `['payment','cashu','<compressed-key>']` for new payout-compatible solutions                          |
-| 73002 | Pledge                 | Bounty `a`, creator `p`, amount, Cashu token, mint, and `['payment','cashu','<compressed-key>']`                               |
+| 7301  | Solution               | Bounty `a` reference and `['payment','cashu','<compressed-key>']` for new payout-compatible solutions                          |
+| 7302  | Pledge                 | Bounty `a`, creator `p`, amount, Cashu token, mint, and `['payment','cashu','<compressed-key>']`                               |
 | 1018  | Vote                   | Bounty `a`, solution `e`, and approve/reject choice                                                                            |
-| 73004 | Payout                 | Bounty `a`, one solution `e`, one source-pledge `e` marked `source`, solver `p`, amount, token, mint, and matching payment tag |
-| 73005 | Retraction             | Bounty `a`, bounty/pledge type, and source pledge `e` for pledge retraction                                                    |
-| 73006 | Reputation attestation | Authorized retraction relationship used as one derived reputation signal                                                       |
+| 7304  | Payout                 | Bounty `a`, one solution `e`, one source-pledge `e` marked `source`, solver `p`, amount, token, mint, and matching payment tag |
+| 7305  | Retraction             | Bounty `a`, bounty/pledge type, and source pledge `e` for pledge retraction                                                    |
+| 7306  | Reputation attestation | Authorized retraction relationship used as one derived reputation signal                                                       |
 
 The payment tag is exactly `['payment', 'cashu', '<66-character lowercase
-02/03 compressed public key>']`. It preserves full key parity and identifies a dedicated Cashu spending/receiving key,
-not the event author's Nostr identity key. Legacy events without this tag may be
-displayed but cannot participate in new validated payment operations.
+02/03 compressed public key>']`. It preserves full key parity and identifies a
+dedicated Cashu spending/receiving key, not the event author's Nostr identity
+key. Legacy events without this tag may be displayed but cannot participate in
+new validated payment operations.
 
 ## 5. Payment Policy
 
@@ -80,7 +81,8 @@ publishing a pledge, the user creates an exact-amount P2PK token at the bounty's
 mint, locked to the public key declared in the payment tag. Every proof must:
 
 - use unit `sat` and the bounty mint;
-- include DLEQ issuance evidence cryptographically verified against the exact mint keyset;
+- include DLEQ issuance evidence cryptographically verified against the exact
+  mint keyset;
 - be unspent and unique;
 - target the declared Minibits payment key;
 - have no locktime and no refund keys; and
@@ -97,8 +99,8 @@ each source pledge separately in the same backed-up Minibits wallet. The user
 redeems the exact public source token, creates an exact-amount permanent P2PK
 token to the winner's declared payment key, and pastes that solver-locked token
 into Bounty.ninja. The application verifies the source is spent and the output
-token's amount, mint, proof state, key, and NUT-11 policy before publishing one
-source-bound Kind 73004 event.
+token's amount, mint, DLEQ issuance evidence, proof state, key, and exact NUT-11
+policy before publishing one source-bound Kind 7304 event.
 
 Bounty.ninja does not currently perform the wallet swap or sign NUT-11 proofs.
 It cannot prevent wallet mistakes, restore a lost wallet, or force a
@@ -135,9 +137,9 @@ All list, detail, search, profile, reputation, voting, and action authorization
 views use the shared validated financial projection. Active pledge value comes
 only from issuance-authentic, non-retracted, globally non-replayed source proofs
 that are either unspent or paired with an exact valid source-bound payout.
-NUT-07 state does not establish issuance authenticity. Votes are
-weighted by that value; deterministic `(created_at, id)` ordering resolves
-latest-event choices. Multiple quorum winners are ambiguous and block release.
+NUT-07 state does not establish issuance authenticity. Votes are weighted by
+that value; deterministic `(created_at, id)` ordering resolves latest-event
+choices. Multiple quorum winners are ambiguous and block release.
 
 Lifecycle is derived, never stored:
 
@@ -171,8 +173,9 @@ relay count; errors and timeouts remain incomplete.
 
 ## 7. Security And Privacy
 
-- Never request, receive, store, or transmit an `nsec`, Nostr private key, Cashu
-  payment private key, token, or proof through diagnostics.
+- Never persist, transmit, or log an `nsec`, Nostr private key, Cashu payment
+  private key, token, or proof. Memory-only Nostr signer material must be cleared
+  when the advanced signer session ends.
 - NIP-07/NIP-46 sign public Nostr events; Cashu wallet authorization stays in
   the external wallet.
 - All Nostr events are public. Users must not put secrets or personal data in
@@ -189,10 +192,10 @@ relay count; errors and timeouts remain incomplete.
 See `SECURITY.md` and `docs/runbooks/` for disclosure, incident, rollback,
 outage, and recovery procedures.
 
-The application ships no analytics or tracking code. Cloudflare Pages Web Analytics and
-automatic beacon injection must remain disabled in the external project dashboard; the
-repository cannot enforce or verify that dashboard setting, so launch evidence remains a
-manual gate in `LAUNCH_CHECKLIST.md`.
+The application ships no analytics or tracking code. Cloudflare Pages Web
+Analytics and automatic beacon injection must remain disabled in the external
+project dashboard; the repository cannot enforce or verify that dashboard
+setting, so launch evidence remains a manual gate in `LAUNCH_CHECKLIST.md`.
 
 ## 8. Quality And Performance
 

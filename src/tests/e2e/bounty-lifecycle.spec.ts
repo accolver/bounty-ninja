@@ -241,7 +241,7 @@ test.describe('Hermetic bounty lifecycle', () => {
 		await page.getByRole('button', { name: 'Submit solution' }).click();
 		await expect(page.getByText('Solution submitted successfully!')).toBeVisible();
 
-		const solution = (await services.events()).find((event) => event.kind === 73001);
+		const solution = (await services.events()).find((event) => event.kind === 7301);
 		expect(solution?.tags).toContainEqual(['payment', 'cashu', PAYMENT_KEYS.solver]);
 	});
 

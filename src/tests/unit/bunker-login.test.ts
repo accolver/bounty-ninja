@@ -137,12 +137,12 @@ describe('NIP-46 bunker login', () => {
 
 	describe('buildSigningPermissions', () => {
 		it('builds permissions for all bounty event kinds', () => {
-			const kinds = [37300, 73001, 73002, 1018, 73004, 73005, 73006];
+			const kinds = [37300, 7301, 7302, 1018, 7304, 7305, 7306];
 			const perms = NostrConnectSigner.buildSigningPermissions(kinds);
 			expect(perms).toHaveLength(7);
 			expect(perms).toContain('sign_event:37300');
-			expect(perms).toContain('sign_event:73005');
-			expect(perms).toContain('sign_event:73006');
+			expect(perms).toContain('sign_event:7305');
+			expect(perms).toContain('sign_event:7306');
 		});
 	});
 

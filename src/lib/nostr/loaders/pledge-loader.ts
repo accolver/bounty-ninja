@@ -2,16 +2,18 @@ import type { Subscription } from 'rxjs';
 import { pool } from '$lib/nostr/relay-pool';
 import { ingestEventsFrom } from '$lib/nostr/event-ingestion';
 import { onlyEvents } from 'applesauce-relay';
+import { onlyValidEvents } from '../valid-events';
 import { getDefaultRelays } from '$lib/utils/env';
 import {
 	pledgesForBountyFilter,
 	allPledgesFilter,
 	allSolutionsFilter,
-	allPayoutsFilter
+	allPayoutsFilter,
+	allRetractionsFilter
 } from '$lib/bounty/filters';
 
 /**
- * Create a loader that subscribes to ALL pledge events (Kind 73002)
+ * Create a loader that subscribes to ALL pledge events (Kind 7302)
  * from all default relays. Used by the home page to aggregate
  * funding totals across all tasks.
  */
@@ -25,7 +27,7 @@ export function createAllPledgesLoader(): { unsubscribe(): void } {
 			const sub = pool
 				.relay(url)
 				.subscription(filter)
-				.pipe(onlyEvents(), ingestEventsFrom('relay'))
+				.pipe(onlyEvents(), onlyValidEvents(), ingestEventsFrom('relay'))
 				.subscribe();
 			subscriptions.push(sub);
 		} catch (e) {
@@ -43,7 +45,7 @@ export function createAllPledgesLoader(): { unsubscribe(): void } {
 }
 
 /**
- * Create a loader that subscribes to ALL solution events (Kind 73001)
+ * Create a loader that subscribes to ALL solution events (Kind 7301)
  * from all default relays. Used by the home page to derive bounty status.
  */
 export function createAllSolutionsLoader(): { unsubscribe(): void } {
@@ -56,7 +58,7 @@ export function createAllSolutionsLoader(): { unsubscribe(): void } {
 			const sub = pool
 				.relay(url)
 				.subscription(filter)
-				.pipe(onlyEvents(), ingestEventsFrom('relay'))
+				.pipe(onlyEvents(), onlyValidEvents(), ingestEventsFrom('relay'))
 				.subscribe();
 			subscriptions.push(sub);
 		} catch (e) {
@@ -74,7 +76,7 @@ export function createAllSolutionsLoader(): { unsubscribe(): void } {
 }
 
 /**
- * Create a loader that subscribes to ALL payout events (Kind 73004)
+ * Create a loader that subscribes to ALL payout events (Kind 7304)
  * from all default relays. Used by the home page to derive bounty status.
  */
 export function createAllPayoutsLoader(): { unsubscribe(): void } {
@@ -87,7 +89,7 @@ export function createAllPayoutsLoader(): { unsubscribe(): void } {
 			const sub = pool
 				.relay(url)
 				.subscription(filter)
-				.pipe(onlyEvents(), ingestEventsFrom('relay'))
+				.pipe(onlyEvents(), onlyValidEvents(), ingestEventsFrom('relay'))
 				.subscribe();
 			subscriptions.push(sub);
 		} catch (e) {
@@ -105,7 +107,38 @@ export function createAllPayoutsLoader(): { unsubscribe(): void } {
 }
 
 /**
- * Create a loader that subscribes to pledge events (Kind 73002)
+ * Create a loader that subscribes to ALL retraction events (Kind 7305)
+ * from all default relays. Used by the home page to derive cancelled status.
+ */
+export function createAllRetractionsLoader(): { unsubscribe(): void } {
+	const filter = allRetractionsFilter();
+	const relayUrls = getDefaultRelays();
+	const subscriptions: Subscription[] = [];
+
+	for (const url of relayUrls) {
+		try {
+			const sub = pool
+				.relay(url)
+				.subscription(filter)
+				.pipe(onlyEvents(), onlyValidEvents(), ingestEventsFrom('relay'))
+				.subscribe();
+			subscriptions.push(sub);
+		} catch (e) {
+			console.warn('[all-retractions-loader] Failed to subscribe to relay:', url, e);
+		}
+	}
+
+	return {
+		unsubscribe() {
+			for (const sub of subscriptions) {
+				sub.unsubscribe();
+			}
+		}
+	};
+}
+
+/**
+ * Create a loader that subscribes to pledge events (Kind 7302)
  * for a specific bounty address from all default relays.
  */
 export function createPledgeLoader(
@@ -120,7 +153,7 @@ export function createPledgeLoader(
 			const sub = pool
 				.relay(url)
 				.subscription(filter)
-				.pipe(onlyEvents(), ingestEventsFrom('relay'))
+				.pipe(onlyEvents(), onlyValidEvents(), ingestEventsFrom('relay'))
 				.subscribe();
 			subscriptions.push(sub);
 		} catch (e) {

@@ -2,6 +2,7 @@ import type { Subscription } from 'rxjs';
 import { pool } from '$lib/nostr/relay-pool';
 import { ingestEventsFrom } from '$lib/nostr/event-ingestion';
 import { onlyEvents } from 'applesauce-relay';
+import { onlyValidEvents } from '../valid-events';
 import { getDefaultRelays } from '$lib/utils/env';
 import { votesForBountyFilter } from '$lib/bounty/filters';
 
@@ -21,7 +22,7 @@ export function createVoteLoader(
 			const sub = pool
 				.relay(url)
 				.subscription(filter)
-				.pipe(onlyEvents(), ingestEventsFrom('relay'))
+				.pipe(onlyEvents(), onlyValidEvents(), ingestEventsFrom('relay'))
 				.subscribe();
 			subscriptions.push(sub);
 		} catch (e) {

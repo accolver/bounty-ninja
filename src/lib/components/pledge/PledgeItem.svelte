@@ -29,7 +29,7 @@
 
 	const isPledgeAuthor = $derived(accountState.pubkey === pledge.pubkey);
 
-	/** Check if this pledger has released (has a corresponding Kind 73004 event) */
+	/** Check if this exact pledge has a corresponding Kind 7304 payout event. */
 	const hasReleased = $derived(payouts.some((p) => p.sourcePledgeId === pledge.id));
 
 	// Trigger token verification reactively

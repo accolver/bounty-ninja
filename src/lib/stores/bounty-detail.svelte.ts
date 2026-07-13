@@ -245,7 +245,7 @@ export class BountyDetailStore {
 		this.#relaySubs.push(
 			createRelatedEventsLoader(bountyAddress, relayUrls, () => {
 				this.#relatedEventsComplete = true;
-				this.#stale = false;
+				this.#stale = !this.#globalProofSetComplete;
 				void this.#rebuild();
 			})
 		);
@@ -253,6 +253,7 @@ export class BountyDetailStore {
 		this.#relaySubs.push(
 			createGlobalProofOwnershipLoader(relayUrls, () => {
 				this.#globalProofSetComplete = true;
+				this.#stale = !this.#relatedEventsComplete;
 				void this.#rebuild();
 			})
 		);
@@ -284,6 +285,7 @@ export class BountyDetailStore {
 			.map((event) => parsePayout(event))
 			.filter((item): item is NonNullable<typeof item> => item !== null);
 		const globalProofOwners = await buildGlobalProofOwnership(globalPledges, globalPayouts);
+		if (version !== this.#rebuildVersion) return;
 		const configuredMint = isConfiguredMint(detail.mintUrl, getDefaultMint());
 		const publicMint = detail.mintUrl ? normalizePublicHttpsUrl(detail.mintUrl) !== null : false;
 		const allowMintContact = configuredMint || (publicMint && this.#allowUnknownMint);

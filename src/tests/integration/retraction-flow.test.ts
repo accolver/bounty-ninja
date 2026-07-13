@@ -2,10 +2,10 @@
  * Integration test: Retraction flow.
  *
  * Tests end-to-end retraction scenarios:
- * (a) Bounty retraction with no solutions → no Kind 73006, status = cancelled
- * (b) Bounty retraction with solutions → Kind 73006, status = cancelled
- * (c) Pledge retraction with no solutions → pledge removed, no Kind 73006
- * (d) Pledge retraction with solutions → Kind 73006, pledge removed
+ * (a) Bounty retraction with no solutions → no Kind 7306, status = cancelled
+ * (b) Bounty retraction with solutions → Kind 7306, status = cancelled
+ * (c) Pledge retraction with no solutions → pledge removed, no Kind 7306
+ * (d) Pledge retraction with solutions → Kind 7306, pledge removed
  */
 import { describe, it, expect, vi } from 'vitest';
 import type { NostrEvent } from 'nostr-tools';

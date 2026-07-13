@@ -103,7 +103,7 @@ describe('bountyBlueprint', () => {
 	});
 });
 
-// ── pledgeBlueprint (Kind 73002) ────────────────────────────────────────────
+// ── pledgeBlueprint (Kind 7302) ────────────────────────────────────────────
 
 describe('pledgeBlueprint', () => {
 	const baseParams: PledgeBlueprintParams = {
@@ -150,7 +150,7 @@ describe('pledgeBlueprint', () => {
 	});
 });
 
-// ── solutionBlueprint (Kind 73001) ──────────────────────────────────────────
+// ── solutionBlueprint (Kind 7301) ──────────────────────────────────────────
 
 describe('solutionBlueprint', () => {
 	const baseParams: SolutionBlueprintParams = {
@@ -251,7 +251,7 @@ describe('voteBlueprint', () => {
 	});
 });
 
-// ── payoutBlueprint (Kind 73004) ────────────────────────────────────────────
+// ── payoutBlueprint (Kind 7304) ────────────────────────────────────────────
 
 describe('payoutBlueprint', () => {
 	const baseParams: PayoutBlueprintParams = {

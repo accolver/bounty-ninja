@@ -10,7 +10,7 @@ const signedPledge = {
 	id: 'a'.repeat(64),
 	pubkey: 'b'.repeat(64),
 	created_at: 1,
-	kind: 73002,
+	kind: 7302,
 	tags: [],
 	content: '',
 	sig: 'c'.repeat(128)

@@ -47,12 +47,12 @@ function makeBounty(): NostrEvent {
 }
 
 function makeSolution(): NostrEvent {
-	return mockEvent({ kind: 73002, pubkey: SOLVER, tags: [['a', TASK_ADDR]] });
+	return mockEvent({ kind: 7302, pubkey: SOLVER, tags: [['a', TASK_ADDR]] });
 }
 
 function makePledge(amount = 1000): NostrEvent {
 	return mockEvent({
-		kind: 73001,
+		kind: 7301,
 		pubkey: PLEDGER,
 		tags: [
 			['a', TASK_ADDR],
@@ -63,7 +63,7 @@ function makePledge(amount = 1000): NostrEvent {
 
 function makePayout(): NostrEvent {
 	return mockEvent({
-		kind: 73004,
+		kind: 7304,
 		pubkey: PLEDGER,
 		tags: [['a', TASK_ADDR]]
 	});

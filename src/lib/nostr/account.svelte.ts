@@ -4,6 +4,15 @@ import {
 	SIGNER_TIMEOUT_MS,
 	BUNKER_CONNECT_TIMEOUT_MS
 } from '$lib/utils/constants';
+import {
+	BOUNTY_KIND,
+	SOLUTION_KIND,
+	PLEDGE_KIND,
+	VOTE_KIND,
+	PAYOUT_KIND,
+	RETRACTION_KIND,
+	REPUTATION_KIND
+} from '$lib/bounty/kinds';
 import { NostrConnectSigner } from 'applesauce-signers';
 import {
 	signerState,
@@ -196,7 +205,13 @@ export class AccountState {
 
 			const signer = await NostrConnectSigner.fromBunkerURI(bunkerUri, {
 				permissions: NostrConnectSigner.buildSigningPermissions([
-					37300, 73001, 73002, 1018, 73004, 73005, 73006
+					BOUNTY_KIND,
+					SOLUTION_KIND,
+					PLEDGE_KIND,
+					VOTE_KIND,
+					PAYOUT_KIND,
+					RETRACTION_KIND,
+					REPUTATION_KIND
 				])
 			});
 

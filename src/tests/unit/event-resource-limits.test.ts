@@ -60,12 +60,12 @@ describe('validateEventResources', () => {
 		];
 		expect(
 			validateEventResources(
-				event({ kind: 73002, content: '', tags: [...baseTags, ['cashu', 'x'.repeat(262_144)]] })
+				event({ kind: 7302, content: '', tags: [...baseTags, ['cashu', 'x'.repeat(262_144)]] })
 			).valid
 		).toBe(true);
 		expect(
 			validateEventResources(
-				event({ kind: 73002, content: '', tags: [...baseTags, ['cashu', 'x'.repeat(262_145)]] })
+				event({ kind: 7302, content: '', tags: [...baseTags, ['cashu', 'x'.repeat(262_145)]] })
 			).valid
 		).toBe(false);
 	});
@@ -73,7 +73,7 @@ describe('validateEventResources', () => {
 	it('rejects duplicate singleton tags and excessive related token tags', () => {
 		const result = validateEventResources(
 			event({
-				kind: 73001,
+				kind: 7301,
 				tags: [
 					['client', 'bounty.ninja'],
 					['r', 'https://one.example'],

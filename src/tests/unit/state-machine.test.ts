@@ -25,22 +25,22 @@ describe('deriveBountyStatus', () => {
 
 	it('returns "open" when there are pledges but no solutions', () => {
 		const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
-		const pledge = mockEvent({ kind: 73002 });
+		const pledge = mockEvent({ kind: 7302 });
 		expect(deriveBountyStatus(taskEvt, [pledge], [], [], [], NOW, false)).toBe('open');
 	});
 
 	it('returns "in_review" when there are solutions', () => {
 		const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
-		const pledge = mockEvent({ kind: 73002 });
-		const solution = mockEvent({ kind: 73001 });
+		const pledge = mockEvent({ kind: 7302 });
+		const solution = mockEvent({ kind: 7301 });
 		expect(deriveBountyStatus(taskEvt, [pledge], [solution], [], [], NOW, false)).toBe('in_review');
 	});
 
 	it('returns "completed" when there are payouts and no consensus', () => {
 		const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
-		const pledge = mockEvent({ kind: 73002 });
-		const solution = mockEvent({ kind: 73001 });
-		const payout = mockEvent({ kind: 73004 });
+		const pledge = mockEvent({ kind: 7302 });
+		const solution = mockEvent({ kind: 7301 });
+		const payout = mockEvent({ kind: 7304 });
 		expect(deriveBountyStatus(taskEvt, [pledge], [solution], [payout], [], NOW, false)).toBe(
 			'completed'
 		);
@@ -48,7 +48,7 @@ describe('deriveBountyStatus', () => {
 
 	it('returns "cancelled" when there are delete events', () => {
 		const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
-		const pledge = mockEvent({ kind: 73002 });
+		const pledge = mockEvent({ kind: 7302 });
 		const deleteEvent = mockEvent({ kind: 5 });
 		expect(deriveBountyStatus(taskEvt, [pledge], [], [], [deleteEvent], NOW, false)).toBe(
 			'cancelled'
@@ -74,7 +74,7 @@ describe('deriveBountyStatus', () => {
 				['expiration', '1800000000']
 			]
 		});
-		const pledge = mockEvent({ kind: 73002 });
+		const pledge = mockEvent({ kind: 7302 });
 		expect(deriveBountyStatus(taskEvt, [pledge], [], [], [], NOW, false)).toBe('open');
 	});
 
@@ -93,7 +93,7 @@ describe('deriveBountyStatus', () => {
 	describe('consensus_reached status', () => {
 		it('returns "consensus_reached" when hasConsensus=true and no payouts', () => {
 			const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
-			const solution = mockEvent({ kind: 73001 });
+			const solution = mockEvent({ kind: 7301 });
 			expect(deriveBountyStatus(taskEvt, [], [solution], [], [], NOW, true)).toBe(
 				'consensus_reached'
 			);
@@ -101,8 +101,8 @@ describe('deriveBountyStatus', () => {
 
 		it('returns "consensus_reached" with pledges and solutions', () => {
 			const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
-			const pledge = mockEvent({ kind: 73002 });
-			const solution = mockEvent({ kind: 73001 });
+			const pledge = mockEvent({ kind: 7302 });
+			const solution = mockEvent({ kind: 7301 });
 			expect(deriveBountyStatus(taskEvt, [pledge], [solution], [], [], NOW, true)).toBe(
 				'consensus_reached'
 			);
@@ -112,14 +112,14 @@ describe('deriveBountyStatus', () => {
 	describe('releasing status', () => {
 		it('returns "releasing" when hasConsensus=true and payouts exist', () => {
 			const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
-			const payout = mockEvent({ kind: 73004 });
+			const payout = mockEvent({ kind: 7304 });
 			expect(deriveBountyStatus(taskEvt, [], [], [payout], [], NOW, true)).toBe('releasing');
 		});
 
 		it('returns "releasing" with multiple payouts and consensus', () => {
 			const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
-			const payout1 = mockEvent({ kind: 73004 });
-			const payout2 = mockEvent({ kind: 73004 });
+			const payout1 = mockEvent({ kind: 7304 });
+			const payout2 = mockEvent({ kind: 7304 });
 			expect(deriveBountyStatus(taskEvt, [], [], [payout1, payout2], [], NOW, true)).toBe(
 				'releasing'
 			);
@@ -129,7 +129,7 @@ describe('deriveBountyStatus', () => {
 	describe('completed status', () => {
 		it('returns "completed" when payouts exist and no consensus', () => {
 			const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
-			const payout = mockEvent({ kind: 73004 });
+			const payout = mockEvent({ kind: 7304 });
 			expect(deriveBountyStatus(taskEvt, [], [], [payout], [], NOW, false)).toBe('completed');
 		});
 	});
@@ -151,7 +151,7 @@ describe('deriveBountyStatus', () => {
 	describe('priority order', () => {
 		it('cancelled takes priority over completed', () => {
 			const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
-			const payout = mockEvent({ kind: 73004 });
+			const payout = mockEvent({ kind: 7304 });
 			const deleteEvent = mockEvent({ kind: 5 });
 			expect(deriveBountyStatus(taskEvt, [], [], [payout], [deleteEvent], NOW, false)).toBe(
 				'cancelled'
@@ -160,7 +160,7 @@ describe('deriveBountyStatus', () => {
 
 		it('cancelled takes priority over releasing', () => {
 			const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
-			const payout = mockEvent({ kind: 73004 });
+			const payout = mockEvent({ kind: 7304 });
 			const deleteEvent = mockEvent({ kind: 5 });
 			expect(deriveBountyStatus(taskEvt, [], [], [payout], [deleteEvent], NOW, true)).toBe(
 				'cancelled'
@@ -181,7 +181,7 @@ describe('deriveBountyStatus', () => {
 					['expiration', '1699999999']
 				]
 			});
-			const payout = mockEvent({ kind: 73004 });
+			const payout = mockEvent({ kind: 7304 });
 			expect(deriveBountyStatus(taskEvt, [], [], [payout], [], NOW, false)).toBe('completed');
 		});
 
@@ -193,14 +193,14 @@ describe('deriveBountyStatus', () => {
 					['expiration', '1699999999']
 				]
 			});
-			const solution = mockEvent({ kind: 73001 });
+			const solution = mockEvent({ kind: 7301 });
 			expect(deriveBountyStatus(taskEvt, [], [solution], [], [], NOW, false)).toBe('expired');
 		});
 
 		it('in_review takes priority over open', () => {
 			const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
-			const pledge = mockEvent({ kind: 73002 });
-			const solution = mockEvent({ kind: 73001 });
+			const pledge = mockEvent({ kind: 7302 });
+			const solution = mockEvent({ kind: 7301 });
 			expect(deriveBountyStatus(taskEvt, [pledge], [solution], [], [], NOW, false)).toBe(
 				'in_review'
 			);
@@ -214,9 +214,9 @@ describe('deriveBountyStatus', () => {
 					['expiration', '1699999999']
 				]
 			});
-			const pledge = mockEvent({ kind: 73002 });
-			const solution = mockEvent({ kind: 73001 });
-			const payout = mockEvent({ kind: 73004 });
+			const pledge = mockEvent({ kind: 7302 });
+			const solution = mockEvent({ kind: 7301 });
+			const payout = mockEvent({ kind: 7304 });
 			const deleteEvent = mockEvent({ kind: 5 });
 			expect(
 				deriveBountyStatus(taskEvt, [pledge], [solution], [payout], [deleteEvent], NOW, true)
@@ -224,11 +224,11 @@ describe('deriveBountyStatus', () => {
 		});
 	});
 
-	describe('Kind 73005 retraction', () => {
-		it('returns "cancelled" for Kind 73005 type=bounty retraction', () => {
+	describe('Kind 7305 retraction', () => {
+		it('returns "cancelled" for Kind 7305 type=bounty retraction', () => {
 			const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
 			const retraction = mockEvent({
-				kind: 73005,
+				kind: 7305,
 				tags: [
 					['a', '37300:' + 'b'.repeat(64) + ':test'],
 					['type', 'bounty']
@@ -239,10 +239,10 @@ describe('deriveBountyStatus', () => {
 			);
 		});
 
-		it('does NOT return "cancelled" for Kind 73005 type=pledge retraction', () => {
+		it('does NOT return "cancelled" for Kind 7305 type=pledge retraction', () => {
 			const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
 			const retraction = mockEvent({
-				kind: 73005,
+				kind: 7305,
 				tags: [
 					['a', '37300:' + 'b'.repeat(64) + ':test'],
 					['type', 'pledge'],
@@ -253,12 +253,12 @@ describe('deriveBountyStatus', () => {
 			expect(deriveBountyStatus(taskEvt, [], [], [], [], NOW, false, [retraction])).toBe('draft');
 		});
 
-		it('Kind 73005 bounty retraction overrides other states', () => {
+		it('Kind 7305 bounty retraction overrides other states', () => {
 			const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
-			const solution = mockEvent({ kind: 73001 });
-			const payout = mockEvent({ kind: 73004 });
+			const solution = mockEvent({ kind: 7301 });
+			const payout = mockEvent({ kind: 7304 });
 			const retraction = mockEvent({
-				kind: 73005,
+				kind: 7305,
 				tags: [
 					['a', '37300:' + 'b'.repeat(64) + ':test'],
 					['type', 'bounty']
@@ -321,13 +321,13 @@ describe('deriveBountyStatus', () => {
 
 		it('returns "in_review" with solutions but no pledges', () => {
 			const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
-			const solution = mockEvent({ kind: 73001 });
+			const solution = mockEvent({ kind: 7301 });
 			expect(deriveBountyStatus(taskEvt, [], [solution], [], [], NOW, false)).toBe('in_review');
 		});
 
 		it('defaults hasConsensus to false for backward compatibility', () => {
 			const taskEvt = mockEvent({ kind: 37300, tags: [['d', 'test']] });
-			const payout = mockEvent({ kind: 73004 });
+			const payout = mockEvent({ kind: 7304 });
 			// Not passing hasConsensus — should default to false, so payouts = completed
 			expect(deriveBountyStatus(taskEvt, [], [], [payout], [], NOW)).toBe('completed');
 		});

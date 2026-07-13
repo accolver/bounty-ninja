@@ -111,15 +111,20 @@
 	</section>
 
 	<!-- What is Cashu -->
-	<section class="border-t border-border pt-5 pb-5 space-y-3">
+	<section id="cashu-payouts" class="border-t border-border pt-5 pb-5 space-y-3">
 		<h2 class="text-lg font-semibold text-foreground">What is Cashu?</h2>
 		<p class="text-sm text-muted-foreground">
 			Cashu is a digital cash system built on Bitcoin. It uses "mints" — servers that issue digital
 			tokens backed by real Bitcoin. These tokens can be sent instantly and privately.
 		</p>
 		<p class="text-sm text-muted-foreground">
-			When you fund a bounty on {config.app.name}, the payment is held as Cashu tokens. When you
-			approve a solution, the tokens are released to the solver — instantly, with no fees.
+			When you fund a bounty on {config.app.name}, the payment is converted into a pledge event with
+			Cashu tokens locked to your own Nostr key. {config.app.name} never takes custody of your funds.
+		</p>
+		<p class="text-sm text-muted-foreground">
+			After solvers submit work and a winner is selected, each pledger releases their own portion
+			directly to the solver. This keeps payouts decentralized and avoids a platform-controlled
+			escrow wallet.
 		</p>
 		<a
 			href="https://cashu.space"

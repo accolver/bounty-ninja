@@ -99,7 +99,7 @@ function isHex64(value: string): boolean {
 /**
  * Check if a string is a valid URL.
  */
-function isValidUrl(value: string): boolean {
+function isValidHttpsUrl(value: string): boolean {
 	return safeEventUrl(value, 'external-link') !== null;
 }
 
@@ -150,7 +150,7 @@ function validateBountyTags(event: NostrEvent): string[] {
 }
 
 /**
- * Validate required tags for a pledge event (kind 73002).
+ * Validate required tags for a pledge event (kind 7302).
  */
 function validatePledgeTags(event: NostrEvent): string[] {
 	const errors: string[] = validatePaymentTag(event, false);
@@ -177,15 +177,15 @@ function validatePledgeTags(event: NostrEvent): string[] {
 	const mint = getTagValue(event, 'mint');
 	if (!mint) {
 		errors.push("Pledge event missing required 'mint' tag");
-	} else if (!isValidUrl(mint)) {
-		errors.push(`Pledge 'mint' tag must be a valid URL, got: ${mint}`);
+	} else if (!isValidHttpsUrl(mint)) {
+		errors.push(`Pledge 'mint' tag must be a valid HTTPS URL, got: ${mint}`);
 	}
 
 	return errors;
 }
 
 /**
- * Validate required tags for a solution event (kind 73001).
+ * Validate required tags for a solution event (kind 7301).
  */
 function validateSolutionTags(event: NostrEvent): string[] {
 	const errors: string[] = validatePaymentTag(event, false);
@@ -202,7 +202,7 @@ function validateSolutionTags(event: NostrEvent): string[] {
 	}
 
 	const deliverable = getTagValue(event, 'r');
-	if (deliverable && !isValidUrl(deliverable)) {
+	if (deliverable && !isValidHttpsUrl(deliverable)) {
 		errors.push(`Solution 'r' tag must be a safe HTTPS URL, got: ${deliverable}`);
 	}
 
@@ -240,7 +240,7 @@ function validateVoteTags(event: NostrEvent): string[] {
 }
 
 /**
- * Validate required tags for a payout event (kind 73004).
+ * Validate required tags for a payout event (kind 7304).
  */
 function validatePayoutTags(event: NostrEvent): string[] {
 	const sourceBound = event.tags.some((tag) => tag[0] === 'e' && tag[3] === PAYOUT_SOURCE_MARKER);
@@ -268,7 +268,7 @@ function validatePayoutTags(event: NostrEvent): string[] {
 
 	const pTag = getTagValue(event, 'p');
 	if (!pTag) {
-		errors.push("Payout event missing required 'p' tag (bounty creator pubkey)");
+		errors.push("Payout event missing required 'p' tag (solver pubkey)");
 	} else if (!isHex64(pTag)) {
 		errors.push(`Payout 'p' tag must be a valid pubkey (64-char hex), got: ${pTag}`);
 	}
@@ -287,15 +287,15 @@ function validatePayoutTags(event: NostrEvent): string[] {
 	if (mint && sourceTags.length === 0) {
 		errors.push('Payout mint requires an exact source pledge reference');
 	}
-	if (mint && !isValidUrl(mint)) {
-		errors.push(`Payout 'mint' tag must be a valid URL, got: ${mint}`);
+	if (mint && !isValidHttpsUrl(mint)) {
+		errors.push(`Payout 'mint' tag must be a valid HTTPS URL, got: ${mint}`);
 	}
 
 	return errors;
 }
 
 /**
- * Validate required tags for a retraction event (kind 73005).
+ * Validate required tags for a retraction event (kind 7305).
  */
 function validateRetractionTags(event: NostrEvent): string[] {
 	const errors: string[] = [];
@@ -328,7 +328,7 @@ function validateRetractionTags(event: NostrEvent): string[] {
 }
 
 /**
- * Validate required tags for a reputation event (kind 73006).
+ * Validate required tags for a reputation event (kind 7306).
  */
 function validateReputationTags(event: NostrEvent): string[] {
 	const errors: string[] = [];
@@ -370,7 +370,7 @@ function validateReputationTags(event: NostrEvent): string[] {
  * Validate that a Nostr event has all required tags for its kind.
  * Returns a result with validation status and any error messages.
  *
- * Validates all bounty-related kinds (37300, 73001, 73002, 1018, 73004, 73005, 73006).
+ * Validates all bounty-related kinds (37300, 7301, 7302, 1018, 7304, 7305, 7306).
  * Unknown kinds pass validation (no required tags enforced).
  */
 export function validateEventTags(event: NostrEvent): TagValidationResult {

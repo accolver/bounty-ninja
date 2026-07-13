@@ -10,6 +10,9 @@ export interface ReputationScore {
 	solutionsAccepted: number;
 	bountyRetractions: number;
 	pledgeRetractions: number;
+	satsEarned: number;
+	satsReleased: number;
+	recentActivityAt: number | null;
 	tier: ReputationTier;
 }
 
@@ -48,14 +51,29 @@ export function deriveReputation(
 	const pledgeRetractionIds = new Set<string>();
 	let bountiesCompleted = 0;
 	let solutionsAccepted = 0;
+	let satsEarned = 0;
+	let satsReleased = 0;
+	let recentActivityAt: number | null = null;
 
 	for (const projection of latestByBounty.values()) {
 		for (const pledge of projection.validatedPledges) {
-			if (pledge.pubkey === pubkey) pledgeIds.add(pledge.id);
+			if (pledge.pubkey !== pubkey) continue;
+			pledgeIds.add(pledge.id);
+			if (Number.isFinite(pledge.createdAt)) {
+				recentActivityAt = Math.max(recentActivityAt ?? 0, pledge.createdAt);
+			}
 		}
 		for (const payout of projection.validPayouts) {
 			if (payout.pubkey === pubkey && payout.sourcePledgeId) {
 				releasedPledgeIds.add(payout.sourcePledgeId);
+				satsReleased += payout.amount;
+			}
+			if (payout.solverPubkey === pubkey) satsEarned += payout.amount;
+			if (
+				(payout.pubkey === pubkey || payout.solverPubkey === pubkey) &&
+				Number.isFinite(payout.createdAt)
+			) {
+				recentActivityAt = Math.max(recentActivityAt ?? 0, payout.createdAt);
 			}
 		}
 		if (projection.releaseProgress.complete) {
@@ -71,6 +89,9 @@ export function deriveReputation(
 			if (retraction.pubkey !== pubkey) continue;
 			if (retraction.type === 'bounty') bountyRetractionIds.add(retraction.id);
 			else pledgeRetractionIds.add(retraction.id);
+			if (Number.isFinite(retraction.createdAt)) {
+				recentActivityAt = Math.max(recentActivityAt ?? 0, retraction.createdAt);
+			}
 		}
 	}
 
@@ -98,6 +119,9 @@ export function deriveReputation(
 		solutionsAccepted,
 		bountyRetractions,
 		pledgeRetractions,
+		satsEarned,
+		satsReleased,
+		recentActivityAt,
 		tier
 	};
 }

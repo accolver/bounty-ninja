@@ -32,6 +32,14 @@ describe('env accessors', () => {
 		expect(relays[0]).toMatch(/^wss:\/\//);
 	});
 
+	it('allows insecure private relay defaults only for a loopback-hosted app', () => {
+		publicEnv.PUBLIC_DEFAULT_RELAYS = 'ws://127.0.0.1:10547,wss://relay.example.com';
+		expect(getDefaultRelays()).toEqual([
+			'ws://127.0.0.1:10547',
+			'wss://relay.example.com'
+		]);
+	});
+
 	it('getDefaultMint returns fallback mint URL', () => {
 		const mint = getDefaultMint();
 		expect(mint).toMatch(/^https:\/\//);

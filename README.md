@@ -21,16 +21,18 @@ pledger-controlled releases — all client-side, zero backend.
 4. **Vote** — funders vote weighted by their pledge amount (66% quorum)
 5. **Payout** — after consensus, each pledger releases their own funds to the winner
 
-No accounts or application custodian. NIP-07 or NIP-46 signs Nostr events only.
-Cashu authorization stays in the user's external wallet; the application never
-accepts identity or payment secret keys.
+No application accounts or custodian. Identity uses a NIP-07 browser signer,
+NIP-46 remote signer, or memory-only advanced signer; private signer material is
+never persisted. Cashu authorization stays in the user's external wallet.
 
 The current manual workflow supports Minibits-created tokens that permanently
-require one `SIG_INPUTS` signature and have **no locktime or refund keys**.
-Deadlines do not unlock funds. Release and reclaim require the same backed-up
-Minibits wallet: pledgers manually create solver-locked outputs for release or
-use Minibits **Revert** on the original pending send before retracting. No other
-external wallet or automated payment signer is currently claimed compatible.
+contain the exact amount, carry DLEQ issuance evidence verified against the
+exact mint keyset, require one `SIG_INPUTS` signature, and have **no locktime or
+refund keys**. Deadlines do not unlock funds. Release and reclaim require the
+same backed-up Minibits wallet: pledgers manually create solver-locked outputs
+for release or use Minibits **Revert** on the original pending send before
+retracting. No other external wallet or automated payment signer is currently
+claimed compatible.
 
 ## Tech Stack
 
@@ -124,12 +126,12 @@ src/
 | Kind  | Purpose                                       |
 | ----- | --------------------------------------------- |
 | 37300 | Bounty definition (parameterized replaceable) |
-| 73001 | Solution submission                           |
-| 73002 | Pledge (Cashu ecash attachment)               |
+| 7301  | Solution submission                           |
+| 7302  | Pledge (Cashu ecash attachment)               |
 | 1018  | Consensus vote                                |
-| 73004 | Payout record                                 |
-| 73005 | Bounty or pledge retraction                   |
-| 73006 | Reputation attestation                        |
+| 7304  | Payout record                                 |
+| 7305  | Bounty or pledge retraction                   |
+| 7306  | Reputation attestation                        |
 
 ## Bounty Lifecycle
 

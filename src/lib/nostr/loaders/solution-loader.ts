@@ -2,11 +2,12 @@ import type { Subscription } from 'rxjs';
 import { pool } from '$lib/nostr/relay-pool';
 import { ingestEventsFrom } from '$lib/nostr/event-ingestion';
 import { onlyEvents } from 'applesauce-relay';
+import { onlyValidEvents } from '../valid-events';
 import { getDefaultRelays } from '$lib/utils/env';
 import { solutionsForBountyFilter } from '$lib/bounty/filters';
 
 /**
- * Create a loader that subscribes to solution events (Kind 73001)
+ * Create a loader that subscribes to solution events (Kind 7301)
  * for a specific bounty address from all default relays.
  */
 export function createSolutionLoader(
@@ -21,7 +22,7 @@ export function createSolutionLoader(
 			const sub = pool
 				.relay(url)
 				.subscription(filter)
-				.pipe(onlyEvents(), ingestEventsFrom('relay'))
+				.pipe(onlyEvents(), onlyValidEvents(), ingestEventsFrom('relay'))
 				.subscribe();
 			subscriptions.push(sub);
 		} catch (e) {

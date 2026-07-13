@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { nip19 } from 'nostr-tools';
-import type { PageLoad } from './$types';
 import { BOUNTY_KIND } from '$lib/bounty/kinds';
+import type { PageLoad } from './$types';
 
 export const ssr = false;
 export const prerender = false;
@@ -15,7 +15,9 @@ export function decodeBountyNaddr(naddr: string) {
 		}
 
 		const { kind, pubkey, identifier, relays } = decoded.data;
-		if (kind !== BOUNTY_KIND) error(400, 'Expected a bounty naddr');
+		if (kind !== BOUNTY_KIND) {
+			error(400, `Expected bounty kind ${BOUNTY_KIND}, got ${kind}`);
+		}
 		if (!identifier) error(400, 'Bounty identifier is required');
 		const bountyAddress = `${kind}:${pubkey}:${identifier}`;
 

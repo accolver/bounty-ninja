@@ -60,7 +60,7 @@ describe('createRelatedEventsLoader', () => {
 	it('loads unbounded pledge and payout ownership and requires relay EOSE', () => {
 		const complete = vi.fn();
 		createGlobalProofOwnershipLoader(['wss://one', 'wss://two'], complete);
-		expect(mocks.filters).toEqual([{ kinds: [73002, 73004] }, { kinds: [73002, 73004] }]);
+		expect(mocks.filters).toEqual([{ kinds: [7302, 7304] }, { kinds: [7302, 7304] }]);
 		streams.get('wss://one')?.next('EOSE');
 		expect(complete).not.toHaveBeenCalled();
 		streams.get('wss://two')?.next('EOSE');

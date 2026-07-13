@@ -1,8 +1,8 @@
 /**
  * Pledge token spendability monitor.
  *
- * Detects when pledge tokens have been spent at the mint (reclaimed by the
- * pledger outside the app) without a corresponding Kind 73005 retraction event.
+ * Detects when pledge tokens have been spent at the mint without a corresponding
+ * Kind 7305 retraction event.
  * Spend state is informational only. It never implies reclaim or authorizes a
  * retraction because a legitimate release consumes the same source proofs.
  */

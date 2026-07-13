@@ -30,6 +30,7 @@
 	import FileTextIcon from '@lucide/svelte/icons/file-text';
 	import DeliverableLink from '$lib/components/solution/DeliverableLink.svelte';
 	import SolutionForm from '$lib/components/solution/SolutionForm.svelte';
+	import TrustPayoutExplainer from '$lib/components/shared/TrustPayoutExplainer.svelte';
 
 	const {
 		detail,
@@ -191,6 +192,7 @@
 		</section>
 	</div>
 
+	<TrustPayoutExplainer />
 	<!-- Retraction history -->
 	{#if retractions.length > 0}
 		<section

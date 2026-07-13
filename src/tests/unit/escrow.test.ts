@@ -89,7 +89,7 @@ function makePledgeEvent(tokenStr: string, eventId?: string): NostrEvent {
 		id: eventId ?? crypto.randomUUID().replace(/-/g, '').slice(0, 64),
 		pubkey: PLEDGER_PK,
 		created_at: Math.floor(Date.now() / 1000),
-		kind: 73002,
+		kind: 7302,
 		tags: [
 			['a', `37300:${'a'.repeat(64)}:test-bounty`],
 			['cashu', tokenStr],
@@ -244,7 +244,7 @@ describe('collectPledgeTokens', () => {
 			id: 'no-cashu',
 			pubkey: PLEDGER_PK,
 			created_at: Math.floor(Date.now() / 1000),
-			kind: 73002,
+			kind: 7302,
 			tags: [['a', 'bounty-addr']],
 			content: '',
 			sig: SIG

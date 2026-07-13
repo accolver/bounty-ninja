@@ -20,7 +20,7 @@ const signedEvent = {
 	id: 'a'.repeat(64),
 	pubkey: 'b'.repeat(64),
 	created_at: 1,
-	kind: 73004,
+	kind: 7304,
 	tags: [],
 	content: '',
 	sig: 'c'.repeat(128)

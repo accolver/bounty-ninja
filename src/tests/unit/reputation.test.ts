@@ -29,12 +29,20 @@ function projection(
 	};
 }
 
-function pledge(id: string, pubkey = USER): Pledge {
-	return { id, pubkey } as Pledge;
+function pledge(id: string, pubkey = USER, overrides: Partial<Pledge> = {}): Pledge {
+	return { id, pubkey, amount: 1, createdAt: 100, ...overrides } as Pledge;
 }
 
-function payout(id: string, source: Pledge, pubkey = source.pubkey): Payout {
-	return { id, pubkey, sourcePledgeId: source.id } as Payout;
+function payout(id: string, source: Pledge, overrides: Partial<Payout> = {}): Payout {
+	return {
+		id,
+		pubkey: source.pubkey,
+		solverPubkey: SOLVER,
+		sourcePledgeId: source.id,
+		amount: source.amount,
+		createdAt: source.createdAt,
+		...overrides
+	} as Payout;
 }
 
 function completeProjection(
@@ -54,8 +62,8 @@ function completeProjection(
 		releaseProgress: {
 			requiredPledgeIds: new Set(pledges.map((item) => item.id)),
 			releasedPledgeIds: new Set(payouts.map((item) => item.sourcePledgeId!)),
-			releasedAmount: payouts.length,
-			totalAmount: pledges.length,
+			releasedAmount: payouts.reduce((sum, item) => sum + item.amount, 0),
+			totalAmount: pledges.reduce((sum, item) => sum + item.amount, 0),
 			complete: true
 		}
 	});
@@ -71,6 +79,9 @@ describe('deriveReputation', () => {
 			solutionsAccepted: 0,
 			bountyRetractions: 0,
 			pledgeRetractions: 0,
+			satsEarned: 0,
+			satsReleased: 0,
+			recentActivityAt: null,
 			tier: 'new'
 		});
 	});
@@ -162,5 +173,106 @@ describe('deriveReputation', () => {
 			projection(1, { authorizedRetractions: [otherRetraction] })
 		]);
 		expect(score.bountyRetractions).toBe(0);
+	});
+
+	it('returns emerging for five accepted solutions and no retractions', () => {
+		const history = Array.from({ length: 5 }, (_, index) =>
+			completeProjection(index, OTHER, USER, [], [])
+		);
+		const score = deriveReputation(USER, history);
+		expect(score.tier).toBe('emerging');
+		expect(score.solutionsAccepted).toBe(5);
+	});
+
+	it('returns established for fifteen accepted solutions', () => {
+		const history = Array.from({ length: 15 }, (_, index) =>
+			completeProjection(index, OTHER, USER, [], [])
+		);
+		expect(deriveReputation(USER, history).tier).toBe('established');
+	});
+
+	it('returns trusted for thirty completions and a perfect release rate', () => {
+		const history = Array.from({ length: 15 }, (_, index) => {
+			const source = pledge(`pledge-${index}`);
+			return completeProjection(index, OTHER, USER, [source], [payout(`payout-${index}`, source)]);
+		});
+		const score = deriveReputation(USER, history);
+		expect(score.tier).toBe('trusted');
+		expect(score.solutionsAccepted + score.pledgesReleased).toBe(30);
+		expect(score.releaseRate).toBe(1);
+		expect(score.bountyRetractions).toBe(0);
+	});
+
+	it('returns flagged when retractions dominate completed history', () => {
+		const completed = completeProjection(1, OTHER, USER, [], []);
+		const score = deriveReputation(USER, [
+			{
+				...completed,
+				authorizedRetractions: [
+					{ id: 'r1', pubkey: USER, type: 'bounty' } as Retraction,
+					{ id: 'r2', pubkey: USER, type: 'bounty' } as Retraction
+				]
+			}
+		]);
+		expect(score.tier).toBe('flagged');
+		expect(score.bountyRetractions).toBe(2);
+	});
+
+	it('does not flag a user when completions exceed retractions', () => {
+		const history = Array.from({ length: 10 }, (_, index) =>
+			completeProjection(index, OTHER, USER, [], [])
+		);
+		history[0] = {
+			...history[0],
+			authorizedRetractions: [{ id: 'r1', pubkey: USER, type: 'bounty' } as Retraction]
+		};
+		expect(deriveReputation(USER, history).tier).toBe('established');
+	});
+
+	it('counts pledge retractions separately', () => {
+		const score = deriveReputation(USER, [
+			projection(1, {
+				authorizedRetractions: [{ id: 'r1', pubkey: USER, type: 'pledge' } as Retraction]
+			})
+		]);
+		expect(score.pledgeRetractions).toBe(1);
+		expect(score.bountyRetractions).toBe(0);
+		expect(score.tier).toBe('flagged');
+	});
+
+	it('computes the release rate from source-bound payouts', () => {
+		const pledges = Array.from({ length: 10 }, (_, index) => pledge(`pledge-${index}`));
+		const payouts = pledges.slice(0, 8).map((source, index) => payout(`payout-${index}`, source));
+		const score = deriveReputation(USER, [
+			projection(1, { validatedPledges: pledges, validPayouts: payouts })
+		]);
+		expect(score.totalPledges).toBe(10);
+		expect(score.pledgesReleased).toBe(8);
+		expect(score.releaseRate).toBeCloseTo(0.8);
+	});
+
+	it('derives sats earned, sats released, and recent activity from trusted public data', () => {
+		const earnedSource = pledge('earned-source', OTHER, { amount: 2100, createdAt: 200 });
+		const releasedSource = pledge('released-source', USER, { amount: 900, createdAt: 250 });
+		const score = deriveReputation(USER, [
+			projection(1, {
+				validatedPledges: [earnedSource, releasedSource],
+				validPayouts: [
+					payout('earned-payout', earnedSource, {
+						solverPubkey: USER,
+						amount: 2100,
+						createdAt: 300
+					}),
+					payout('released-payout', releasedSource, {
+						solverPubkey: OTHER,
+						amount: 900,
+						createdAt: 275
+					})
+				]
+			})
+		]);
+		expect(score.satsEarned).toBe(2100);
+		expect(score.satsReleased).toBe(900);
+		expect(score.recentActivityAt).toBe(300);
 	});
 });

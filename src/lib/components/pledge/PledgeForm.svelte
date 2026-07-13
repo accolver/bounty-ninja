@@ -17,6 +17,7 @@
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import CoinsIcon from '@lucide/svelte/icons/coins';
 	import { connectivity } from '$lib/stores/connectivity.svelte';
+	import { config } from '$lib/config';
 	import PaymentUnavailable from '$lib/components/shared/PaymentUnavailable.svelte';
 	import {
 		normalizeMinibitsPaymentPubkey,
@@ -305,6 +306,18 @@
 		{#if !paymentWritesEnabled}
 			<PaymentUnavailable action="Pledging" />
 		{/if}
+
+		<p class="text-xs text-muted-foreground">
+			Pledges use pledger-controlled Cashu locks; {config.app.nameCaps} never takes custody.
+			<a
+				href="/about#cashu-payouts"
+				target="_blank"
+				rel="noopener noreferrer"
+				class="text-primary underline transition-colors hover:text-primary/80"
+			>
+				Learn how payouts work
+			</a>
+		</p>
 
 		<form
 			onsubmit={(e) => {

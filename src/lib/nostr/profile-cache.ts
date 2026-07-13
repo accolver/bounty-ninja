@@ -4,6 +4,7 @@ import { loadCachedEvents } from './cache';
 import { pool } from './relay-pool';
 import { ingestEventsFrom } from './event-ingestion';
 import { onlyEvents } from 'applesauce-relay';
+import { onlyValidEvents } from './valid-events';
 import { getDefaultRelays } from '$lib/utils/env';
 import type { Subscription } from 'rxjs';
 
@@ -151,7 +152,7 @@ function revalidateProfile(pubkey: string): void {
 			const sub = pool
 				.relay(url)
 				.subscription(filter)
-				.pipe(onlyEvents(), ingestEventsFrom('profile'))
+				.pipe(onlyEvents(), onlyValidEvents(), ingestEventsFrom('profile'))
 				.subscribe({
 					next: (event: NostrEvent) => {
 						const entry: CachedProfile = {
@@ -228,7 +229,7 @@ function executeBatchLoad(pubkeys: string[]): { unsubscribe(): void } {
 			const sub = pool
 				.relay(url)
 				.subscription(filter)
-				.pipe(onlyEvents(), ingestEventsFrom('profile'))
+				.pipe(onlyEvents(), onlyValidEvents(), ingestEventsFrom('profile'))
 				.subscribe({
 					next: (event: NostrEvent) => {
 						const entry: CachedProfile = {
