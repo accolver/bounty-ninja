@@ -513,7 +513,10 @@ test.describe('Adversarial payment and crash boundaries', () => {
 		await services.rejectRelay(true);
 		await page.getByRole('button', { name: 'Verify and publish payout' }).click();
 		await expect(
-			page.getByRole('alert').filter({ hasText: 'No relay accepted the event' })
+			page
+				.getByLabel('Notifications')
+				.getByRole('alert')
+				.filter({ hasText: 'No relay accepted the event' })
 		).toBeVisible();
 		await page.reload();
 		await page.getByRole('button', { name: 'Login', exact: true }).first().click();
