@@ -1,0 +1,10 @@
+# Reviewed generic-api-key false positives from documentation, identifiers,
+# and synthetic test fixtures. Keep these scoped to their exact findings.
+d2b4ecfe04082431f50a08146568499c3cd78314:PRD.md:generic-api-key:123
+136bbc4e35896bedd2d130e2f85728bf9a8121e9:src/tests/unit/p2pk.test.ts:generic-api-key:9
+bcd750f53255b4614c455f1f2f4c89019b65658c:src/tests/integration/payment-pipeline.test.ts:generic-api-key:414
+bcd750f53255b4614c455f1f2f4c89019b65658c:src/tests/integration/payment-pipeline.test.ts:generic-api-key:425
+54b5b530604e15aba6ef79547f5ca55936416d63:src/tests/integration/payment-pipeline.test.ts:generic-api-key:353
+54b5b530604e15aba6ef79547f5ca55936416d63:src/tests/integration/payment-pipeline.test.ts:generic-api-key:364
+35900d3c66f1d15ae5b77fbd5885352046204f1c:src/tests/unit/blueprints.test.ts:generic-api-key:179
+35900d3c66f1d15ae5b77fbd5885352046204f1c:src/tests/integration/pledge-flow.test.ts:generic-api-key:66
