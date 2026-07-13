@@ -2,14 +2,13 @@
 	import { pool, connectDefaultRelays } from '$lib/nostr/relay-pool';
 	import { availability } from '$lib/stores/availability.svelte';
 	import { errorMonitor } from '$lib/stores/error-monitor.svelte';
+	import * as Dialog from '$lib/components/ui/dialog/index.js';
 
 	type RelayInfo = { url: string; connected: boolean };
 
 	let relays = $state<RelayInfo[]>([]);
 	let open = $state(false);
 	let checkingMint = $state(false);
-	let menuRef = $state<HTMLDivElement | null>(null);
-	let triggerRef = $state<HTMLButtonElement | null>(null);
 
 	function updateRelayStatus() {
 		const entries: RelayInfo[] = [];
@@ -84,60 +83,64 @@
 		const interval = setInterval(updateRelayStatus, 3000);
 		return () => clearInterval(interval);
 	});
-
-	$effect(() => {
-		if (!open) return;
-		function onClickOutside(event: MouseEvent) {
-			const target = event.target as Node;
-			if (menuRef && !menuRef.contains(target) && triggerRef && !triggerRef.contains(target)) {
-				open = false;
-			}
-		}
-		const timer = setTimeout(() => document.addEventListener('click', onClickOutside, true), 0);
-		return () => {
-			clearTimeout(timer);
-			document.removeEventListener('click', onClickOutside, true);
-		};
-	});
-
-	$effect(() => {
-		if (!open) return;
-		function onKeyDown(event: KeyboardEvent) {
-			if (event.key === 'Escape') {
-				open = false;
-				triggerRef?.focus();
-			}
-		}
-		document.addEventListener('keydown', onKeyDown);
-		return () => document.removeEventListener('keydown', onKeyDown);
-	});
 </script>
 
-<div class="relative">
-	<button
-		bind:this={triggerRef}
-		type="button"
-		onclick={() => (open = !open)}
-		class="inline-flex cursor-pointer items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-		aria-expanded={open}
-		aria-haspopup="dialog"
-		aria-label={statusLabel}
+<Dialog.Root bind:open>
+	<Dialog.Trigger
+		class="inline-flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs text-foreground underline decoration-muted-foreground underline-offset-4 transition-colors hover:bg-muted hover:decoration-primary focus-visible:ring-2 focus-visible:ring-ring"
+		aria-label={`${availability.relays.connected} of ${availability.relays.total} relays connected. Show connection details`}
 		title={statusLabel}
 	>
 		<span class="inline-block h-2.5 w-2.5 rounded-full {dotColor}" aria-hidden="true"></span>
-	</button>
+		<span>{availability.relays.connected}/{availability.relays.total} connected</span>
+	</Dialog.Trigger>
 
-	{#if open}
-		<div
-			bind:this={menuRef}
-			class="absolute right-0 top-full z-50 mt-1 w-72 rounded-lg border border-border bg-card shadow-lg"
-			role="dialog"
-			aria-label="Availability status"
-		>
-			<div class="border-b border-border px-3 py-2">
-				<p class="text-xs font-medium text-foreground">Availability</p>
+	<Dialog.Content class="max-w-lg">
+		<Dialog.Header>
+			<Dialog.Title>Connection details</Dialog.Title>
+			<Dialog.Description>
+				Live browser, relay, mint, cache, and publishing availability.
+			</Dialog.Description>
+		</Dialog.Header>
+
+		<section class="space-y-2" aria-labelledby="relay-connections-heading">
+			<div class="flex items-center justify-between gap-3">
+				<h3 id="relay-connections-heading" class="text-sm font-medium text-foreground">
+					Relays ({availability.relays.connected}/{availability.relays.total} connected)
+				</h3>
+				<button
+					type="button"
+					onclick={retryRelays}
+					class="hover:cursor-pointer text-sm text-foreground underline underline-offset-2 transition-colors hover:text-primary"
+				>
+					Retry relays
+				</button>
 			</div>
-			<dl class="divide-y divide-border px-3 text-xs">
+			{#if relays.length > 0}
+				<ul class="max-h-64 divide-y divide-border overflow-y-auto border-y border-border text-xs">
+					{#each relays as relay (relay.url)}
+						<li class="flex items-center justify-between gap-3 py-2">
+							<span class="min-w-0 break-all text-muted-foreground">{relay.url}</span>
+							<span class="inline-flex shrink-0 items-center gap-1.5 text-foreground">
+								<span
+									class="h-2 w-2 rounded-full {relay.connected ? 'bg-success' : 'bg-destructive'}"
+									aria-hidden="true"
+								></span>
+								{relay.connected ? 'Connected' : 'Disconnected'}
+							</span>
+						</li>
+					{/each}
+				</ul>
+			{:else}
+				<p class="border-y border-border py-3 text-sm text-muted-foreground">
+					No relays are configured.
+				</p>
+			{/if}
+		</section>
+
+		<section class="border-t border-border pt-2" aria-labelledby="availability-heading">
+			<h3 id="availability-heading" class="sr-only">Other availability</h3>
+			<dl class="divide-y divide-border text-xs">
 				<div class="flex items-center gap-3 py-2">
 					<dt class="w-20 text-muted-foreground">Browser</dt>
 					<dd class="flex flex-1 items-center justify-between gap-2 text-foreground">
@@ -146,20 +149,6 @@
 							<button
 								type="button"
 								onclick={() => window.location.reload()}
-								class="hover:cursor-pointer text-foreground underline underline-offset-2 transition-colors hover:text-primary"
-								>Retry</button
-							>
-						{/if}
-					</dd>
-				</div>
-				<div class="flex items-center gap-3 py-2">
-					<dt class="w-20 text-muted-foreground">Relays</dt>
-					<dd class="flex flex-1 items-center justify-between gap-2 text-foreground">
-						<span>{availability.relays.connected}/{availability.relays.total} connected</span>
-						{#if availability.relays.status !== 'ready'}
-							<button
-								type="button"
-								onclick={retryRelays}
 								class="hover:cursor-pointer text-foreground underline underline-offset-2 transition-colors hover:text-primary"
 								>Retry</button
 							>
@@ -234,6 +223,6 @@
 					</dd>
 				</div>
 			</dl>
-		</div>
-	{/if}
-</div>
+		</section>
+	</Dialog.Content>
+</Dialog.Root>

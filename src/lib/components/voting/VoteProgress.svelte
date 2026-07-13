@@ -46,10 +46,10 @@
 
 	<!-- Weight numbers -->
 	<div class="flex items-center justify-between text-xs">
-		<span class="text-success/70" aria-label="Approve weight: {formattedApprove} sats">
+		<span class="text-success" aria-label="Approve weight: {formattedApprove} sats">
 			{formattedApprove} sats approve
 		</span>
-		<span class="text-destructive/70" aria-label="Reject weight: {formattedReject} sats">
+		<span class="text-destructive" aria-label="Reject weight: {formattedReject} sats">
 			{formattedReject} sats reject
 		</span>
 	</div>

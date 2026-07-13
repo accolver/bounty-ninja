@@ -22,6 +22,7 @@
 	import { config } from '$lib/config';
 	import { pageLoading } from '$lib/stores/page-loading.svelte';
 	import { availability } from '$lib/stores/availability.svelte';
+	import { onMount } from 'svelte';
 
 	// --- Read initial query params ---
 	const initialParams = browser
@@ -74,6 +75,10 @@
 	// Sync overlay state to layout so footer can be hidden during loading
 	$effect(() => {
 		pageLoading.active = showOverlay;
+	});
+
+	onMount(() => () => {
+		pageLoading.active = false;
 	});
 
 	// Animations only play after a user-initiated filter/sort change,
@@ -216,12 +221,10 @@
 				<LoadingLogo />
 			</div>
 		{/if}
-		{#if bountyList.stale && bountyList.items.length > 0}
-			<p class="mb-4 border-y border-warning/40 py-2 text-sm text-warning" role="status">
-				Showing verified cached results while relays reconnect.
-			</p>
-		{/if}
-		<div class="flex gap-8" class:animate-fade-in={!hadDataAtMount && !showOverlay}>
+		<div
+			class="flex flex-col gap-4 lg:flex-row lg:gap-8"
+			class:animate-fade-in={!hadDataAtMount && !showOverlay}
+		>
 			<Sidebar bind:selectedTag />
 
 			<section class="min-w-0 flex-1">
@@ -250,12 +253,12 @@
 								text="Sats (satoshis) are the smallest unit of Bitcoin. 100,000 sats ≈ a few dollars."
 							>
 								{#snippet children()}
-									<div class="flex items-center gap-1.5 text-xs text-muted-foreground cursor-help">
+									<span class="flex items-center gap-1.5 text-xs text-muted-foreground cursor-help">
 										<Zap class="h-3.5 w-3.5 shrink-0 text-secondary" />
 										<span class="font-medium text-foreground">{formatSats(totalSatsAvailable)}</span
 										>
 										<span>sats available</span>
-									</div>
+									</span>
 								{/snippet}
 							</Tooltip>
 						</div>
@@ -295,7 +298,7 @@
 					</div>
 
 					<!-- Filter row -->
-					<div class="flex items-center gap-3">
+					<div class="flex flex-wrap items-center gap-x-3 gap-y-2 sm:flex-nowrap">
 						<!-- Status dropdown -->
 						<DropdownMenu.Root>
 							<DropdownMenu.Trigger>
@@ -333,13 +336,13 @@
 						</DropdownMenu.Root>
 
 						<!-- Sats slider -->
-						<div class="flex items-center gap-3">
+						<div class="flex min-w-0 flex-1 items-center gap-2 sm:flex-none sm:gap-3">
 							<span class="text-xs text-muted-foreground whitespace-nowrap">Min sats</span>
 							<Slider
 								bind:value={minSats}
 								max={sliderMax}
 								step={1000}
-								class="w-28"
+								class="min-w-20 flex-1 sm:w-28 sm:flex-none"
 								aria-label="Minimum sats filter"
 							/>
 							<span class="text-xs font-medium tabular-nums text-foreground w-10">
@@ -351,7 +354,7 @@
 
 				<!-- Bounty list -->
 				{#if bountyList.error}
-					<div class="rounded-lg border border-destructive/50 bg-destructive/10 p-8 text-center">
+					<div class="rounded-lg border border-destructive bg-destructive/10 p-8 text-center">
 						<p class="text-sm text-destructive">{bountyList.error}</p>
 					</div>
 				{:else if !bountyList.loading && filteredBounties.length === 0 && bountyList.items.length === 0}

@@ -1,22 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import type { NostrEvent } from 'nostr-tools';
 import type { Payout, Pledge, Solution } from '$lib/bounty/types';
-import type { CashuTokenVerification } from '$lib/cashu/types';
+import type { CashuTokenVerification, PledgeVerification, ProofIdentity } from '$lib/cashu/types';
 import { validatePayout, type PayoutValidationContext } from '$lib/bounty/payout-validation';
 
 const OWNER = 'a'.repeat(64);
 const SOLVER = 'b'.repeat(64);
 const OTHER = 'c'.repeat(64);
-const PAYMENT_KEY = 'd'.repeat(64);
+const PAYMENT_KEY = `02${'d'.repeat(64)}`;
 const ADDRESS = `37300:${'d'.repeat(64)}:bounty`;
 const NOW = 1_000;
+const SOURCE_PROOF = 'https://mint.example#source' as ProofIdentity;
+const PAYOUT_PROOF = 'https://mint.example#payout' as ProofIdentity;
 const event = {} as NostrEvent;
 
 const pledge = {
 	event,
 	id: '1'.repeat(64),
 	pubkey: OWNER,
-	paymentPubkey: 'e'.repeat(64),
+	paymentPubkey: `02${'e'.repeat(64)}`,
 	bountyAddress: ADDRESS,
 	amount: 100,
 	cashuToken: 'source-token',
@@ -58,8 +60,10 @@ const token = {
 	validUntil: NOW + 300,
 	normalizedMint: 'https://mint.example',
 	decodedAmount: 100,
-	proofIdentities: [],
-	p2pkTarget: `02${PAYMENT_KEY}`,
+	proofIdentities: [PAYOUT_PROOF],
+	issuanceAuthentic: true,
+	proofState: 'unspent',
+	p2pkTarget: PAYMENT_KEY,
 	reasons: []
 } satisfies CashuTokenVerification;
 
@@ -70,7 +74,27 @@ function context(overrides: Partial<PayoutValidationContext> = {}): PayoutValida
 		winner,
 		activePledgesById: new Map([[pledge.id, pledge]]),
 		payoutTokenVerifications: new Map([[payout.id, token]]),
+		pledgeVerifications: new Map([
+			[
+				pledge.id,
+				{
+					pledgeId: pledge.id,
+					status: 'valid',
+					policyVersion: 1,
+					checkedAt: NOW,
+					validUntil: NOW + 300,
+					normalizedMint: 'https://mint.example',
+					decodedAmount: 100,
+					proofIdentities: [SOURCE_PROOF],
+					issuanceAuthentic: true,
+					proofState: 'spent',
+					reasons: []
+				} satisfies PledgeVerification
+			]
+		]),
 		alreadyReleasedPledgeIds: new Set(),
+		globalProofOwners: new Map([[PAYOUT_PROOF, payout.id]]),
+		globalProofSetComplete: true,
 		now: NOW,
 		...overrides
 	};
@@ -203,5 +227,31 @@ describe('validatePayout', () => {
 		);
 		expect(result.status).toBe('invalid');
 		expect(result.reasons).toContain('duplicate_source_payout');
+	});
+
+	it('rejects globally replayed payout outputs and source/output identity overlap', () => {
+		const replayed = validatePayout(
+			payout,
+			context({ globalProofOwners: new Map([[PAYOUT_PROOF, null]]) })
+		);
+		expect(replayed.reasons).toContain('globally_replayed_proof');
+
+		const overlappingToken = { ...token, proofIdentities: [SOURCE_PROOF] };
+		const overlap = validatePayout(
+			payout,
+			context({
+				payoutTokenVerifications: new Map([[payout.id, overlappingToken]]),
+				globalProofOwners: new Map([[SOURCE_PROOF, null]])
+			})
+		);
+		expect(overlap.reasons).toEqual(
+			expect.arrayContaining(['globally_replayed_proof', 'source_output_proof_overlap'])
+		);
+	});
+
+	it('fails closed until global payout ownership is complete', () => {
+		const result = validatePayout(payout, context({ globalProofSetComplete: false }));
+		expect(result.status).toBe('invalid');
+		expect(result.reasons).toContain('globally_replayed_proof');
 	});
 });

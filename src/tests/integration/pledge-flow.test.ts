@@ -28,7 +28,7 @@ import { CLIENT_TAG } from '$lib/utils/constants';
 const CREATOR_PUBKEY = 'a'.repeat(64);
 const PLEDGER_PUBKEY = 'b'.repeat(64);
 const PLEDGER_2_PUBKEY = 'c'.repeat(64);
-const PAYMENT_PUBKEY = 'e'.repeat(64);
+const PAYMENT_PUBKEY = `02${'e'.repeat(64)}`;
 const SIG = 'd'.repeat(128);
 
 function signEvent(

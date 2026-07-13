@@ -1,11 +1,18 @@
-import { test, expect } from './helpers/test';
+import { expect, MINT_URL, test } from './helpers/test';
+import { bountyBlueprint } from '$lib/bounty/blueprints';
+
+function visibleSearchTrigger(page: import('@playwright/test').Page) {
+	return page
+		.getByRole('button', { name: /^(Search bounties|Search)$/ })
+		.filter({ visible: true })
+		.first();
+}
 
 test.describe('Search', () => {
 	test('home page search dialog opens and navigates to search page', async ({ page }) => {
 		await page.goto('/');
 
-		// Click the search trigger button in the header
-		const searchTrigger = page.locator('button[aria-label="Search bounties"]').first();
+		const searchTrigger = visibleSearchTrigger(page);
 		await expect(searchTrigger).toBeVisible();
 		await searchTrigger.click();
 
@@ -44,12 +51,32 @@ test.describe('Search', () => {
 		await expect(main).toBeVisible();
 	});
 
-	test('category tabs on home page are clickable', async ({ page }) => {
+	test('category controls filter the home page', async ({ page, services }) => {
+		await services.publish(
+			'creator',
+			bountyBlueprint({
+				dTag: 'category-filter',
+				title: 'Category filter fixture',
+				description: 'Visible only when its category is selected.',
+				rewardAmount: 50,
+				tags: ['development'],
+				mintUrl: MINT_URL,
+				submissionFee: 0
+			})
+		);
 		await page.goto('/');
 
-		const allTab = page.locator('button:has-text("All")');
-		await expect(allTab).toBeVisible();
-		await allTab.click();
-		expect(page.url()).toContain('/');
+		const mobileCategory = page.getByLabel('Category', { exact: true });
+		if ((page.viewportSize()?.width ?? 1024) < 1024) {
+			await expect(mobileCategory).toBeVisible();
+			await expect(mobileCategory.locator('option[value="development"]')).toHaveCount(1);
+			await mobileCategory.selectOption('development');
+		} else {
+			await page.getByRole('button', { name: /^development\s+1$/ }).click();
+		}
+
+		await expect(page).toHaveURL(/\?tag=development$/);
+		await expect(page.getByRole('heading', { name: 'development' })).toBeVisible();
+		await expect(page.getByText('No bounties found for "development"')).toBeVisible();
 	});
 });

@@ -11,7 +11,7 @@ import {
 	REPUTATION_KIND
 } from './kinds';
 import { CLIENT_TAG } from '$lib/utils/constants';
-import { assertXOnlyPubkey } from '$lib/cashu/p2pk';
+import { assertCompressedPubkey } from '$lib/cashu/p2pk';
 
 /**
  * Blueprint parameters for creating a bounty event (kind 37300).
@@ -43,7 +43,7 @@ export interface PledgeBlueprintParams {
 	bountyAddress: string;
 	/** Pubkey of the bounty creator (for p-tag) */
 	creatorPubkey: string;
-	/** Lowercase x-only Cashu payment key controlling the pledge proofs */
+	/** Lowercase compressed Cashu payment key controlling the pledge proofs */
 	paymentPubkey: string;
 	/** Pledge amount in sats */
 	amount: number;
@@ -63,7 +63,7 @@ export interface SolutionBlueprintParams {
 	bountyAddress: string;
 	/** Pubkey of the bounty creator (for p-tag) */
 	creatorPubkey: string;
-	/** Lowercase x-only Cashu payment key for receiving a payout */
+	/** Lowercase compressed Cashu payment key for receiving a payout */
 	paymentPubkey: string;
 	/** Markdown description of the solution */
 	description: string;
@@ -99,7 +99,7 @@ export interface PayoutBlueprintParams {
 	sourcePledgeId: string;
 	/** Pubkey of the solver receiving the payout */
 	solverPubkey: string;
-	/** Lowercase x-only Cashu payment key declared by the winning solution */
+	/** Lowercase compressed Cashu payment key declared by the winning solution */
 	paymentPubkey: string;
 	/** Payout amount in sats */
 	amount: number;
@@ -132,10 +132,6 @@ export function bountyBlueprint(params: BountyBlueprintParams): EventTemplate {
 	if (params.mintUrl) {
 		tags.push(['mint', params.mintUrl]);
 	}
-	if (params.submissionFee !== undefined) {
-		tags.push(['fee', String(params.submissionFee)]);
-	}
-
 	return {
 		kind: BOUNTY_KIND,
 		tags,
@@ -149,7 +145,7 @@ export function bountyBlueprint(params: BountyBlueprintParams): EventTemplate {
  * References the bounty via an 'a' tag and includes the locked Cashu token.
  */
 export function pledgeBlueprint(params: PledgeBlueprintParams): EventTemplate {
-	assertXOnlyPubkey(params.paymentPubkey);
+	assertCompressedPubkey(params.paymentPubkey);
 	const tags: string[][] = [
 		['a', params.bountyAddress],
 		['p', params.creatorPubkey],
@@ -173,7 +169,7 @@ export function pledgeBlueprint(params: PledgeBlueprintParams): EventTemplate {
  * References the bounty via an 'a' tag and optionally includes an anti-spam token.
  */
 export function solutionBlueprint(params: SolutionBlueprintParams): EventTemplate {
-	assertXOnlyPubkey(params.paymentPubkey);
+	assertCompressedPubkey(params.paymentPubkey);
 	const tags: string[][] = [
 		['a', params.bountyAddress],
 		['p', params.creatorPubkey],
@@ -181,11 +177,6 @@ export function solutionBlueprint(params: SolutionBlueprintParams): EventTemplat
 		['client', CLIENT_TAG]
 	];
 
-	if (params.antiSpamTokens?.length) {
-		for (const token of params.antiSpamTokens) {
-			tags.push(['cashu', token]);
-		}
-	}
 	if (params.deliverableUrl) {
 		tags.push(['r', params.deliverableUrl]);
 	}
@@ -224,7 +215,7 @@ export function voteBlueprint(params: VoteBlueprintParams): EventTemplate {
  * Records the Cashu token transfer to the solver.
  */
 export function payoutBlueprint(params: PayoutBlueprintParams): EventTemplate {
-	assertXOnlyPubkey(params.paymentPubkey);
+	assertCompressedPubkey(params.paymentPubkey);
 	const tags: string[][] = [
 		['a', params.bountyAddress],
 		['e', params.solutionId, '', PAYOUT_SOLUTION_MARKER],

@@ -23,7 +23,7 @@
 </script>
 
 {#if shouldShow}
-	<div class="border-y border-warning/40 py-4" role="alert" aria-live="polite">
+	<div class="border-y border-warning py-4" role="alert" aria-live="polite">
 		<div class="space-y-3">
 			<p class="font-semibold text-warning">This bounty expired with an unreleased pledge.</p>
 			<p class="text-sm text-foreground">

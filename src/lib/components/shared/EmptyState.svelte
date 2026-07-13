@@ -16,13 +16,13 @@
 
 <div class="flex flex-col items-center justify-center gap-2 py-6 text-center">
 	{#if icon}
-		<div class="text-muted-foreground/50">
+		<div class="text-muted-foreground">
 			{@render icon()}
 		</div>
 	{/if}
 	<p class="text-sm text-muted-foreground">{message}</p>
 	{#if hint}
-		<p class="max-w-md text-xs text-muted-foreground/70">{hint}</p>
+		<p class="max-w-md text-xs text-muted-foreground">{hint}</p>
 	{/if}
 	{#if action}
 		<a

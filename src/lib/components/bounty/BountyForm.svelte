@@ -99,7 +99,7 @@
 	let tags = $state<string[]>([]);
 	let deadline = $state('');
 	let mintUrl = $state('');
-	let submissionFee = $state(100);
+	let submissionFee = $state(0);
 	let submitting = $state(false);
 
 	// ── Rate limit state ────────────────────────────────────────
@@ -253,8 +253,7 @@
 				rewardAmount,
 				tags: tags.length > 0 ? tags : undefined,
 				deadline: deadlineUnix,
-				mintUrl: mintUrl.trim() || undefined,
-				submissionFee: submissionFee > 0 ? submissionFee : undefined
+				mintUrl: mintUrl.trim() || undefined
 			});
 
 			const { broadcast } = await publishEvent(template);
@@ -307,11 +306,11 @@
 				class="rounded-md border border-border bg-input dark:bg-input/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
 				aria-required="true"
 				aria-invalid={title.length > 0 && (!titleValid || !titleLengthValid)}
-				aria-describedby="bounty-title-count"
+				aria-describedby="bounty-title-count bounty-title-error"
 			/>
 			<div class="flex items-center justify-between">
 				{#if !titleLengthValid}
-					<p class="text-xs text-destructive" role="alert">
+					<p id="bounty-title-error" class="text-xs text-destructive" role="alert">
 						Title must be {TITLE_MAX} characters or fewer.
 					</p>
 				{:else}
@@ -343,14 +342,16 @@
 				placeholder="What do you need built? Include clear requirements, technical details, and examples of success."
 				maxlength={DESCRIPTION_MAX}
 				onchange={(md) => (description = md)}
+				ariaInvalid={description.length > 0 && (!descriptionLengthValid || !descriptionValid)}
+				ariaDescribedby="bounty-description-error"
 			/>
 			<div class="flex items-center justify-between">
 				{#if !descriptionLengthValid}
-					<p class="text-xs text-destructive" role="alert">
+					<p id="bounty-description-error" class="text-xs text-destructive" role="alert">
 						Description must be {DESCRIPTION_MAX.toLocaleString()} characters or fewer.
 					</p>
 				{:else if description.length > 0 && !descriptionValid}
-					<p class="text-xs text-destructive" role="alert">
+					<p id="bounty-description-error" class="text-xs text-destructive" role="alert">
 						Description must be at least {DESCRIPTION_MIN} characters.
 					</p>
 				{:else}
@@ -369,7 +370,7 @@
 					text="Satoshis (sats) are small units of Bitcoin. ~100K sats ≈ $50–100 USD at recent rates."
 				>
 					{#snippet children()}
-						<span class="cursor-help border-b border-dotted border-muted-foreground/50"
+						<span class="cursor-help border-b border-dotted border-muted-foreground"
 							>Reward Amount</span
 						>
 					{/snippet}
@@ -396,6 +397,7 @@
 						class="w-full rounded-md border border-border bg-input dark:bg-input/30 py-2 pl-8 pr-16 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
 						aria-required="true"
 						aria-invalid={rewardAmount !== 0 && !rewardValid}
+						aria-describedby="bounty-reward-error"
 					/>
 				{:else}
 					<input
@@ -413,6 +415,7 @@
 						class="w-full rounded-md border border-border bg-input dark:bg-input/30 py-2 pl-8 pr-16 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
 						aria-required="true"
 						aria-invalid={rewardAmount !== 0 && !rewardValid}
+						aria-describedby="bounty-reward-error"
 					/>
 				{/if}
 				{#if btcPrice.priceUsd}
@@ -433,7 +436,9 @@
 				<p class="text-xs text-muted-foreground">{usdEquivalent}</p>
 			{/if}
 			{#if rewardAmount !== 0 && !rewardValid}
-				<p class="text-xs text-destructive" role="alert">Reward must be greater than 0 sats.</p>
+				<p id="bounty-reward-error" class="text-xs text-destructive" role="alert">
+					Reward must be greater than 0 sats.
+				</p>
 			{/if}
 		</div>
 
@@ -445,15 +450,19 @@
 				type="datetime-local"
 				bind:value={deadline}
 				class="w-full rounded-md border border-border bg-input dark:bg-input/30 px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:outline-none"
+				aria-invalid={deadline.length > 0 && (!deadlineInFuture || !deadlineWithinMax)}
+				aria-describedby="bounty-deadline-error bounty-deadline-help"
 			/>
 			{#if deadline && !deadlineInFuture}
-				<p class="text-xs text-destructive" role="alert">Deadline must be in the future.</p>
+				<p id="bounty-deadline-error" class="text-xs text-destructive" role="alert">
+					Deadline must be in the future.
+				</p>
 			{:else if deadline && !deadlineWithinMax}
-				<p class="text-xs text-destructive" role="alert">
+				<p id="bounty-deadline-error" class="text-xs text-destructive" role="alert">
 					Deadline cannot exceed {maxDeadlineDays} days from now.
 				</p>
 			{/if}
-			<p class="text-xs text-muted-foreground">
+			<p id="bounty-deadline-help" class="text-xs text-muted-foreground">
 				Optional. Max {maxDeadlineDays} days.
 			</p>
 		</div>
@@ -466,7 +475,7 @@
 					{#each tags as tag (tag)}
 						<li>
 							<span
-								class="inline-flex items-center gap-1 rounded-full border border-muted-foreground/40 bg-transparent px-2.5 py-0.5 text-xs text-muted-foreground"
+								class="inline-flex items-center gap-1 rounded-full border border-muted-foreground bg-transparent px-2.5 py-0.5 text-xs text-muted-foreground"
 							>
 								{tag}
 								<button
@@ -564,13 +573,13 @@
 		<!-- Advanced settings row — side by side on md+ -->
 		<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 			<!-- Submission Fee -->
-			<div class="space-y-3">
+			<div class="hidden" aria-hidden="true">
 				<label for="bounty-fee" class="text-sm font-medium text-foreground">
 					<Tooltip
 						text="A small fee that builders pay to submit a solution. This prevents spam submissions on popular bounties."
 					>
 						{#snippet children()}
-							<span class="cursor-help border-b border-dotted border-muted-foreground/50"
+							<span class="cursor-help border-b border-dotted border-muted-foreground"
 								>Submission Fee (sats)</span
 							>
 						{/snippet}
@@ -580,6 +589,7 @@
 					id="bounty-fee"
 					type="number"
 					bind:value={submissionFee}
+					disabled
 					min="0"
 					max={maxFee}
 					step="1"
@@ -608,7 +618,7 @@
 						text="A Cashu mint holds Bitcoin in escrow for your bounty. Think of it as the payment processor. The default works great for most users."
 					>
 						{#snippet children()}
-							<span class="cursor-help border-b border-dotted border-muted-foreground/50"
+							<span class="cursor-help border-b border-dotted border-muted-foreground"
 								>Cashu Mint URL</span
 							>
 						{/snippet}

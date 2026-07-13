@@ -105,7 +105,7 @@ function validateIntent(intent: PaymentOperationIntent): void {
 		) {
 			throw new Error('Pledge operation requires a valid bounty address');
 		}
-		if (!intent.targetPaymentPubkey || !/^[0-9a-f]{64}$/i.test(intent.targetPaymentPubkey)) {
+		if (!intent.targetPaymentPubkey || !/^(02|03)[0-9a-f]{64}$/.test(intent.targetPaymentPubkey)) {
 			throw new Error('Pledge operation requires a valid payment public key');
 		}
 	}

@@ -52,7 +52,7 @@ describe('PaymentOperationJournal', () => {
 	});
 
 	it('persists manual external-wallet stages and target key across reload', async () => {
-		const manualIntent = { ...intent, targetPaymentPubkey: 'a'.repeat(64) };
+		const manualIntent = { ...intent, targetPaymentPubkey: `02${'a'.repeat(64)}` };
 		await journal.create(manualIntent, 'manual-release');
 		await journal.transition('manual-release', 'awaiting-wallet');
 		await journal.transition('manual-release', 'token-verified', {
@@ -74,7 +74,7 @@ describe('PaymentOperationJournal', () => {
 			mintUrl: 'https://mint.example',
 			amount: 21,
 			requiresWalletHandoff: false,
-			targetPaymentPubkey: 'd'.repeat(64),
+			targetPaymentPubkey: `02${'d'.repeat(64)}`,
 			bountyAddress: `37300:${'e'.repeat(64)}:bounty`,
 			eventContent: 'saved message'
 		};

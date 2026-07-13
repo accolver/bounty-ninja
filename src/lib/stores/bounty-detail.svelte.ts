@@ -12,20 +12,25 @@ import {
 	RETRACTION_KIND
 } from '$lib/bounty/kinds';
 import { parseRetraction } from '$lib/bounty/helpers';
-import { getDefaultRelays } from '$lib/utils/env';
+import { getDefaultMint, getDefaultRelays } from '$lib/utils/env';
 import { createProfileLoader } from '$lib/nostr/loaders/profile-loader';
 import { createBountyLoader } from '$lib/nostr/loaders/bounty-loader';
 import { mergeRelayHints } from '$lib/nostr/relay-hints';
+import { detectSpentUnretractedPledges } from '$lib/cashu/pledge-monitor.svelte';
+import { parsePayout, parsePledge } from '$lib/bounty/helpers';
 import {
-	detectSpentUnretractedPledges,
-	autoRetractSpentPledge
-} from '$lib/cashu/pledge-monitor.svelte';
-import { parsePledge } from '$lib/bounty/helpers';
-import { createRelatedEventsLoader } from '$lib/nostr/loaders/related-events-loader';
-import { verifyPayoutsForBounty, verifyPledgesForBounty } from '$lib/cashu/financial-verifier';
+	createGlobalProofOwnershipLoader,
+	createRelatedEventsLoader
+} from '$lib/nostr/loaders/related-events-loader';
+import {
+	buildGlobalProofOwnership,
+	verifyPayoutsForBounty,
+	verifyPledgesForBounty
+} from '$lib/cashu/financial-verifier';
 import { projectFinancialState } from '$lib/bounty/financial-state';
 import { projectionRegistry } from '$lib/stores/projections.svelte';
 import { loadCachedEvents } from '$lib/nostr/cache';
+import { isConfiguredMint, normalizePublicHttpsUrl } from '$lib/utils/network-policy';
 
 /**
  * Reactive store for a single bounty's full detail.
@@ -45,11 +50,14 @@ export class BountyDetailStore {
 	#relaySubs: Array<{ unsubscribe(): void }> = [];
 	#spentCheckTimer: ReturnType<typeof setTimeout> | null = null;
 	#loadingTimer: ReturnType<typeof setTimeout> | null = null;
-	#taskAddress: string | null = null;
+	#freshnessTimer: ReturnType<typeof setTimeout> | null = null;
 	#relatedEventsComplete = false;
+	#globalProofSetComplete = false;
 	#rebuildVersion = 0;
 	#loadGeneration = 0;
 	#stale = $state(false);
+	#allowUnknownMint = false;
+	#unknownMintNeedsConsent = $state(false);
 	#events: {
 		bounty?: NostrEvent;
 		pledges: NostrEvent[];
@@ -57,7 +65,17 @@ export class BountyDetailStore {
 		votes: NostrEvent[];
 		payouts: NostrEvent[];
 		retractions: NostrEvent[];
-	} = { pledges: [], solutions: [], votes: [], payouts: [], retractions: [] };
+		globalPledges: NostrEvent[];
+		globalPayouts: NostrEvent[];
+	} = {
+		pledges: [],
+		solutions: [],
+		votes: [],
+		payouts: [],
+		retractions: [],
+		globalPledges: [],
+		globalPayouts: []
+	};
 
 	/** The full bounty detail, or null if not loaded */
 	get bounty(): BountyDetail | null {
@@ -74,6 +92,17 @@ export class BountyDetailStore {
 
 	get stale(): boolean {
 		return this.#stale;
+	}
+
+	get unknownMintNeedsConsent(): boolean {
+		return this.#unknownMintNeedsConsent;
+	}
+
+	grantMintConsent(): void {
+		if (!this.#bounty?.mintUrl || !normalizePublicHttpsUrl(this.#bounty.mintUrl)) return;
+		this.#allowUnknownMint = true;
+		this.#unknownMintNeedsConsent = false;
+		void this.#rebuild();
 	}
 
 	/** Whether the initial load is still in progress */
@@ -115,8 +144,12 @@ export class BountyDetailStore {
 		this.destroy();
 		this.#loading = true;
 		this.#error = null;
-		this.#taskAddress = bountyAddress;
 		this.#relatedEventsComplete = false;
+		this.#globalProofSetComplete = false;
+		this.#allowUnknownMint = false;
+		this.#unknownMintNeedsConsent = false;
+		if (typeof document !== 'undefined')
+			document.addEventListener('visibilitychange', this.#onVisibility);
 
 		// Safety timeout: stop showing spinner after 8s even if no data arrives.
 		// This gives relays ample time to respond while avoiding infinite loading.
@@ -131,6 +164,8 @@ export class BountyDetailStore {
 		const votes$ = eventStore.timeline({ kinds: [VOTE_KIND], '#a': [bountyAddress] });
 		const payouts$ = eventStore.timeline({ kinds: [PAYOUT_KIND], '#a': [bountyAddress] });
 		const retractions$ = eventStore.timeline({ kinds: [RETRACTION_KIND], '#a': [bountyAddress] });
+		const globalPledges$ = eventStore.timeline({ kinds: [PLEDGE_KIND] });
+		const globalPayouts$ = eventStore.timeline({ kinds: [PAYOUT_KIND] });
 
 		this.#combinedSub = combineLatest([
 			bounty$,
@@ -138,7 +173,9 @@ export class BountyDetailStore {
 			solutions$,
 			votes$,
 			payouts$,
-			retractions$
+			retractions$,
+			globalPledges$,
+			globalPayouts$
 		]).subscribe({
 			next: ([
 				bountyEvent,
@@ -146,9 +183,13 @@ export class BountyDetailStore {
 				solutionEvents,
 				voteEvents,
 				payoutEvents,
-				retractionEvents
+				retractionEvents,
+				globalPledgeEvents,
+				globalPayoutEvents
 			]: [
 				NostrEvent | undefined,
+				NostrEvent[],
+				NostrEvent[],
 				NostrEvent[],
 				NostrEvent[],
 				NostrEvent[],
@@ -161,7 +202,9 @@ export class BountyDetailStore {
 					solutions: solutionEvents,
 					votes: voteEvents,
 					payouts: payoutEvents,
-					retractions: retractionEvents
+					retractions: retractionEvents,
+					globalPledges: globalPledgeEvents,
+					globalPayouts: globalPayoutEvents
 				};
 				void this.#rebuild();
 				// Don't set loading=false here — wait for bountyEvent or timeout
@@ -207,6 +250,12 @@ export class BountyDetailStore {
 			})
 		);
 		this.#relaySubs.push(createBountyLoader(kind, pubkey, dTag, relayUrls));
+		this.#relaySubs.push(
+			createGlobalProofOwnershipLoader(relayUrls, () => {
+				this.#globalProofSetComplete = true;
+				void this.#rebuild();
+			})
+		);
 		this.#relaySubs.push(createProfileLoader([pubkey]));
 	}
 
@@ -228,9 +277,20 @@ export class BountyDetailStore {
 			.map(parseRetraction)
 			.filter((item): item is Retraction => item !== null);
 		const votes = [...detail.votesBySolution.values()].flat();
+		const globalPledges = events.globalPledges
+			.map(parsePledge)
+			.filter((item): item is NonNullable<typeof item> => item !== null);
+		const globalPayouts = events.globalPayouts
+			.map((event) => parsePayout(event))
+			.filter((item): item is NonNullable<typeof item> => item !== null);
+		const globalProofOwners = await buildGlobalProofOwnership(globalPledges, globalPayouts);
+		const configuredMint = isConfiguredMint(detail.mintUrl, getDefaultMint());
+		const publicMint = detail.mintUrl ? normalizePublicHttpsUrl(detail.mintUrl) !== null : false;
+		const allowMintContact = configuredMint || (publicMint && this.#allowUnknownMint);
+		this.#unknownMintNeedsConsent = publicMint && !configuredMint && !this.#allowUnknownMint;
 		const [pledgeVerifications, payoutTokenVerifications] = await Promise.all([
-			verifyPledgesForBounty(detail, detail.pledges),
-			verifyPayoutsForBounty(detail, detail.payouts)
+			verifyPledgesForBounty(detail, detail.pledges, undefined, allowMintContact),
+			verifyPayoutsForBounty(detail, detail.payouts, undefined, allowMintContact)
 		]);
 		if (version !== this.#rebuildVersion) return;
 		const now = Math.floor(Date.now() / 1000);
@@ -244,6 +304,8 @@ export class BountyDetailStore {
 			payoutTokenVerifications,
 			retractions,
 			relatedEventsComplete: this.#relatedEventsComplete,
+			globalProofOwners,
+			globalProofSetComplete: this.#globalProofSetComplete,
 			now
 		});
 		this.#projection = projection;
@@ -262,16 +324,34 @@ export class BountyDetailStore {
 			payouts: [...projection.validPayouts]
 		};
 		this.#loading = false;
+		this.#scheduleFreshnessRefresh(detail.deadline);
 		if (this.#loadingTimer) {
 			clearTimeout(this.#loadingTimer);
 			this.#loadingTimer = null;
 		}
-		this.#scheduleSpentCheck(
-			events.pledges,
-			[...projection.authorizedRetractions],
-			events.solutions.length > 0
+		if (allowMintContact) {
+			this.#scheduleSpentCheck(
+				events.pledges,
+				[...projection.authorizedRetractions],
+				detail.mintUrl ?? ''
+			);
+		}
+	}
+
+	#scheduleFreshnessRefresh(deadline: number | null): void {
+		if (this.#freshnessTimer) clearTimeout(this.#freshnessTimer);
+		const nowMs = Date.now();
+		const nextVerification = nowMs + 5 * 60 * 1000;
+		const nextDeadline = deadline && deadline * 1000 > nowMs ? deadline * 1000 : nextVerification;
+		this.#freshnessTimer = setTimeout(
+			() => void this.#rebuild(),
+			Math.max(100, Math.min(nextVerification, nextDeadline) - nowMs + 25)
 		);
 	}
+
+	#onVisibility = () => {
+		if (document.visibilityState === 'visible') void this.#rebuild();
+	};
 
 	/**
 	 * Schedule a spent-pledge check against the Cashu mint.
@@ -279,30 +359,22 @@ export class BountyDetailStore {
 	 * When spent tokens are detected for the current user, auto-publishes
 	 * retraction (and reputation) events to keep state in sync.
 	 */
-	#scheduleSpentCheck(
-		pledgeEvents: NostrEvent[],
-		retractions: Retraction[],
-		hasSolutions: boolean
-	) {
+	#scheduleSpentCheck(pledgeEvents: NostrEvent[], retractions: Retraction[], allowedMint: string) {
 		if (this.#spentCheckTimer) clearTimeout(this.#spentCheckTimer);
 
 		this.#spentCheckTimer = setTimeout(async () => {
 			const pledges = pledgeEvents
 				.map(parsePledge)
-				.filter((p): p is NonNullable<typeof p> => p !== null);
+				.filter(
+					(p): p is NonNullable<typeof p> =>
+						p !== null &&
+						normalizePublicHttpsUrl(p.mintUrl) === normalizePublicHttpsUrl(allowedMint)
+				);
 
 			const spentIds = await detectSpentUnretractedPledges(pledges, retractions);
 			this.#spentPledgeIds = new Set(spentIds);
 
-			// Auto-retract if the current user is the pledger
-			if (this.#taskAddress) {
-				for (const pledgeId of spentIds) {
-					const pledge = pledges.find((p) => p.id === pledgeId);
-					if (pledge) {
-						await autoRetractSpentPledge(pledge, this.#taskAddress, hasSolutions);
-					}
-				}
-			}
+			// Never infer reclaim from spend state; release consumes the same proofs.
 		}, 3000); // 3s debounce after data settles
 	}
 
@@ -321,13 +393,33 @@ export class BountyDetailStore {
 			clearTimeout(this.#loadingTimer);
 			this.#loadingTimer = null;
 		}
+		if (this.#freshnessTimer) {
+			clearTimeout(this.#freshnessTimer);
+			this.#freshnessTimer = null;
+		}
 		for (const sub of this.#relaySubs) {
 			sub.unsubscribe();
 		}
 		this.#relaySubs = [];
 		this.#projection = null;
+		this.#bounty = null;
+		this.#retractions = [];
+		this.#retractedPledgeIds = new Set();
+		this.#spentPledgeIds = new Set();
+		this.#unknownMintNeedsConsent = false;
 		this.#relatedEventsComplete = false;
+		this.#globalProofSetComplete = false;
 		this.#stale = false;
-		this.#events = { pledges: [], solutions: [], votes: [], payouts: [], retractions: [] };
+		this.#events = {
+			pledges: [],
+			solutions: [],
+			votes: [],
+			payouts: [],
+			retractions: [],
+			globalPledges: [],
+			globalPayouts: []
+		};
+		if (typeof document !== 'undefined')
+			document.removeEventListener('visibilitychange', this.#onVisibility);
 	}
 }

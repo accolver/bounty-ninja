@@ -12,7 +12,7 @@ describe('manual source-bound payment workflow', () => {
 		const sourcePledgeId = '1'.repeat(64);
 		const solutionId = '2'.repeat(64);
 		const solverPubkey = '3'.repeat(64);
-		const paymentPubkey = '4'.repeat(64);
+		const paymentPubkey = `02${'4'.repeat(64)}`;
 		let journal = new PaymentOperationJournal(factory, dbName);
 
 		const prepared = await journal.create(

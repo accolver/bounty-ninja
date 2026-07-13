@@ -20,7 +20,8 @@ import { CASHU_PAYMENT_SIGNER_PROTOCOL, type CashuPaymentSigner } from '$lib/cas
 
 // Mock env before importing helpers (which transitively imports voting → env)
 vi.mock('$lib/utils/env', () => ({
-	getVoteQuorumFraction: () => 0.66
+	getVoteQuorumFraction: () => 0.66,
+	assertPaymentWritesEnabled: vi.fn()
 }));
 
 import { BOUNTY_KIND, PLEDGE_KIND, PAYOUT_KIND } from '$lib/bounty/kinds';
@@ -44,10 +45,10 @@ vi.mock('$lib/cashu/token', () => ({
 }));
 
 vi.mock('$lib/cashu/p2pk', () => ({
-	createP2PKLock: vi.fn(() => ({ pubkey: 'b'.repeat(64) })),
+	createP2PKLock: vi.fn(() => ({ pubkey: `02${'b'.repeat(64)}` })),
 	assertNut11Support: vi.fn(),
-	assertXOnlyPubkey: vi.fn(),
-	isXOnlyPubkey: vi.fn((key: string) => /^[0-9a-f]{64}$/.test(key))
+	assertCompressedPubkey: vi.fn(),
+	isCompressedPubkey: vi.fn((key: string) => /^(02|03)[0-9a-f]{64}$/.test(key))
 }));
 
 import {
@@ -71,9 +72,9 @@ const CREATOR_PK = 'a'.repeat(64);
 const PLEDGER_PK = 'b'.repeat(64);
 const PLEDGER_2_PK = 'f'.repeat(64);
 const SOLVER_PK = 'c'.repeat(64);
-const PLEDGER_PAYMENT_PK = '7'.repeat(64);
-const PLEDGER_2_PAYMENT_PK = '8'.repeat(64);
-const SOLVER_PAYMENT_PK = '9'.repeat(64);
+const PLEDGER_PAYMENT_PK = `02${'7'.repeat(64)}`;
+const PLEDGER_2_PAYMENT_PK = `02${'8'.repeat(64)}`;
+const SOLVER_PAYMENT_PK = `02${'9'.repeat(64)}`;
 const SIG = 'd'.repeat(128);
 const MINT_URL = 'https://testnut.cashu.space';
 const D_TAG = 'payment-pipeline-test';

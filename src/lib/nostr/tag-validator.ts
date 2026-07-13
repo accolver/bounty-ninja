@@ -12,7 +12,7 @@ import {
 import { getTagValue } from '$lib/nostr/nostr-tags';
 import { CLIENT_TAG } from '$lib/utils/constants';
 import { safeEventUrl } from '$lib/utils/safe-event-url';
-import { isXOnlyPubkey } from '$lib/cashu/p2pk';
+import { isCompressedPubkey, isXOnlyPubkey } from '$lib/cashu/p2pk';
 
 const DOMAIN_KINDS = new Set([
 	BOUNTY_KIND,
@@ -65,10 +65,10 @@ function validatePaymentTag(event: NostrEvent, required: boolean): string[] {
 	if (tags.length === 0) return required ? ["Event missing required 'payment' tag"] : [];
 	if (tags.length > 1) return ["Tag 'payment' must not be repeated"];
 	const tag = tags[0];
-	if (tag.length !== 3) return ["Payment tag must be ['payment', 'cashu', <x-only-key>]"];
+	if (tag.length !== 3) return ["Payment tag must be ['payment', 'cashu', <compressed-key>]"];
 	if (tag[1] !== 'cashu') return ["Payment tag scheme must be 'cashu'"];
-	if (!isXOnlyPubkey(tag[2] ?? '')) {
-		return ['Payment tag key must be lowercase 64-character x-only hex'];
+	if (!isCompressedPubkey(tag[2] ?? '') && !isXOnlyPubkey(tag[2] ?? '')) {
+		return ['Payment tag key must be lowercase x-only legacy or 02/03 compressed hex'];
 	}
 	return [];
 }

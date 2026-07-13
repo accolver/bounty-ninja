@@ -7,7 +7,6 @@ import type {
 	TokenInfo,
 	VerificationStatus
 } from './types';
-import { getCashu } from './lazy';
 import { normalizeMintUrl } from './proof-identity';
 import { nut11KeyMatchesXOnly } from './p2pk';
 
@@ -15,6 +14,7 @@ export const PLEDGE_VERIFICATION_POLICY_VERSION = 1;
 
 export interface P2PKProofCondition {
 	target: string;
+	primaryKeys: readonly string[];
 	refundKeys: readonly string[];
 	locktime: number | null;
 	nSigs: number;
@@ -31,6 +31,7 @@ export interface PledgeValidationInput {
 	proofIdentities: readonly ProofIdentity[];
 	duplicateProofs: ReadonlySet<ProofIdentity>;
 	conditions: readonly (P2PKProofCondition | null)[];
+	issuanceEvidence: readonly ('valid' | 'missing' | 'invalid')[];
 	checkedAt: number;
 	validUntil: number | null;
 	mintUnavailable?: boolean;
@@ -57,8 +58,19 @@ function result(
 		normalizedMint,
 		decodedAmount,
 		proofIdentities: input.proofIdentities,
+		issuanceAuthentic:
+			input.issuanceEvidence.length > 0 && input.issuanceEvidence.every((item) => item === 'valid'),
+		proofState: deriveProofState(input.proofStates),
 		reasons
 	};
+}
+
+function deriveProofState(states: readonly ProofState[] | null): PledgeVerification['proofState'] {
+	if (!states) return 'unavailable';
+	const values = new Set(states.map((state) => state.state));
+	if (values.size !== 1) return 'mixed';
+	const state = states[0]?.state;
+	return state === 'UNSPENT' ? 'unspent' : state === 'SPENT' ? 'spent' : 'pending';
 }
 
 /** Pure, fail-closed pledge policy. Mint and token I/O are supplied by the caller. */
@@ -94,12 +106,17 @@ export function validatePledge(input: PledgeValidationInput): PledgeVerification
 		reasons.push('mint_unavailable');
 	} else {
 		if (input.proofStates.length !== decoded.proofs.length) reasons.push('proof_state_mismatch');
-		if (input.proofStates.some((state) => state.state === 'SPENT')) reasons.push('spent_proof');
 		if (input.proofStates.some((state) => state.state === 'PENDING')) {
 			reasons.push('pending_proof');
 		}
 	}
 	if (input.nut11Supported === false) reasons.push('nut11_unsupported');
+	if (input.issuanceEvidence.length !== decoded.proofs.length)
+		reasons.push('issuance_evidence_missing');
+	if (input.issuanceEvidence.some((evidence) => evidence === 'missing'))
+		reasons.push('issuance_evidence_missing');
+	if (input.issuanceEvidence.some((evidence) => evidence === 'invalid'))
+		reasons.push('issuance_evidence_invalid');
 
 	if (input.proofIdentities.length !== decoded.proofs.length) reasons.push('proof_state_mismatch');
 	const identities = new Set(input.proofIdentities);
@@ -115,6 +132,7 @@ export function validatePledge(input: PledgeValidationInput): PledgeVerification
 	const conditions = input.conditions.filter((item): item is P2PKProofCondition => item !== null);
 	if (!pledge.paymentPubkey) reasons.push('missing_payment_key');
 	for (const condition of conditions) {
+		if (condition.primaryKeys.length !== 1) reasons.push('signature_policy_mismatch');
 		try {
 			if (!pledge.paymentPubkey || !nut11KeyMatchesXOnly(condition.target, pledge.paymentPubkey)) {
 				reasons.push('p2pk_target_mismatch');
@@ -126,7 +144,7 @@ export function validatePledge(input: PledgeValidationInput): PledgeVerification
 		if (condition.refundKeys.length > 0) reasons.push('refund_policy_mismatch');
 		if (
 			!Number.isSafeInteger(condition.nSigs) ||
-			condition.nSigs < 1 ||
+			condition.nSigs !== 1 ||
 			condition.sigFlag !== 'SIG_INPUTS'
 		) {
 			reasons.push('signature_policy_mismatch');
@@ -152,26 +170,97 @@ export function validatePledge(input: PledgeValidationInput): PledgeVerification
 	return result(input, status, uniqueReasons, normalizedMint, decoded.amount);
 }
 
-/** Inspect NUT-11 conditions without hand-parsing proof secret JSON. */
+function parsePositiveInteger(value: string): number | null {
+	if (!/^[1-9]\d*$/.test(value)) return null;
+	const parsed = Number(value);
+	return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
+/** Inspect the exact raw NUT-11 syntax without lossy accessor normalization. */
 export async function inspectP2PKProof(secret: string): Promise<P2PKProofCondition | null> {
 	try {
-		const {
-			getP2PKLocktime,
-			getP2PKWitnessRefundkeys,
-			getP2PKSigFlag,
-			getTagInt,
-			getSecretData,
-			getSecretKind
-		} = await getCashu();
-		if (getSecretKind(secret) !== 'P2PK') return null;
-		const locktime = getP2PKLocktime(secret);
+		const parsed: unknown = JSON.parse(secret);
+		if (!Array.isArray(parsed) || parsed.length !== 2 || parsed[0] !== 'P2PK') return null;
+		const payload = parsed[1];
+		if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+		const record = payload as Record<string, unknown>;
+		if (typeof record.data !== 'string' || record.data.length === 0) return null;
+		if (record.tags !== undefined && !Array.isArray(record.tags)) return null;
+
+		const tags = (record.tags ?? []) as unknown[];
+		const values = new Map<string, string[]>();
+		const knownTags = new Set([
+			'pubkeys',
+			'refund',
+			'locktime',
+			'n_sigs',
+			'n_sigs_refund',
+			'sigflag'
+		]);
+		for (const rawTag of tags) {
+			if (
+				!Array.isArray(rawTag) ||
+				rawTag.length < 2 ||
+				rawTag.some((value) => typeof value !== 'string')
+			) {
+				return null;
+			}
+			const [name, ...tagValues] = rawTag as string[];
+			if (!name || !knownTags.has(name) || values.has(name)) return null;
+			values.set(name, tagValues);
+		}
+
+		const singleValue = (name: string): string | null | undefined => {
+			const tagValues = values.get(name);
+			if (!tagValues) return undefined;
+			return tagValues.length === 1 ? tagValues[0] : null;
+		};
+		const additionalKeys = values.get('pubkeys') ?? [];
+		const refundKeys = values.get('refund') ?? [];
+		if (
+			(values.has('pubkeys') && additionalKeys.length === 0) ||
+			(values.has('refund') && refundKeys.length === 0) ||
+			new Set(additionalKeys).size !== additionalKeys.length ||
+			new Set(refundKeys).size !== refundKeys.length ||
+			additionalKeys.includes(record.data)
+		) {
+			return null;
+		}
+
+		const locktimeRaw = singleValue('locktime');
+		const nSigsRaw = singleValue('n_sigs');
+		const nSigsRefundRaw = singleValue('n_sigs_refund');
+		const sigFlagRaw = singleValue('sigflag');
+		if (
+			locktimeRaw === null ||
+			nSigsRaw === null ||
+			nSigsRefundRaw === null ||
+			sigFlagRaw === null
+		) {
+			return null;
+		}
+		const locktime = locktimeRaw === undefined ? null : parsePositiveInteger(locktimeRaw);
+		const nSigs = nSigsRaw === undefined ? 1 : parsePositiveInteger(nSigsRaw);
+		const nSigsRefund = nSigsRefundRaw === undefined ? 1 : parsePositiveInteger(nSigsRefundRaw);
+		const sigFlag = sigFlagRaw ?? 'SIG_INPUTS';
+		if (
+			(locktimeRaw !== undefined && locktime === null) ||
+			nSigs === null ||
+			nSigsRefund === null ||
+			(sigFlag !== 'SIG_INPUTS' && sigFlag !== 'SIG_ALL') ||
+			(values.has('n_sigs_refund') && !values.has('refund')) ||
+			values.has('refund') !== values.has('locktime')
+		) {
+			return null;
+		}
 		return {
-			target: getSecretData(secret).data,
-			refundKeys: getP2PKWitnessRefundkeys(secret),
-			locktime: Number.isFinite(locktime) ? locktime : null,
-			nSigs: getTagInt(secret, 'n_sigs') ?? 1,
-			nSigsRefund: getTagInt(secret, 'n_sigs_refund') ?? 1,
-			sigFlag: getP2PKSigFlag(secret)
+			target: record.data,
+			primaryKeys: [record.data, ...additionalKeys],
+			refundKeys,
+			locktime,
+			nSigs,
+			nSigsRefund,
+			sigFlag
 		};
 	} catch {
 		return null;

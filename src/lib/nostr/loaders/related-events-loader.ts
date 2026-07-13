@@ -14,18 +14,19 @@ import { getDefaultRelays } from '$lib/utils/env';
 function createLoader(
 	filter: Filter,
 	relayUrls: readonly string[],
-	onSettled: () => void
+	onComplete: () => void,
+	minimumEose = relayUrls.length
 ): { unsubscribe(): void } {
 	const subscriptions: Subscription[] = [];
-	const pending = new Set(relayUrls);
+	const eoseRelays = new Set<string>();
 	let active = true;
 
-	const settle = (url: string) => {
-		if (!active || !pending.delete(url)) return;
-		if (pending.size === 0) onSettled();
+	const recordEose = (url: string) => {
+		if (!active || eoseRelays.has(url)) return;
+		eoseRelays.add(url);
+		if (eoseRelays.size === minimumEose) onComplete();
 	};
 
-	if (pending.size === 0) queueMicrotask(onSettled);
 	for (const url of relayUrls) {
 		try {
 			const subscription = pool
@@ -33,16 +34,14 @@ function createLoader(
 				.subscription(filter)
 				.subscribe({
 					next(response: NostrEvent | 'EOSE') {
-						if (response === 'EOSE') settle(url);
+						if (response === 'EOSE') recordEose(url);
 						else ingestEvent(response, 'relay');
 					},
-					error() {
-						settle(url);
-					}
+					error() {}
 				});
 			subscriptions.push(subscription);
 		} catch {
-			settle(url);
+			// Connection failures are incomplete, never equivalent to EOSE.
 		}
 	}
 
@@ -70,17 +69,22 @@ export function createRelatedEventsLoader(
 	);
 }
 
-/** Load projection inputs for the bounded home feed in one subscription per relay. */
+/** Load projection inputs for the bounded home feed. */
 export function createAllRelatedEventsLoader(
-	onSettled: () => void,
+	onComplete: () => void,
 	relayUrls: readonly string[] = getDefaultRelays()
 ): { unsubscribe(): void } {
 	return createLoader(
-		{
-			kinds: [PLEDGE_KIND, SOLUTION_KIND, VOTE_KIND, PAYOUT_KIND, RETRACTION_KIND],
-			limit: 500
-		},
+		{ kinds: [PLEDGE_KIND, SOLUTION_KIND, VOTE_KIND, PAYOUT_KIND, RETRACTION_KIND] },
 		relayUrls,
-		onSettled
+		onComplete
 	);
+}
+
+/** Load every financial proof claim needed for cross-bounty replay exclusion. */
+export function createGlobalProofOwnershipLoader(
+	relayUrls: readonly string[],
+	onComplete: () => void
+): { unsubscribe(): void } {
+	return createLoader({ kinds: [PLEDGE_KIND, PAYOUT_KIND] }, relayUrls, onComplete);
 }

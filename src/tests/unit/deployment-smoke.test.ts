@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	validateHtmlHeaders,
+	validateRelease,
 	validateServiceWorkerHeaders
 } from '../../../scripts/smoke-deployment';
 
@@ -32,5 +33,28 @@ describe('deployment smoke policy', () => {
 			)
 		).toEqual([]);
 		expect(validateServiceWorkerHeaders(new Headers())).toHaveLength(2);
+	});
+
+	it('requires complete payment-disabled release metadata', () => {
+		const commit = 'a'.repeat(40);
+		const release = {
+			commit,
+			source: { type: 'github', runId: '123', attempt: '2' },
+			timestamp: '2026-07-12T00:00:00.000Z',
+			paymentWritesEnabled: false,
+			deploymentChannel: 'production',
+			artifactDigest: {
+				algorithm: 'sha256',
+				scope: 'build-without-release-metadata',
+				value: 'b'.repeat(64)
+			}
+		};
+		expect(validateRelease(release, commit)).toEqual(release);
+		expect(() => validateRelease({ ...release, paymentWritesEnabled: true }, commit)).toThrow(
+			'payment writes'
+		);
+		expect(() => validateRelease({ ...release, source: undefined }, commit)).toThrow(
+			'release source'
+		);
 	});
 });

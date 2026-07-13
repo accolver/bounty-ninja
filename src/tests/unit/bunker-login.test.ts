@@ -217,12 +217,11 @@ describe('NIP-46 bunker login', () => {
 			expect(mockInstance.close).toHaveBeenCalled();
 		});
 
-		it('clearBunkerSigner without disconnect keeps signer alive', async () => {
+		it('clearBunkerSigner always discards the signer', async () => {
 			setBunkerSigner(mockInstance as any);
 			await clearBunkerSigner(false);
-			expect(mockInstance.close).not.toHaveBeenCalled();
-			// Signer should still be accessible
-			expect(getBunkerSigner()).not.toBeNull();
+			expect(mockInstance.close).toHaveBeenCalled();
+			expect(getBunkerSigner()).toBeNull();
 		});
 
 		it('bunker signer takes priority over NIP-07', () => {

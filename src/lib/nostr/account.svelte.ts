@@ -255,20 +255,14 @@ export class AccountState {
 
 	/**
 	 * Logout — clear pubkey and session data.
-	 * Bunker connection is kept alive so the user can re-login without a new URI.
-	 * Use disconnectBunker() to fully close the bunker connection.
+	 * Any remote signer connection is closed and discarded.
 	 */
 	async logout(): Promise<void> {
 		this.pubkey = null;
 		signerState.clearReady();
 		this.error = null;
-		const wasBunker = this.loginMethod === 'bunker';
 		this.loginMethod = null;
-		if (!wasBunker) {
-			// Only close bunker connection if we weren't using bunker login
-			// (i.e., switching from NIP-07). Keep bunker alive for re-login.
-			await clearBunkerSigner(true);
-		}
+		await clearBunkerSigner(true);
 		resetEventFactory();
 	}
 

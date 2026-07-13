@@ -25,7 +25,9 @@ test.describe('Authentication', () => {
 		await expect(
 			page.getByText('Sign in with a Nostr extension to create a bounty.')
 		).toBeVisible();
-		await expect(page.getByRole('button', { name: 'Login', exact: true })).toBeVisible();
+		await expect(
+			page.getByRole('main').getByRole('button', { name: 'Login', exact: true })
+		).toBeVisible();
 	});
 
 	test('NIP-07 signer enables login', async ({ page }) => {

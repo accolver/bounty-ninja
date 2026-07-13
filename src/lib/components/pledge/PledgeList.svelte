@@ -6,11 +6,17 @@
 	const {
 		pledges,
 		payouts = [],
-		isReleasePhase = false
+		isReleasePhase = false,
+		bountyAddress = '',
+		hasSolutions = false,
+		financialDataComplete = false
 	}: {
 		pledges: Pledge[];
 		payouts?: Payout[];
 		isReleasePhase?: boolean;
+		bountyAddress?: string;
+		hasSolutions?: boolean;
+		financialDataComplete?: boolean;
 	} = $props();
 </script>
 
@@ -19,7 +25,14 @@
 {:else}
 	<ul class="space-y-2" aria-label="Pledge list">
 		{#each pledges as pledge (pledge.id)}
-			<PledgeItem {pledge} {payouts} {isReleasePhase} />
+			<PledgeItem
+				{pledge}
+				{payouts}
+				{isReleasePhase}
+				{bountyAddress}
+				{hasSolutions}
+				{financialDataComplete}
+			/>
 		{/each}
 	</ul>
 {/if}

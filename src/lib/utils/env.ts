@@ -61,6 +61,13 @@ export function arePaymentWritesEnabled(): boolean {
 	return configured.trim().toLowerCase() === 'true';
 }
 
+/** Defense-in-depth guard for mint and financial publication boundaries. */
+export function assertPaymentWritesEnabled(): void {
+	if (!arePaymentWritesEnabled()) {
+		throw new Error('Payment writes are disabled in this build');
+	}
+}
+
 /** Returns the application display name */
 export function getAppName(): string {
 	return env.PUBLIC_APP_NAME ?? config.app.nameCaps;

@@ -1,4 +1,4 @@
-import { batchLoadProfiles, loadProfile } from '$lib/nostr/profile-cache';
+import { loadProfile } from '$lib/nostr/profile-cache';
 
 /**
  * Create a loader that loads profile metadata events (Kind 0) for specific pubkeys.
@@ -17,6 +17,7 @@ export function createProfileLoader(pubkeys: string[]): { unsubscribe(): void } 
 		void loadProfile(pk);
 	}
 
-	// Batch relay load for profiles that need revalidation or are missing
-	return batchLoadProfiles(pubkeys);
+	// loadProfile coalesces misses into one shared relay batch. Starting a second
+	// batch here caused duplicate subscriptions for every rendered ProfileLink.
+	return { unsubscribe() {} };
 }

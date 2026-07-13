@@ -1,32 +1,5 @@
 import { mount, unmount } from 'svelte';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-
-vi.mock('@milkdown/crepe', () => ({
-	CrepeFeature: {
-		ImageBlock: 'ImageBlock',
-		Latex: 'Latex',
-		BlockEdit: 'BlockEdit',
-		Toolbar: 'Toolbar',
-		Placeholder: 'Placeholder',
-		Cursor: 'Cursor'
-	},
-	Crepe: class {
-		root: HTMLElement;
-		value: string;
-
-		constructor(options: { root: HTMLElement; defaultValue: string }) {
-			this.root = options.root;
-			this.value = options.defaultValue;
-		}
-
-		async create() {
-			this.root.innerHTML = this.value;
-		}
-
-		setReadonly() {}
-		destroy() {}
-	}
-}));
+import { afterEach, describe, expect, it } from 'vitest';
 
 const { default: MarkdownViewer } = await import('$lib/components/shared/MarkdownViewer.svelte');
 
@@ -36,14 +9,18 @@ afterEach(() => {
 
 async function renderContent(content: string) {
 	const component = mount(MarkdownViewer, { target: document.body, props: { content } });
-	await vi.waitFor(() => expect(document.querySelector('.milkdown-viewer-root')).not.toBeNull());
-	await vi.waitFor(() =>
-		expect(document.querySelector('.milkdown-viewer-root')?.innerHTML).not.toBe('')
-	);
+	expect(document.querySelector('.markdown-viewer')?.innerHTML).not.toBe('');
 	return component;
 }
 
 describe('MarkdownViewer sanitization boundary', () => {
+	it('renders Markdown without loading an editor runtime', async () => {
+		const component = await renderContent('# Heading\n\n- one\n- two');
+		expect(document.querySelector('h1')?.textContent).toBe('Heading');
+		expect(document.querySelectorAll('li')).toHaveLength(2);
+		await unmount(component);
+	});
+
 	it('removes executable markup before live DOM insertion', async () => {
 		const component = await renderContent(
 			'<script>alert(1)</script><svg onload="alert(2)"></svg><p onclick="alert(3)">safe</p>'

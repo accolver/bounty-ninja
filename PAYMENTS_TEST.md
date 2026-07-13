@@ -16,7 +16,7 @@ accessibility audit is implied complete.
 The current path is a manual Minibits workflow, not an external-wallet API:
 
 1. A pledger creates an exact-amount Minibits P2PK token at the bounty mint,
-   locked to the public key placed in `['payment','cashu','<x-only-key>']`.
+   locked to the full-parity public key placed in `['payment','cashu','<compressed-key>']`.
 2. Every proof must permanently require one `SIG_INPUTS` signature with **no
    locktime and no refund keys**. This is the permanent supported policy;
    bounty expiry does not unlock the token.
@@ -40,16 +40,18 @@ claim with the backed-up Minibits wallet matching their solution payment key.
 3. Run `bun run test:integration`.
 4. Run `bun run build`.
 5. With the flag disabled, open a funded bounty and confirm pledge, release,
-   reclaim, and required-fee
-   actions show an unavailable notice and cannot invoke a mint.
+   and reclaim actions show an unavailable notice and cannot invoke a mint.
 6. Confirm fee-free solution submission remains available.
 7. Confirm login offers only NIP-07 browser extension and NIP-46 remote signer.
 8. Confirm no production page requests any identity or payment secret key.
-9. In an isolated test build with the flag enabled, verify pledge, release, and
-   reclaim reject the wrong key, mint, amount, proof state, duplicate proof,
-   locktime, refund key, or non-`SIG_INPUTS` policy.
+9. In an isolated test build with the flag enabled, verify pledge and release
+   reject missing/invalid DLEQ, wrong key parity, additional primary keys, mint,
+   amount, duplicate proof, locktime, refund key, or non-`SIG_INPUTS` policy.
 10. Confirm new pledge, solution, and source-bound payout events carry exactly
-    one `['payment','cashu','<lowercase-x-only-key>']` tag.
+     one `['payment','cashu','<compressed-key>']` tag and solutions carry no
+     bearer fee token.
+11. Confirm financial controls remain unavailable until the configured minimum
+    relays successfully return EOSE; errors and timeouts do not count.
 
 Relevant automated checks include:
 

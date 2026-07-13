@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+vi.mock('$lib/utils/env', () => ({ assertPaymentWritesEnabled: vi.fn() }));
 import { IDBFactory } from 'fake-indexeddb';
 import type { NostrEvent } from 'nostr-tools';
 import { PaymentOperationJournal } from '$lib/cashu/payment-journal';
@@ -27,7 +28,7 @@ describe('publishJournaledEvent', () => {
 				mintUrl: 'https://mint.example',
 				amount: 21,
 				requiresWalletHandoff: false,
-				targetPaymentPubkey: 'd'.repeat(64),
+				targetPaymentPubkey: `02${'d'.repeat(64)}`,
 				bountyAddress: `37300:${'e'.repeat(64)}:bounty`
 			},
 			'pledge',

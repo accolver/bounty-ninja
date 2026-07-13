@@ -11,6 +11,9 @@
 
 	function toggle() {
 		open = !open;
+		if (open) {
+			requestAnimationFrame(() => menuRef?.querySelector<HTMLElement>('button, input, a')?.focus());
+		}
 		if (!open) {
 			showBunkerForm = false;
 			showInstallLinks = false;
@@ -105,6 +108,7 @@
 			if (event.key === 'Escape') {
 				close();
 				triggerRef?.focus();
+				return;
 			}
 		}
 
@@ -119,7 +123,7 @@
 		onclick={toggle}
 		disabled={accountState.loading}
 		aria-expanded={open}
-		aria-haspopup="menu"
+		aria-haspopup="dialog"
 		aria-label="Login"
 		class="cursor-pointer rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
 	>
@@ -134,7 +138,7 @@
 		<div
 			bind:this={menuRef}
 			class="absolute right-0 top-full z-50 mt-2 w-72 rounded-lg border border-border bg-card p-3 shadow-lg"
-			role="menu"
+			role="dialog"
 			aria-label="Login options"
 		>
 			{#if showBunkerForm}
@@ -192,7 +196,9 @@
 						}}
 						class="flex flex-col gap-2"
 					>
+						<label for="bunker-uri" class="sr-only">Remote signer bunker URI</label>
 						<input
+							id="bunker-uri"
 							type="text"
 							autocomplete="off"
 							data-1p-ignore
@@ -201,6 +207,8 @@
 							placeholder="bunker://…"
 							bind:value={bunkerValue}
 							disabled={accountState.bunkerConnecting}
+							aria-invalid={bunkerError !== null}
+							aria-describedby={bunkerError ? 'bunker-error' : 'bunker-help'}
 							class="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
 						/>
 						<button
@@ -216,8 +224,11 @@
 						</button>
 					</form>
 
+					<p id="bunker-help" class="sr-only">
+						Enter the bunker URI supplied by your remote signer.
+					</p>
 					{#if bunkerError}
-						<p class="text-xs text-destructive" role="alert">{bunkerError}</p>
+						<p id="bunker-error" class="text-xs text-destructive" role="alert">{bunkerError}</p>
 					{/if}
 				</div>
 			{:else if showInstallLinks}
@@ -272,7 +283,6 @@
 				<button
 					onclick={handleExtensionLogin}
 					class="flex w-full cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm text-card-foreground transition-colors hover:bg-muted"
-					role="menuitem"
 				>
 					<svg
 						class="h-5 w-5 shrink-0 text-primary"
@@ -302,7 +312,6 @@
 				<button
 					onclick={() => (showBunkerForm = true)}
 					class="flex w-full cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm text-card-foreground transition-colors hover:bg-muted"
-					role="menuitem"
 				>
 					<svg
 						class="h-5 w-5 shrink-0 text-muted-foreground"

@@ -75,6 +75,15 @@ export function projectFinancialState(input: FinancialProjectionInput): Financia
 			unavailablePledges.push(pledge);
 			continue;
 		}
+		if (
+			!input.globalProofSetComplete ||
+			verification.proofIdentities.some(
+				(identity) => input.globalProofOwners.get(identity) !== pledge.id
+			)
+		) {
+			invalidPledges.push(pledge);
+			continue;
+		}
 		if (verification.proofIdentities.some((identity) => proofOwners.has(identity))) {
 			invalidPledges.push(pledge);
 			continue;
@@ -102,16 +111,6 @@ export function projectFinancialState(input: FinancialProjectionInput): Financia
 		}
 	}
 
-	const activePledges = validatedPledges.filter((pledge) => !retractedPledgeIds.has(pledge.id));
-	const validatedFunding = activePledges.reduce((sum, pledge) => sum + pledge.amount, 0);
-	const votingPowerByPubkey = new Map<string, number>();
-	for (const pledge of activePledges) {
-		votingPowerByPubkey.set(
-			pledge.pubkey,
-			(votingPowerByPubkey.get(pledge.pubkey) ?? 0) + pledge.amount
-		);
-	}
-
 	const solutions = input.solutions
 		.filter((solution) => solution.bountyAddress === bountyAddress)
 		.sort(compareEventOrder);
@@ -119,35 +118,95 @@ export function projectFinancialState(input: FinancialProjectionInput): Financia
 	const votes = input.votes.filter(
 		(vote) => vote.bountyAddress === bountyAddress && solutionIds.has(vote.solutionId)
 	);
-	const consensus = deriveConsensus(
-		solutions,
-		votes,
-		votingPowerByPubkey,
-		validatedFunding,
-		input.relatedEventsComplete
+	const unretractedPledges = validatedPledges.filter(
+		(pledge) => !retractedPledgeIds.has(pledge.id)
 	);
-	const requiredPledgeIds = new Set(activePledges.map((pledge) => pledge.id));
-	const activePledgesById = new Map(activePledges.map((pledge) => [pledge.id, pledge]));
-	const validPayouts = [];
-	const payoutValidations = [];
-	const releasedPledgeIds = new Set<string>();
-	const winner = consensus.state === 'unique' ? consensus.winner : null;
-	for (const payout of [...input.payouts].sort(compareEventOrder)) {
-		const validation = validatePayout(payout, {
-			bountyAddress,
-			bountyMint: input.bounty.mintUrl ?? '',
-			winner,
-			activePledgesById,
-			payoutTokenVerifications: input.payoutTokenVerifications,
-			alreadyReleasedPledgeIds: releasedPledgeIds,
-			now: input.now
-		});
-		payoutValidations.push(validation);
-		if (validation.status === 'valid' && validation.sourcePledgeId) {
-			validPayouts.push(payout);
-			releasedPledgeIds.add(validation.sourcePledgeId);
+	let activePledges = unretractedPledges.filter((pledge) => {
+		const state = input.pledgeVerifications.get(pledge.id)?.proofState;
+		return state === 'unspent' || state === 'spent';
+	});
+
+	const evaluate = (currentPledges: readonly Pledge[]) => {
+		const validatedFunding = currentPledges.reduce((sum, pledge) => sum + pledge.amount, 0);
+		const votingPowerByPubkey = new Map<string, number>();
+		for (const pledge of currentPledges) {
+			votingPowerByPubkey.set(
+				pledge.pubkey,
+				(votingPowerByPubkey.get(pledge.pubkey) ?? 0) + pledge.amount
+			);
 		}
+		const consensus = deriveConsensus(
+			solutions,
+			votes,
+			votingPowerByPubkey,
+			validatedFunding,
+			input.relatedEventsComplete
+		);
+		const activePledgesById = new Map(currentPledges.map((pledge) => [pledge.id, pledge]));
+		const validPayouts = [];
+		const payoutValidations = [];
+		const releasedPledgeIds = new Set<string>();
+		const winner = consensus.state === 'unique' ? consensus.winner : null;
+		for (const payout of [...input.payouts].sort(compareEventOrder)) {
+			const validation = validatePayout(payout, {
+				bountyAddress,
+				bountyMint: input.bounty.mintUrl ?? '',
+				winner,
+				activePledgesById,
+				payoutTokenVerifications: input.payoutTokenVerifications,
+				pledgeVerifications: input.pledgeVerifications,
+				alreadyReleasedPledgeIds: releasedPledgeIds,
+				globalProofOwners: input.globalProofOwners,
+				globalProofSetComplete: input.globalProofSetComplete,
+				now: input.now
+			});
+			payoutValidations.push(validation);
+			if (validation.status === 'valid' && validation.sourcePledgeId) {
+				validPayouts.push(payout);
+				releasedPledgeIds.add(validation.sourcePledgeId);
+			}
+		}
+		return {
+			validatedFunding,
+			votingPowerByPubkey,
+			consensus,
+			validPayouts,
+			payoutValidations,
+			releasedPledgeIds
+		};
+	};
+
+	let evaluated = evaluate(activePledges);
+	for (let pass = 0; pass <= unretractedPledges.length; pass++) {
+		const currentIds = new Set(activePledges.map((pledge) => pledge.id));
+		const nextPledges = unretractedPledges.filter((pledge) => {
+			const state = input.pledgeVerifications.get(pledge.id)?.proofState;
+			return (
+				state === 'unspent' ||
+				(state === 'spent' &&
+					currentIds.has(pledge.id) &&
+					evaluated.releasedPledgeIds.has(pledge.id))
+			);
+		});
+		if (
+			nextPledges.length === activePledges.length &&
+			nextPledges.every((pledge, index) => pledge.id === activePledges[index]?.id)
+		) {
+			break;
+		}
+		activePledges = nextPledges;
+		evaluated = evaluate(activePledges);
 	}
+
+	const {
+		validatedFunding,
+		votingPowerByPubkey,
+		consensus,
+		validPayouts,
+		payoutValidations,
+		releasedPledgeIds
+	} = evaluated;
+	const requiredPledgeIds = new Set(activePledges.map((pledge) => pledge.id));
 	const releasedAmount = validPayouts.reduce((sum, payout) => sum + payout.amount, 0);
 	const releaseComplete =
 		requiredPledgeIds.size > 0 && releasedPledgeIds.size === requiredPledgeIds.size;
@@ -169,6 +228,8 @@ export function projectFinancialState(input: FinancialProjectionInput): Financia
 		unavailablePledges,
 		invalidPledges,
 		proofOwners,
+		globalProofSetComplete: input.globalProofSetComplete,
+		financialDataComplete: input.globalProofSetComplete && input.relatedEventsComplete,
 		validatedFunding,
 		votingPowerByPubkey,
 		solutions,

@@ -19,15 +19,15 @@
 	 */
 	const typeStyles: Record<ToastType, { container: string; icon: string }> = {
 		success: {
-			container: 'border-success/60 bg-card text-success',
+			container: 'border-success bg-card text-success',
 			icon: 'text-success'
 		},
 		error: {
-			container: 'border-destructive/60 bg-card text-destructive',
+			container: 'border-destructive bg-card text-destructive',
 			icon: 'text-destructive'
 		},
 		warning: {
-			container: 'border-warning/60 bg-card text-warning',
+			container: 'border-warning bg-card text-warning',
 			icon: 'text-warning'
 		},
 		info: {
@@ -47,9 +47,7 @@
 {#if toastStore.toasts.length > 0}
 	<div
 		class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-sm:right-auto max-sm:left-1/2 max-sm:-translate-x-1/2"
-		role="status"
-		aria-live="polite"
-		aria-relevant="additions removals"
+		aria-label="Notifications"
 	>
 		{#each toastStore.toasts as toast (toast.id)}
 			{@const styles = typeStyles[toast.type]}
@@ -58,7 +56,7 @@
 				in:fly={{ y: 20, duration: 200 }}
 				out:fly={{ y: 20, duration: 150 }}
 				class="flex w-80 max-w-[calc(100vw-2rem)] items-start gap-3 rounded-lg border p-3 shadow-lg {styles.container}"
-				role="alert"
+				role={toast.type === 'error' ? 'alert' : 'status'}
 			>
 				<span class="mt-0.5 shrink-0 {styles.icon}" aria-hidden="true">
 					<Icon class="size-4" />

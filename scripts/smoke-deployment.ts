@@ -1,4 +1,5 @@
 type HeaderSource = Pick<Headers, 'get'>;
+import { validateReleaseMetadata, type ReleaseMetadata } from './release-metadata';
 
 export function validateHtmlHeaders(headers: HeaderSource): string[] {
 	const errors: string[] = [];
@@ -27,6 +28,16 @@ export function validateServiceWorkerHeaders(headers: HeaderSource): string[] {
 	return errors;
 }
 
+export function validateRelease(release: unknown, expectedCommit: string): ReleaseMetadata {
+	validateReleaseMetadata(release);
+	if (release.commit !== expectedCommit) {
+		throw new Error(`expected release ${expectedCommit}, received ${release.commit}`);
+	}
+	if (release.paymentWritesEnabled)
+		throw new Error('payment writes must remain disabled by default');
+	return release;
+}
+
 async function fetchWithRetry(url: string, attempts = 5): Promise<Response> {
 	let lastError: unknown;
 	for (let attempt = 1; attempt <= attempts; attempt++) {
@@ -53,17 +64,21 @@ async function smokeBaseUrl(baseUrl: string, expectedCommit: string): Promise<vo
 		headerErrors.push('Home HTML is missing application identity');
 	if (headerErrors.length > 0) throw new Error(`${base.origin}: ${headerErrors.join('; ')}`);
 
+	const deepLink = await fetchWithRetry(new URL('/settings?deployment-smoke=1', base).href);
+	const deepLinkHtml = await deepLink.text();
+	const deepLinkErrors = validateHtmlHeaders(deepLink.headers);
+	if (!deepLinkHtml.includes('Bounty.ninja'))
+		deepLinkErrors.push('deep link did not serve the SPA');
+	if (deepLinkErrors.length > 0) {
+		throw new Error(`${base.origin}/settings: ${deepLinkErrors.join('; ')}`);
+	}
+
 	const serviceWorker = await fetchWithRetry(new URL('/service-worker.js', base).href);
 	const workerErrors = validateServiceWorkerHeaders(serviceWorker.headers);
 	if (workerErrors.length > 0) throw new Error(`${base.origin}: ${workerErrors.join('; ')}`);
 
 	const releaseResponse = await fetchWithRetry(new URL('/release.json', base).href);
-	const release = (await releaseResponse.json()) as { commit?: string };
-	if (release.commit !== expectedCommit) {
-		throw new Error(
-			`${base.origin}: expected release ${expectedCommit}, received ${release.commit}`
-		);
-	}
+	const release = validateRelease(await releaseResponse.json(), expectedCommit);
 	console.log(`PASS ${base.origin} release=${release.commit}`);
 }
 

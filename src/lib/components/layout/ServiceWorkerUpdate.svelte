@@ -53,7 +53,7 @@
 		let reloading = false;
 
 		const handleControllerChange = () => {
-			if (reloading) return;
+			if (reloading || !activating) return;
 			reloading = true;
 			window.location.reload();
 		};

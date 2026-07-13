@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+vi.mock('$lib/utils/env', () => ({ assertPaymentWritesEnabled: vi.fn() }));
 import { IDBFactory } from 'fake-indexeddb';
 import { PaymentOperationJournal, type PaymentOperationIntent } from '$lib/cashu/payment-journal';
 import {

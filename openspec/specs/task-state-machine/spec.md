@@ -15,9 +15,16 @@ financial projection, not raw event presence or declared amounts.
 
 #### Scenario: Trusted inputs
 
-- **WHEN** a pledge is invalid, replayed, spent, retracted, or unavailable
+- **WHEN** a pledge is invalid, replayed, retracted, unavailable, or spent
+  without a valid source-bound settlement
 - **THEN** it SHALL not create funding, voting weight, consensus, release
   authority, completion, or reputation
+
+#### Scenario: Historical settlement
+
+- **WHEN** a spent source has an exact valid source-bound payout
+- **THEN** its prior authority and completion SHALL be preserved
+- **AND** a later spent payout SHALL not regress completion
 
 #### Scenario: Ambiguous consensus
 

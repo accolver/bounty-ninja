@@ -15,7 +15,8 @@
 		bountyAddress = '',
 		hasSolutions = false,
 		isRetracted = false,
-		isReleasePhase = false
+		isReleasePhase = false,
+		financialDataComplete = false
 	}: {
 		pledge: Pledge;
 		payouts?: Payout[];
@@ -23,6 +24,7 @@
 		hasSolutions?: boolean;
 		isRetracted?: boolean;
 		isReleasePhase?: boolean;
+		financialDataComplete?: boolean;
 	} = $props();
 
 	const isPledgeAuthor = $derived(accountState.pubkey === pledge.pubkey);
@@ -128,7 +130,7 @@
 		{/if}
 		<div class="flex items-center gap-2">
 			{#if isPledgeAuthor && !isRetracted && !hasReleased && bountyAddress}
-				<RetractPledgeButton {bountyAddress} {pledge} {hasSolutions} />
+				<RetractPledgeButton {bountyAddress} {pledge} {hasSolutions} {financialDataComplete} />
 			{/if}
 			<TimeAgo timestamp={pledge.createdAt} />
 		</div>

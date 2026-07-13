@@ -18,7 +18,7 @@ const PUBKEY = 'a'.repeat(64);
 const OTHER_PUBKEY = 'b'.repeat(64);
 const BOUNTY_ADDRESS = `${BOUNTY_KIND}:${PUBKEY}:test-bounty-123`;
 const EVENT_ID = 'e'.repeat(64);
-const PAYMENT_PUBKEY = 'c'.repeat(64);
+const PAYMENT_PUBKEY = `02${'c'.repeat(64)}`;
 
 /** Helper to find a tag value in an event template */
 function findTag(tags: string[][], name: string): string | undefined {
@@ -88,9 +88,9 @@ describe('bountyBlueprint', () => {
 		expect(findTag(template.tags, 'mint')).toBe('https://mint.example.com');
 	});
 
-	it('includes submission fee when provided', () => {
+	it('never publishes a public bearer submission fee', () => {
 		const template = bountyBlueprint({ ...baseParams, submissionFee: 25 });
-		expect(findTag(template.tags, 'fee')).toBe('25');
+		expect(findTag(template.tags, 'fee')).toBeUndefined();
 	});
 
 	it('omits optional tags when not provided', () => {
@@ -178,23 +178,21 @@ describe('solutionBlueprint', () => {
 		expect(template.content).toBe('Here is my solution with full implementation.');
 	});
 
-	it('includes anti-spam cashu tokens when provided', () => {
+	it('never publishes an unlocked anti-spam token', () => {
 		const template = solutionBlueprint({
 			...baseParams,
 			antiSpamTokens: ['cashuA_fee_10_12345']
 		});
-		expect(findTag(template.tags, 'cashu')).toBe('cashuA_fee_10_12345');
+		expect(findTag(template.tags, 'cashu')).toBeUndefined();
 	});
 
-	it('includes multiple anti-spam cashu tokens when provided', () => {
+	it('drops every legacy anti-spam token input', () => {
 		const template = solutionBlueprint({
 			...baseParams,
 			antiSpamTokens: ['cashuA_token1', 'cashuA_token2']
 		});
 		const cashuTags = template.tags.filter((t) => t[0] === 'cashu');
-		expect(cashuTags).toHaveLength(2);
-		expect(cashuTags[0][1]).toBe('cashuA_token1');
-		expect(cashuTags[1][1]).toBe('cashuA_token2');
+		expect(cashuTags).toHaveLength(0);
 	});
 
 	it('omits cashu tag when no anti-spam token', () => {

@@ -116,7 +116,7 @@
 				disabled:pointer-events-none disabled:opacity-50
 				{existingVote === 'approve'
 				? 'border border-success bg-success/15 text-success shadow-sm'
-				: 'border border-success/40 text-success/70 hover:bg-success/10'}"
+				: 'border border-success text-success hover:bg-success/10'}"
 			disabled={isDisabled || submitting}
 			title={disabledReason ??
 				(existingVote === 'approve' ? 'You approved this solution' : 'Approve this solution')}
@@ -152,7 +152,7 @@
 				disabled:pointer-events-none disabled:opacity-50
 				{existingVote === 'reject'
 				? 'border border-destructive bg-destructive/15 text-destructive shadow-sm'
-				: 'border border-destructive/40 text-destructive/70 hover:bg-destructive/10'}"
+				: 'border border-destructive text-destructive hover:bg-destructive/10'}"
 			disabled={isDisabled || submitting}
 			title={disabledReason ??
 				(existingVote === 'reject' ? 'You rejected this solution' : 'Reject this solution')}

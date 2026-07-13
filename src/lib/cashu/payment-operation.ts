@@ -7,6 +7,7 @@ import {
 	type PaymentOperationRecord,
 	type PaymentOperationRecovery
 } from './payment-journal';
+import { assertPaymentWritesEnabled } from '$lib/utils/env';
 
 export interface CreatedPaymentOutputs {
 	proofs?: Proof[];
@@ -139,6 +140,7 @@ export async function startPaymentOperation(
 	driver: PaymentOperationDriver,
 	journal: PaymentOperationJournal = paymentJournal
 ): Promise<PaymentOperationRecord> {
+	assertPaymentWritesEnabled();
 	const prepared = await journal.create(intent);
 	return spendPrepared(journal, prepared, driver);
 }
@@ -148,6 +150,7 @@ export async function resumePaymentOperation(
 	driver: PaymentOperationDriver,
 	journal: PaymentOperationJournal = paymentJournal
 ): Promise<PaymentOperationRecord> {
+	assertPaymentWritesEnabled();
 	const record = await journal.get(id);
 	if (!record) throw new Error(`Payment operation not found: ${id}`);
 	if (record.status === 'confirmed') return record;

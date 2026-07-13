@@ -2,7 +2,12 @@ import { mount, unmount } from 'svelte';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('$lib/nostr/relay-pool', () => ({
-	pool: { relays: new Map() },
+	pool: {
+		relays: new Map([
+			['wss://relay-one.example', { connected: true }],
+			['wss://relay-two.example', { connected: false }]
+		])
+	},
 	connectDefaultRelays: vi.fn()
 }));
 
@@ -15,9 +20,14 @@ describe('availability indicator', () => {
 		trigger?.click();
 		await new Promise((resolve) => setTimeout(resolve, 0));
 
-		const dialog = document.querySelector('[aria-label="Availability status"]');
+		const dialog = document.querySelector('[role="dialog"]');
+		expect(trigger?.textContent).toContain('1/2 connected');
+		expect(dialog?.textContent).toContain('Connection details');
 		expect(dialog?.textContent).toContain('Browser');
-		expect(dialog?.textContent).toContain('Relays');
+		expect(dialog?.textContent).toContain('wss://relay-one.example');
+		expect(dialog?.textContent).toContain('wss://relay-two.example');
+		expect(dialog?.textContent).toContain('Connected');
+		expect(dialog?.textContent).toContain('Disconnected');
 		expect(dialog?.textContent).toContain('Mint');
 		expect(dialog?.textContent).toContain('Cache');
 		expect(dialog?.textContent).toContain('Publishing');

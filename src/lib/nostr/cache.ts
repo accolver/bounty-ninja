@@ -23,6 +23,47 @@ const CACHE_VERSION_KEY = storageKey('cache-version');
 export const EVENT_CACHE_DATABASE_NAME = 'nostr-idb';
 const APP_OWNED_CACHE_DATABASES = [EVENT_CACHE_DATABASE_NAME] as const;
 
+function isQuotaError(error: unknown): boolean {
+	return (
+		(error instanceof DOMException && error.name === 'QuotaExceededError') ||
+		(error instanceof Error && /quota|storage full/i.test(error.message))
+	);
+}
+
+async function persistEvent(event: NostrEvent): Promise<void> {
+	if (!db) return;
+	try {
+		await addEvents(db, [event]);
+	} catch (error) {
+		if (!isQuotaError(error) || !db) {
+			console.warn('[cache] Failed to persist event', error);
+			return;
+		}
+		try {
+			const { emergencyEviction } = await import('./cache-eviction');
+			await emergencyEviction(null);
+			if (db) await addEvents(db, [event]);
+		} catch (retryError) {
+			console.warn('[cache] Persistence retry failed after emergency eviction', retryError);
+		}
+	}
+}
+
+function deleteDatabase(databaseName: string): Promise<void> {
+	return new Promise((resolve, reject) => {
+		let request: IDBOpenDBRequest;
+		try {
+			request = indexedDB.deleteDatabase(databaseName);
+		} catch (error) {
+			reject(error);
+			return;
+		}
+		request.onsuccess = () => resolve();
+		request.onerror = () => reject(request.error ?? new Error(`Failed to delete ${databaseName}`));
+		request.onblocked = () => reject(new Error(`Deletion of ${databaseName} was blocked`));
+	});
+}
+
 /**
  * Initialize the nostr-idb IndexedDB cache.
  * Checks cache version and clears on mismatch.
@@ -42,7 +83,7 @@ async function initializeCache(): Promise<void> {
 	// Subscribe to new events added to the store and persist them
 	insertSubscription ??= eventStore.insert$.subscribe((event: NostrEvent) => {
 		if (db && validateIncomingEvent(event).valid) {
-			addEvents(db, [event]);
+			void persistEvent(event);
 		}
 	});
 }
@@ -87,6 +128,9 @@ export function getDatabase(): NostrIDBDatabase | null {
 export async function clearEventCache(): Promise<void> {
 	if (!db) throw new Error('Cache database not initialized');
 	await deleteAllEvents(db);
+	eventStore.removeByFilters([{}]);
+	const { clearProfileCache } = await import('./profile-cache');
+	clearProfileCache();
 	clearCacheMeta();
 }
 
@@ -101,15 +145,14 @@ export async function clearAllCaches(): Promise<void> {
 		db = null;
 	}
 	for (const databaseName of APP_OWNED_CACHE_DATABASES) {
-		try {
-			indexedDB.deleteDatabase(databaseName);
-		} catch {
-			// best effort
-		}
+		await deleteDatabase(databaseName);
 	}
 
 	// Clear cache metadata
 	clearCacheMeta();
+	eventStore.removeByFilters([{}]);
+	const { clearProfileCache } = await import('./profile-cache');
+	clearProfileCache();
 
 	// Clear cache version so it gets re-set
 	localStorage.removeItem(CACHE_VERSION_KEY);

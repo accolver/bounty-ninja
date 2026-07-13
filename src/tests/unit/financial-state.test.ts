@@ -57,7 +57,7 @@ function pledge(id: string, pubkey: string, amount: number, createdAt: number): 
 		event: event(id, pubkey, createdAt),
 		id: id.padEnd(64, id[0]),
 		pubkey,
-		paymentPubkey: pubkey,
+		paymentPubkey: `02${pubkey}`,
 		bountyAddress: ADDRESS,
 		amount,
 		cashuToken: `token-${id}`,
@@ -81,6 +81,8 @@ function verification(
 		normalizedMint: 'https://mint.example',
 		decodedAmount: item.amount,
 		proofIdentities: identities as ProofIdentity[],
+		issuanceAuthentic: true,
+		proofState: 'unspent',
 		reasons: []
 	};
 }
@@ -90,7 +92,7 @@ function solution(id: string, pubkey: string, createdAt = 10): Solution {
 		event: event(id, pubkey, createdAt),
 		id: id.padEnd(64, id[0]),
 		pubkey,
-		paymentPubkey: pubkey,
+		paymentPubkey: `02${pubkey}`,
 		bountyAddress: ADDRESS,
 		description: 'solution',
 		antiSpamTokens: [],
@@ -159,6 +161,7 @@ function payout(id: string, source: Pledge, target: Solution, createdAt: number)
 }
 
 function payoutVerification(item: ReturnType<typeof payout>): CashuTokenVerification {
+	const identity = `proof-${item.id}` as ProofIdentity;
 	return {
 		status: 'valid',
 		policyVersion: 1,
@@ -166,14 +169,16 @@ function payoutVerification(item: ReturnType<typeof payout>): CashuTokenVerifica
 		validUntil: NOW + 300,
 		normalizedMint: 'https://mint.example',
 		decodedAmount: item.amount,
-		proofIdentities: [],
-		p2pkTarget: `02${item.paymentPubkey}`,
+		proofIdentities: [identity],
+		issuanceAuthentic: true,
+		proofState: 'unspent',
+		p2pkTarget: item.paymentPubkey,
 		reasons: []
 	};
 }
 
 function input(overrides: Partial<FinancialProjectionInput> = {}): FinancialProjectionInput {
-	return {
+	const value: FinancialProjectionInput = {
 		bounty,
 		pledges: [],
 		pledgeVerifications: new Map(),
@@ -183,9 +188,26 @@ function input(overrides: Partial<FinancialProjectionInput> = {}): FinancialProj
 		payoutTokenVerifications: new Map(),
 		retractions: [],
 		relatedEventsComplete: true,
+		globalProofOwners: new Map<ProofIdentity, string | null>(),
+		globalProofSetComplete: true,
 		now: NOW,
 		...overrides
 	};
+	if (!overrides.globalProofOwners) {
+		const claims = new Map<ProofIdentity, string | null>();
+		for (const record of value.pledgeVerifications.values()) {
+			for (const identity of record.proofIdentities) {
+				claims.set(identity, claims.has(identity) ? null : record.pledgeId);
+			}
+		}
+		for (const [payoutId, record] of value.payoutTokenVerifications) {
+			for (const identity of record.proofIdentities) {
+				claims.set(identity, claims.has(identity) ? null : payoutId);
+			}
+		}
+		value.globalProofOwners = claims;
+	}
+	return value;
 }
 
 describe('projectFinancialState', () => {
@@ -227,7 +249,7 @@ describe('projectFinancialState', () => {
 		expect(projectFinancialState(input({ bounty: expiredBounty })).status).toBe('draft');
 	});
 
-	it('accepts at most one duplicate proof owner by createdAt then id regardless of input order', () => {
+	it('excludes every claimant when a proof is globally replayed', () => {
 		const first = pledge('1', ALICE, 40, 10);
 		const second = pledge('2', BOB, 90, 10);
 		const shared = ['shared'] as ProofIdentity[];
@@ -241,9 +263,9 @@ describe('projectFinancialState', () => {
 		const reverse = projectFinancialState(
 			input({ pledges: [second, first], pledgeVerifications: values })
 		);
-		expect(forward.activePledges.map((item) => item.id)).toEqual([first.id]);
-		expect(reverse.activePledges.map((item) => item.id)).toEqual([first.id]);
-		expect(forward.validatedFunding).toBe(40);
+		expect(forward.activePledges).toEqual([]);
+		expect(reverse.activePledges).toEqual([]);
+		expect(forward.validatedFunding).toBe(0);
 	});
 
 	it('applies only owner-authorized same-bounty pledge retractions', () => {
@@ -348,7 +370,7 @@ describe('projectFinancialState', () => {
 		const base = {
 			pledges: [first, second],
 			pledgeVerifications: new Map([
-				[first.id, verification(first, 'valid')],
+				[first.id, { ...verification(first, 'valid'), proofState: 'spent' as const }],
 				[second.id, verification(second, 'valid')]
 			]),
 			solutions: [candidate],
@@ -378,9 +400,13 @@ describe('projectFinancialState', () => {
 		const complete = projectFinancialState(
 			input({
 				...base,
+				pledgeVerifications: new Map([
+					[first.id, { ...verification(first, 'valid'), proofState: 'spent' as const }],
+					[second.id, { ...verification(second, 'valid'), proofState: 'spent' as const }]
+				]),
 				payouts: [secondPayout, firstPayout],
 				payoutTokenVerifications: new Map([
-					[firstPayout.id, payoutVerification(firstPayout)],
+					[firstPayout.id, { ...payoutVerification(firstPayout), proofState: 'spent' as const }],
 					[secondPayout.id, payoutVerification(secondPayout)]
 				])
 			})
@@ -388,6 +414,49 @@ describe('projectFinancialState', () => {
 		expect(complete.status).toBe('completed');
 		expect(complete.releaseProgress.complete).toBe(true);
 		expect(complete.releaseProgress.releasedAmount).toBe(100);
+	});
+
+	it('removes spent unsettled sources from funding and voting authority', () => {
+		const source = pledge('1', ALICE, 100, 1);
+		const candidate = solution('2', BOB);
+		const projection = projectFinancialState(
+			input({
+				pledges: [source],
+				pledgeVerifications: new Map([
+					[source.id, { ...verification(source, 'valid'), proofState: 'spent' }]
+				]),
+				solutions: [candidate],
+				votes: [vote('3', ALICE, candidate, 'approve', 30)]
+			})
+		);
+		expect(projection.activePledges).toEqual([]);
+		expect(projection.validatedFunding).toBe(0);
+		expect(projection.votingPowerByPubkey.has(ALICE)).toBe(false);
+		expect(projection.consensus.state).toBe('none');
+	});
+
+	it('preserves a spent source and completion through its valid circular settlement', () => {
+		const source = pledge('1', ALICE, 100, 1);
+		const candidate = solution('2', BOB);
+		const settlement = payout('3', source, candidate, 40);
+		const projection = projectFinancialState(
+			input({
+				pledges: [source],
+				pledgeVerifications: new Map([
+					[source.id, { ...verification(source, 'valid'), proofState: 'spent' }]
+				]),
+				solutions: [candidate],
+				votes: [vote('4', ALICE, candidate, 'approve', 30)],
+				payouts: [settlement],
+				payoutTokenVerifications: new Map([
+					[settlement.id, { ...payoutVerification(settlement), proofState: 'spent' }]
+				])
+			})
+		);
+		expect(projection.activePledges).toEqual([source]);
+		expect(projection.validatedFunding).toBe(100);
+		expect(projection.status).toBe('completed');
+		expect(projection.validPayouts).toEqual([settlement]);
 	});
 
 	it('accepts only the first deterministic valid payout per source', () => {
@@ -398,7 +467,9 @@ describe('projectFinancialState', () => {
 		const projection = projectFinancialState(
 			input({
 				pledges: [source],
-				pledgeVerifications: new Map([[source.id, verification(source, 'valid')]]),
+				pledgeVerifications: new Map([
+					[source.id, { ...verification(source, 'valid'), proofState: 'spent' }]
+				]),
 				solutions: [candidate],
 				votes: [vote('1', ALICE, candidate, 'approve', 30)],
 				payouts: [duplicate, first],

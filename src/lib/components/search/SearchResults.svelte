@@ -55,7 +55,7 @@
 			{/each}
 		</div>
 	{:else if searchStore.error}
-		<div class="rounded-lg border border-warning/50 bg-warning/10 p-4 text-center" role="alert">
+		<div class="rounded-lg border border-warning bg-warning/10 p-4 text-center" role="alert">
 			<p class="text-sm text-warning">{searchStore.error}</p>
 		</div>
 	{:else if filteredResults.length === 0 && !searchStore.loading}

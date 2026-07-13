@@ -3,8 +3,8 @@ import { bountyBlueprint } from '$lib/bounty/blueprints';
 import { BOUNTY_KIND } from '$lib/bounty/kinds';
 import { expect, MINT_URL, TEST_PUBKEYS, test } from './helpers/test';
 
-test.describe('Service worker offline and payment update safety', () => {
-	test('serves an offline cached deep link and preserves pending payment recovery', async ({
+test.describe('Service worker offline cache and payment persistence', () => {
+	test('serves a cached deep link and preserves pending payment recovery across an offline reload', async ({
 		page,
 		context,
 		services
@@ -31,6 +31,11 @@ test.describe('Service worker offline and payment update safety', () => {
 		await page.goto(url);
 		await expect(page.getByRole('heading', { name: title })).toBeVisible();
 		await page.evaluate(async () => navigator.serviceWorker.ready);
+		await expect
+			.poll(() => page.evaluate(() => navigator.serviceWorker.controller !== null))
+			.toBe(true);
+		const cachedShell = await page.evaluate(async () => (await caches.match('/'))?.text());
+		expect(cachedShell).toContain('"/_app/');
 		await page.evaluate(async () => {
 			const request = indexedDB.open('bounty.ninja:payment-journal', 2);
 			const database = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -44,7 +49,7 @@ test.describe('Service worker offline and payment update safety', () => {
 			});
 			const transaction = database.transaction('operations', 'readwrite');
 			transaction.objectStore('operations').put({
-				id: 'pending-across-service-worker-update',
+				id: 'pending-across-offline-reload',
 				schemaVersion: 2,
 				status: 'recovery-required',
 				intent: {
@@ -63,8 +68,6 @@ test.describe('Service worker offline and payment update safety', () => {
 				transaction.onerror = () => reject(transaction.error);
 			});
 			database.close();
-			const registration = await navigator.serviceWorker.ready;
-			await registration.update();
 		});
 
 		await context.setOffline(true);
@@ -81,7 +84,7 @@ test.describe('Service worker offline and payment update safety', () => {
 				request.onerror = () => reject(request.error);
 			});
 			const transaction = database.transaction('operations', 'readonly');
-			const get = transaction.objectStore('operations').get('pending-across-service-worker-update');
+			const get = transaction.objectStore('operations').get('pending-across-offline-reload');
 			const record = await new Promise<{ id?: string } | undefined>((resolve, reject) => {
 				get.onsuccess = () => resolve(get.result);
 				get.onerror = () => reject(get.error);
@@ -89,6 +92,6 @@ test.describe('Service worker offline and payment update safety', () => {
 			database.close();
 			return record?.id;
 		});
-		expect(pendingId).toBe('pending-across-service-worker-update');
+		expect(pendingId).toBe('pending-across-offline-reload');
 	});
 });

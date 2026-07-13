@@ -25,6 +25,8 @@ export type PledgeInvalidReason =
 	| 'amount_mismatch'
 	| 'mint_mismatch'
 	| 'nut11_unsupported'
+	| 'issuance_evidence_missing'
+	| 'issuance_evidence_invalid'
 	| 'mint_unavailable'
 	| 'proof_state_mismatch'
 	| 'spent_proof'
@@ -47,6 +49,8 @@ export interface PledgeVerification {
 	normalizedMint: string | null;
 	decodedAmount: number | null;
 	proofIdentities: readonly ProofIdentity[];
+	issuanceAuthentic: boolean;
+	proofState: 'unspent' | 'spent' | 'pending' | 'unavailable' | 'mixed';
 	reasons: readonly PledgeInvalidReason[];
 }
 
@@ -58,6 +62,8 @@ export type CashuTokenInvalidReason =
 	| 'invalid_amount'
 	| 'mint_mismatch'
 	| 'nut11_unsupported'
+	| 'issuance_evidence_missing'
+	| 'issuance_evidence_invalid'
 	| 'mint_unavailable'
 	| 'amount_mismatch'
 	| 'proof_state_mismatch'
@@ -77,6 +83,8 @@ export interface CashuTokenVerification {
 	normalizedMint: string | null;
 	decodedAmount: number | null;
 	proofIdentities: readonly ProofIdentity[];
+	issuanceAuthentic: boolean;
+	proofState: 'unspent' | 'spent' | 'pending' | 'unavailable' | 'mixed';
 	p2pkTarget: string | null;
 	reasons: readonly CashuTokenInvalidReason[];
 }

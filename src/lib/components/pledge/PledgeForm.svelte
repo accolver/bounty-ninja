@@ -33,12 +33,14 @@
 		// NOT for token locking. Tokens are locked only to the Cashu payment key.
 		creatorPubkey: _creatorPubkey,
 		mintUrl,
+		financialDataComplete,
 		deadline: _deadline = null,
 		open = $bindable(false)
 	}: {
 		bountyAddress: string;
 		creatorPubkey: string;
 		mintUrl: string | null;
+		financialDataComplete: boolean;
 		deadline: number | null;
 		open: boolean;
 	} = $props();
@@ -147,6 +149,7 @@
 
 	const isValid = $derived(
 		paymentWritesEnabled &&
+			financialDataComplete &&
 			isValidToken &&
 			Number.isSafeInteger(amount) &&
 			(amount ?? 0) > 0 &&
@@ -165,7 +168,7 @@
 	);
 
 	async function handleSubmit() {
-		if (!paymentWritesEnabled) return;
+		if (!paymentWritesEnabled || !financialDataComplete) return;
 		if (!accountState.pubkey || !canSubmit) return;
 
 		if (operation) {
@@ -324,11 +327,17 @@
 					autocomplete="off"
 					spellcheck={false}
 					aria-invalid={paymentKeyInput.length > 0 && !paymentKeyValid}
+					aria-describedby="pledge-payment-key-help pledge-payment-key-error"
 					class="border-border bg-input dark:bg-input/30 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-full rounded-md border px-3 py-2 font-mono text-xs outline-none transition-[color,box-shadow] focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
 				/>
-				<p class="text-xs text-muted-foreground">
+				<p id="pledge-payment-key-help" class="text-xs text-muted-foreground">
 					In Minibits, use this same wallet key for both creating and later reverting or releasing
 					the token. Back up the wallet that controls it. Never enter a private key here.
+				</p>
+				<p id="pledge-payment-key-error" class="text-xs text-destructive" aria-live="polite">
+					{paymentKeyInput.length > 0 && !paymentKeyValid
+						? 'Enter a valid Minibits wallet public key.'
+						: ''}
 				</p>
 			</div>
 			<div class="space-y-2">
@@ -370,7 +379,7 @@
 					placeholder="Paste a cashuA... or cashuB... token"
 					spellcheck={false}
 					autocomplete="off"
-					aria-describedby="pledge-token-help"
+					aria-describedby="pledge-token-help pledge-token-error"
 					aria-invalid={tokenInput.trim().length > 0 && !isValidToken}
 					class="font-mono text-xs border-border bg-input dark:bg-input/30 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-full rounded-md border px-3 py-2 shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
 				></textarea>
@@ -379,26 +388,20 @@
 						>{effectiveMint}</span
 					>
 				</p>
-				{#if decodeError}
-					<p class="text-xs text-destructive" role="alert">{decodeError}</p>
-				{/if}
-				{#if mintMismatch && decodedToken}
-					<p class="text-xs text-destructive" role="alert">
-						Token mint ({decodedToken.mint}) does not match bounty mint ({effectiveMint}). Please
-						use a token from the correct mint.
-					</p>
-				{/if}
-				{#if verificationError}<p class="text-xs text-destructive" role="alert">
-						{verificationError}
-					</p>{/if}
+				<p id="pledge-token-error" class="text-xs text-destructive" role="alert">
+					{decodeError ||
+						(mintMismatch && decodedToken
+							? `Token mint ${decodedToken.mint} does not match bounty mint ${effectiveMint}. Please use a token from the correct mint.`
+							: verificationError)}
+				</p>
 			</div>
 
 			<!-- Decoded token summary -->
 			{#if decodedToken && !mintMismatch}
 				<div
-					class="flex items-center justify-between rounded-md border border-success/30 bg-success/5 px-3 py-2"
+					class="flex items-center justify-between rounded-md border border-success bg-success/5 px-3 py-2"
 				>
-					<span class="text-sm text-foreground/80">Token amount</span>
+					<span class="text-sm text-foreground">Token amount</span>
 					<SatAmount amount={decodedToken.amount} />
 				</div>
 			{/if}
@@ -423,12 +426,12 @@
 			</div>
 
 			<!-- Bearer instrument warning -->
-			<div class="rounded-lg border border-warning/30 bg-warning/5 p-3" role="alert">
+			<div class="rounded-lg border border-warning bg-warning/5 p-3" role="alert">
 				<div class="flex items-start gap-2">
 					<TriangleAlertIcon class="mt-0.5 size-4 shrink-0 text-warning" />
 					<div class="space-y-2">
 						<p class="text-sm font-medium text-warning">Bearer instrument warning</p>
-						<p class="text-xs text-foreground/80">
+						<p class="text-xs text-foreground">
 							This public token will be posted to Nostr. Only the backed-up Minibits wallet
 							controlling the entered key can release or revert it.
 						</p>
@@ -440,7 +443,7 @@
 								class="pledge-checkbox mt-0.5 size-4 shrink-0"
 								aria-describedby="acknowledge-desc"
 							/>
-							<span id="acknowledge-desc" class="text-xs text-foreground/80">
+							<span id="acknowledge-desc" class="text-xs text-foreground">
 								I understand Cashu tokens are bearer instruments and can be lost.
 							</span>
 						</label>

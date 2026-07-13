@@ -63,7 +63,7 @@
 </script>
 
 {#if confirming}
-	<div class="space-y-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+	<div class="space-y-3 rounded-lg border border-destructive bg-destructive/5 p-4">
 		{#if hasSolutions}
 			<p class="text-sm font-medium text-destructive">
 				⚠️ This bounty has solutions. Cancelling will publish a reputation event visible to all

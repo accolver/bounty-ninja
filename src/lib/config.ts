@@ -30,7 +30,8 @@ export const config = {
 		searchRelay: 'wss://search.nos.today',
 		clientTag: 'bounty.ninja',
 		maxRelayHints: 3,
-		maxRelayConnections: 10
+		maxRelayConnections: 10,
+		minFinancialEoseRelays: 2
 	},
 
 	// Payments

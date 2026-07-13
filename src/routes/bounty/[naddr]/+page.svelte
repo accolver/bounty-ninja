@@ -19,12 +19,11 @@
 	let needsOverlay = $state(false);
 
 	$effect(() => {
-		store.load(data.bountyAddress, data.kind, data.pubkey, data.dTag, data.relays);
+		const { bountyAddress, kind, pubkey, dTag, relays } = data;
 
-		// Check whether data resolved synchronously from cache.
-		// Use untrack to avoid creating a reactive dependency on store state
-		// (which would cause an infinite effect loop since load() writes to it).
 		untrack(() => {
+			store.load(bountyAddress, kind, pubkey, dTag, relays);
+			// Check whether data resolved synchronously from cache without tracking store state.
 			if (!store.bounty && store.loading) {
 				needsOverlay = true;
 			}
@@ -39,7 +38,10 @@
 		const timer = setTimeout(() => {
 			minTimeElapsed = true;
 		}, 1000);
-		return () => clearTimeout(timer);
+		return () => {
+			clearTimeout(timer);
+			pageLoading.active = false;
+		};
 	});
 
 	const dataReady = $derived(!!store.bounty || store.error || !store.loading);
@@ -73,7 +75,7 @@
 		<div class:animate-fade-in={needsOverlay && !showOverlay}>
 			{#if store.stale && store.bounty}
 				<p
-					class="mx-auto mb-4 max-w-5xl border-y border-warning/40 py-2 text-sm text-warning"
+					class="mx-auto mb-4 max-w-5xl border-y border-warning py-2 text-sm text-warning"
 					role="status"
 				>
 					Showing verified cached bounty data while relays reconnect.
@@ -81,11 +83,28 @@
 			{/if}
 			{#if store.error}
 				<div
-					class="mx-auto max-w-5xl rounded-lg border border-destructive/50 bg-destructive/10 p-8 text-center"
+					class="mx-auto max-w-5xl rounded-lg border border-destructive bg-destructive/10 p-8 text-center"
 				>
 					<p class="text-sm text-destructive">{store.error}</p>
 				</div>
 			{:else if store.bounty}
+				{#if store.unknownMintNeedsConsent}
+					<div
+						class="mx-auto mb-4 flex max-w-5xl flex-wrap items-center justify-between gap-3 border-y border-warning py-3"
+					>
+						<p class="text-sm text-warning">
+							This bounty uses an unknown mint. Verification is paused to protect your network
+							privacy.
+						</p>
+						<button
+							type="button"
+							onclick={() => store.grantMintConsent()}
+							class="hover:cursor-pointer rounded-md border border-warning px-3 py-1.5 text-sm text-warning transition-colors hover:bg-warning/10"
+						>
+							Contact this mint
+						</button>
+					</div>
+				{/if}
 				{#if store.projection}
 					<BountyDetailView
 						detail={store.bounty}

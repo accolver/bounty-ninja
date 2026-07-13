@@ -12,7 +12,7 @@ const files = import.meta.glob(
 describe('service worker repository policy', () => {
 	it('serves the cached SPA shell for failed same-origin navigations', () => {
 		const source = files['/src/service-worker.ts'];
-		expect(source).toContain("const APP_SHELL = '/index.html'");
+		expect(source).toContain("const APP_SHELL = '/'");
 		expect(source).toContain("event.request.mode === 'navigate'");
 		expect(source).toContain('caches.match(APP_SHELL)');
 	});
@@ -30,5 +30,6 @@ describe('service worker repository policy', () => {
 		expect(component).toContain('Update and reload');
 		expect(component).toContain('Update blocked to preserve pending payment recovery data');
 		expect(component).toContain('paymentJournal.listPending()');
+		expect(component).toContain('if (reloading || !activating) return');
 	});
 });

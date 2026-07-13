@@ -53,7 +53,7 @@ export interface Pledge {
 	event: NostrEvent;
 	id: string;
 	pubkey: string;
-	/** Cashu spending key declared by the event, or null for a legacy event. */
+	/** Compressed Cashu spending key declared by the event, or null for a legacy event. */
 	paymentPubkey: string | null;
 	bountyAddress: string;
 	amount: number;
@@ -67,7 +67,7 @@ export interface Solution {
 	event: NostrEvent;
 	id: string;
 	pubkey: string;
-	/** Cashu payout key declared by the solver, or null for a legacy solution. */
+	/** Compressed Cashu payout key declared by the solver, or null for a legacy solution. */
 	paymentPubkey: string | null;
 	bountyAddress: string;
 	description: string;
@@ -192,6 +192,8 @@ export interface FinancialProjection {
 	unavailablePledges: readonly Pledge[];
 	invalidPledges: readonly Pledge[];
 	proofOwners: ReadonlyMap<ProofIdentity, string>;
+	globalProofSetComplete: boolean;
+	financialDataComplete: boolean;
 	validatedFunding: number;
 	votingPowerByPubkey: ReadonlyMap<string, number>;
 	solutions: readonly Solution[];
@@ -214,5 +216,7 @@ export interface FinancialProjectionInput {
 	payoutTokenVerifications: ReadonlyMap<string, CashuTokenVerification>;
 	retractions: readonly Retraction[];
 	relatedEventsComplete: boolean;
+	globalProofOwners: ReadonlyMap<ProofIdentity, string | null>;
+	globalProofSetComplete: boolean;
 	now: number;
 }

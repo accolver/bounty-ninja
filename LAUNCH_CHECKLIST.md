@@ -85,6 +85,9 @@ issues, logs, screenshots, or reports.
 - [ ] Verify protected production approval, artifact checksum, release identity,
       payment-enabled configuration diff, deployment serialization, and automatic
       failure reporting.
+- [ ] In Cloudflare Pages, disable Web Analytics/automatic analytics injection and record
+      dated dashboard evidence. This setting is external to the repository and is not
+      complete merely because the application contains no analytics code.
 - [ ] Rehearse payment disablement and Cloudflare rollback; verify read-only
       access remains available and capture recovery time.
 - [ ] Confirm incident, outage, disclosure, credential-rotation, recovery, and

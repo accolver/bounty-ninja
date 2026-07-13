@@ -7,10 +7,12 @@
 
 	const {
 		pubkey,
-		size = 'md'
+		size = 'md',
+		allowRemoteImage = false
 	}: {
 		pubkey: string;
 		size?: 'sm' | 'md' | 'lg' | 'xl';
+		allowRemoteImage?: boolean;
 	} = $props();
 
 	const sizeClasses: Record<string, string> = {
@@ -55,7 +57,7 @@
 	const fallbackColor = $derived.by(() => {
 		const hash = parseInt(pubkey.slice(0, 8), 16);
 		const hue = hash % 360;
-		return `hsl(${hue}, 65%, 45%)`;
+		return `hsl(${hue}, 65%, 20%)`;
 	});
 
 	/**
@@ -77,7 +79,7 @@
 		imgError = true;
 	}
 
-	const showImage = $derived(pictureUrl !== null && !imgError);
+	const showImage = $derived(allowRemoteImage && pictureUrl !== null && !imgError);
 	const altText = $derived(
 		displayName ? `${displayName}'s avatar` : `Avatar for ${pubkey.slice(0, 8)}`
 	);
@@ -91,10 +93,11 @@
 		onerror={handleImgError}
 		loading="lazy"
 		decoding="async"
+		referrerpolicy="no-referrer"
 	/>
 {:else}
 	<div
-		class="inline-flex shrink-0 items-center justify-center rounded-full border border-border font-mono font-bold text-background select-none {sizeClasses[
+		class="inline-flex shrink-0 items-center justify-center rounded-full border border-border font-mono font-bold text-primary-foreground select-none dark:text-foreground {sizeClasses[
 			size
 		]}"
 		style:background-color={fallbackColor}

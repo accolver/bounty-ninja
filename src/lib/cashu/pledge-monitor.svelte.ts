@@ -3,19 +3,12 @@
  *
  * Detects when pledge tokens have been spent at the mint (reclaimed by the
  * pledger outside the app) without a corresponding Kind 73005 retraction event.
- * When detected:
- *   - If the current user is the pledger → auto-publish retraction + reputation events
- *   - For any user → mark the pledge as "reclaimed" in the UI
- *
- * This ensures retraction state and token custody are always in sync,
- * regardless of whether the pledger used our UI or their Cashu wallet directly.
+ * Spend state is informational only. It never implies reclaim or authorizes a
+ * retraction because a legitimate release consumes the same source proofs.
  */
 
 import { decodeToken } from './token';
 import { getWallet } from './mint';
-import { accountState } from '$lib/nostr/account.svelte';
-import { publishEvent } from '$lib/nostr/signer.svelte';
-import { retractionBlueprint, reputationBlueprint } from '$lib/bounty/blueprints';
 import type { Pledge, Retraction } from '$lib/bounty/types';
 
 /** Pledges whose tokens have been spent but no retraction event exists */
@@ -70,54 +63,4 @@ export async function detectSpentUnretractedPledges(
 	}
 
 	return spentUnretracted;
-}
-
-/**
- * Auto-publish retraction (and reputation) events for a pledge the current
- * user reclaimed out-of-band.
- *
- * Only publishes if:
- * - The current user is the pledger
- * - No retraction event already exists for this pledge
- *
- * @returns true if events were published, false otherwise
- */
-export async function autoRetractSpentPledge(
-	pledge: Pledge,
-	taskAddress: string,
-	hasSolutions: boolean
-): Promise<boolean> {
-	const currentPubkey = accountState.pubkey;
-	if (!currentPubkey || currentPubkey !== pledge.pubkey) return false;
-
-	try {
-		// Publish retraction event
-		const template = retractionBlueprint({
-			taskAddress,
-			type: 'pledge',
-			pledgeEventId: pledge.id,
-			creatorPubkey: currentPubkey,
-			reason: 'Tokens reclaimed — automatic retraction'
-		});
-
-		const { event: signed } = await publishEvent(template);
-
-		// If solutions exist, publish reputation event
-		if (hasSolutions) {
-			const repTemplate = reputationBlueprint({
-				offenderPubkey: currentPubkey,
-				taskAddress,
-				type: 'pledge_retraction',
-				retractionEventId: signed.id,
-				description:
-					'Retracted pledge after solutions were submitted (auto-detected from token reclaim)'
-			});
-			await publishEvent(repTemplate);
-		}
-
-		return true;
-	} catch (err) {
-		console.error('[pledge-monitor] Auto-retraction failed:', err);
-		return false;
-	}
 }

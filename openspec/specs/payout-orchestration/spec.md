@@ -28,12 +28,18 @@ creator has no authority over another pledger's proofs.
 MVP SHALL publish one Kind 73004 payout per source pledge. It SHALL include the
 bounty address, exactly one winning solution reference, exactly one source
 pledge reference marked `source`, solver pubkey, amount, mint, token,
-`['payment','cashu','<winner-x-only-key>']`, and client tag. The author SHALL own
+	`['payment','cashu','<winner-compressed-key>']`, and client tag. The author SHALL own
 the source pledge.
 
 Duplicate sources, wrong authors, ambiguous winners, key redirection, wrong
 mint/amount, unspent sources, and invalid output tokens SHALL not affect release
-progress or reputation.
+progress or reputation. Payout outputs reused by any pledge or payout across
+bounties, including overlap with their own source pledge, SHALL be invalid.
+
+Source spend and payout spend are historical settlement evidence. Once an exact
+source-bound payout validates, later solver claim SHALL NOT regress release or
+completion. Spent source state alone SHALL never imply reclaim or publish a
+retraction, and SHALL retain no active authority without that settlement.
 
 ### Requirement: Solver Claim
 

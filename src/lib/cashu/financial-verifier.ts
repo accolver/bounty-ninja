@@ -1,4 +1,4 @@
-import type { ProofState } from '@cashu/cashu-ts';
+import type { Proof, ProofState, Wallet } from '@cashu/cashu-ts';
 import type { Bounty, Payout, Pledge } from '$lib/bounty/types';
 import { decodeToken } from './token';
 import { getWallet } from './mint';
@@ -12,6 +12,9 @@ import type {
 	ProofIdentity,
 	TokenInfo
 } from './types';
+import { normalizePublicHttpsUrl } from '$lib/utils/network-policy';
+import { getCashu } from './lazy';
+import { compareEventOrder } from '$lib/bounty/event-order';
 
 const VERIFICATION_FRESHNESS_SECONDS = 5 * 60;
 export const CASHU_TOKEN_VERIFICATION_POLICY_VERSION = 1;
@@ -26,6 +29,7 @@ export interface FinancialVerifierDependencies {
 	wallet: typeof getWallet;
 	identities: typeof getProofIdentities;
 	condition: typeof inspectP2PKProof;
+	issuance: (proof: Proof, wallet: Wallet) => Promise<'valid' | 'missing' | 'invalid'>;
 	now: () => number;
 }
 
@@ -34,8 +38,24 @@ const defaultDependencies: FinancialVerifierDependencies = {
 	wallet: getWallet,
 	identities: getProofIdentities,
 	condition: inspectP2PKProof,
+	issuance: verifyProofIssuance,
 	now: () => Math.floor(Date.now() / 1000)
 };
+
+/** Verify NUT-12 issuance evidence against the exact mint keyset for this proof. */
+export async function verifyProofIssuance(
+	proof: Proof,
+	wallet: Wallet
+): Promise<'valid' | 'missing' | 'invalid'> {
+	if (!proof.dleq?.e || !proof.dleq.s || !proof.dleq.r) return 'missing';
+	try {
+		const { hasValidDleq } = await getCashu();
+		const keyset = await wallet.keyChain.ensureKeysetKeys(proof.id);
+		return hasValidDleq(proof, keyset) ? 'valid' : 'invalid';
+	} catch {
+		return 'invalid';
+	}
+}
 
 function duplicateIdentities(prepared: Iterable<PreparedToken>): Set<ProofIdentity> {
 	const counts = new Map<ProofIdentity, number>();
@@ -61,6 +81,23 @@ async function prepare(
 	}
 }
 
+/** Build a complete mint-scoped ownership index. Any replay poisons every claimant. */
+export async function buildGlobalProofOwnership(
+	pledges: readonly Pledge[],
+	payouts: readonly Payout[],
+	dependencies: Pick<FinancialVerifierDependencies, 'decode' | 'identities'> = defaultDependencies
+): Promise<Map<ProofIdentity, string | null>> {
+	const owners = new Map<ProofIdentity, string | null>();
+	const claims = [...pledges, ...payouts].sort(compareEventOrder);
+	for (const claim of claims) {
+		const token = await prepare(claim.cashuToken, dependencies as FinancialVerifierDependencies);
+		for (const identity of token.identities) {
+			owners.set(identity, owners.has(identity) ? null : claim.id);
+		}
+	}
+	return owners;
+}
+
 async function inspectConditions(
 	prepared: PreparedToken,
 	dependencies: FinancialVerifierDependencies
@@ -71,24 +108,46 @@ async function inspectConditions(
 
 async function mintState(
 	prepared: PreparedToken,
-	dependencies: FinancialVerifierDependencies
-): Promise<{ states: ProofState[] | null; nut11Supported: boolean | null }> {
-	if (!prepared.decoded) return { states: null, nut11Supported: null };
+	dependencies: FinancialVerifierDependencies,
+	expectedMint: string,
+	allowMintContact: boolean
+): Promise<{
+	states: ProofState[] | null;
+	nut11Supported: boolean | null;
+	issuanceEvidence: ('valid' | 'missing' | 'invalid')[];
+}> {
+	if (!prepared.decoded) return { states: null, nut11Supported: null, issuanceEvidence: [] };
 	try {
+		const tokenMint = normalizePublicHttpsUrl(prepared.decoded.mint);
+		const bountyMint = normalizePublicHttpsUrl(expectedMint);
+		if (!allowMintContact || !tokenMint || tokenMint !== bountyMint) {
+			return { states: null, nut11Supported: null, issuanceEvidence: [] };
+		}
 		const wallet = await dependencies.wallet(prepared.decoded.mint);
+		const issuanceEvidence = await Promise.all(
+			prepared.decoded.proofs.map((proof) => dependencies.issuance(proof, wallet))
+		);
+		let states: ProofState[] | null = null;
+		try {
+			states = await wallet.checkProofsStates(prepared.decoded.proofs);
+		} catch {
+			// Issuance authenticity remains independently established when NUT-07 is unavailable.
+		}
 		return {
-			states: await wallet.checkProofsStates(prepared.decoded.proofs),
-			nut11Supported: wallet.getMintInfo().isSupported(11).supported
+			states,
+			nut11Supported: wallet.getMintInfo().isSupported(11).supported,
+			issuanceEvidence
 		};
 	} catch {
-		return { states: null, nut11Supported: null };
+		return { states: null, nut11Supported: null, issuanceEvidence: [] };
 	}
 }
 
 export async function verifyPledgesForBounty(
 	bounty: Bounty,
 	pledges: readonly Pledge[],
-	dependencies: FinancialVerifierDependencies = defaultDependencies
+	dependencies: FinancialVerifierDependencies = defaultDependencies,
+	allowMintContact = true
 ): Promise<Map<string, PledgeVerification>> {
 	const prepared = new Map<string, PreparedToken>();
 	await Promise.all(
@@ -103,7 +162,7 @@ export async function verifyPledgesForBounty(
 			const token = prepared.get(pledge.id) ?? { decoded: null, identities: [] };
 			const [conditions, mint] = await Promise.all([
 				inspectConditions(token, dependencies),
-				mintState(token, dependencies)
+				mintState(token, dependencies, bounty.mintUrl ?? '', allowMintContact)
 			]);
 			return [
 				pledge.id,
@@ -116,6 +175,7 @@ export async function verifyPledgesForBounty(
 					proofIdentities: token.identities,
 					duplicateProofs: duplicates,
 					conditions,
+					issuanceEvidence: mint.issuanceEvidence,
 					checkedAt,
 					validUntil: mint.states ? checkedAt + VERIFICATION_FRESHNESS_SECONDS : null,
 					mintUnavailable: mint.states === null,
@@ -154,6 +214,13 @@ function payoutResult(
 		normalizedMint,
 		decodedAmount: prepared.decoded?.amount ?? null,
 		proofIdentities: prepared.identities,
+		issuanceAuthentic:
+			prepared.decoded !== null &&
+			prepared.decoded.proofs.length > 0 &&
+			!uniqueReasons.some((reason) =>
+				['issuance_evidence_missing', 'issuance_evidence_invalid'].includes(reason)
+			),
+		proofState: 'unavailable',
 		p2pkTarget: null,
 		reasons: uniqueReasons
 	};
@@ -162,7 +229,8 @@ function payoutResult(
 export async function verifyPayoutsForBounty(
 	bounty: Bounty,
 	payouts: readonly Payout[],
-	dependencies: FinancialVerifierDependencies = defaultDependencies
+	dependencies: FinancialVerifierDependencies = defaultDependencies,
+	allowMintContact = true
 ): Promise<Map<string, CashuTokenVerification>> {
 	const prepared = new Map<string, PreparedToken>();
 	await Promise.all(
@@ -209,14 +277,22 @@ export async function verifyPayoutsForBounty(
 
 			const [conditions, mint] = await Promise.all([
 				inspectConditions(token, dependencies),
-				mintState(token, dependencies)
+				mintState(token, dependencies, bounty.mintUrl ?? '', allowMintContact)
 			]);
 			if (mint.states === null) reasons.push('mint_unavailable');
 			else {
 				if (mint.states.length !== token.decoded.proofs.length)
 					reasons.push('proof_state_mismatch');
-				if (mint.states.some((state) => state.state === 'SPENT')) reasons.push('spent_proof');
 				if (mint.states.some((state) => state.state === 'PENDING')) reasons.push('pending_proof');
+			}
+			if (mint.issuanceEvidence.length !== token.decoded.proofs.length) {
+				reasons.push('issuance_evidence_missing');
+			}
+			if (mint.issuanceEvidence.some((evidence) => evidence === 'missing')) {
+				reasons.push('issuance_evidence_missing');
+			}
+			if (mint.issuanceEvidence.some((evidence) => evidence === 'invalid')) {
+				reasons.push('issuance_evidence_invalid');
 			}
 			if (mint.nut11Supported === false) reasons.push('nut11_unsupported');
 			if (conditions.length !== token.decoded.proofs.length || conditions.some((item) => !item)) {
@@ -234,7 +310,8 @@ export async function verifyPayoutsForBounty(
 							!nut11KeyMatchesXOnly(condition.target, payout.paymentPubkey) ||
 							condition.locktime !== null ||
 							condition.refundKeys.length > 0 ||
-							condition.nSigs < 1 ||
+							condition.primaryKeys.length !== 1 ||
+							condition.nSigs !== 1 ||
 							condition.sigFlag !== 'SIG_INPUTS'
 						);
 					} catch {
@@ -248,6 +325,17 @@ export async function verifyPayoutsForBounty(
 			if (targets.size > 1) reasons.push('inconsistent_proof_conditions');
 
 			const result = payoutResult(checkedAt, token, reasons, mint.states !== null);
+			if (mint.states) {
+				const states = new Set(mint.states.map((state) => state.state));
+				result.proofState =
+					states.size !== 1
+						? 'mixed'
+						: mint.states[0]?.state === 'UNSPENT'
+							? 'unspent'
+							: mint.states[0]?.state === 'SPENT'
+								? 'spent'
+								: 'pending';
+			}
 			result.p2pkTarget = targets.size === 1 ? [...targets][0] : null;
 			return [payout.id, result];
 		})

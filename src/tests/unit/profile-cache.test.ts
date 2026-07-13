@@ -44,6 +44,7 @@ import {
 	getProfileCacheStats
 } from '$lib/nostr/profile-cache';
 import { eventStore } from '$lib/nostr/event-store';
+import { pool } from '$lib/nostr/relay-pool';
 
 const mockEventStore = vi.mocked(eventStore);
 
@@ -103,6 +104,14 @@ describe('profile-cache', () => {
 			const loader = batchLoadProfiles(['pk1', 'pk2']);
 			expect(loader.unsubscribe).toBeDefined();
 			loader.unsubscribe();
+		});
+
+		it('deduplicates concurrent relay subscriptions for the same profile', () => {
+			const first = batchLoadProfiles(['pk1']);
+			const second = batchLoadProfiles(['pk1']);
+			expect(pool.relay).toHaveBeenCalledTimes(1);
+			first.unsubscribe();
+			second.unsubscribe();
 		});
 	});
 

@@ -75,23 +75,23 @@
 	--color-primary-foreground: #141a1d;
 	--color-secondary: #c49a3c;
 	--color-secondary-foreground: #141a1d;
-	--color-destructive: #c25450;
+	--color-destructive: #e47772;
 	--color-destructive-foreground: #ffffff;
-	--color-success: #6b9e5a;
+	--color-success: #82b86f;
 	--color-success-foreground: #141a1d;
-	--color-warning: #d4a843;
+	--color-warning: #e0b654;
 	--color-warning-foreground: #141a1d;
 	--color-overlay: rgba(0, 0, 0, 0.5);
 	--color-background: #141a1d;
 	--color-foreground: #c8ced2;
 	--color-card: #1b2328;
 	--color-card-foreground: #c8ced2;
-	--color-muted: #2a3439;
-	--color-muted-foreground: #7b8890;
-	--color-border: #2a3439;
+	--color-muted: #303b41;
+	--color-muted-foreground: #9aa5ac;
+	--color-border: #637078;
 	--color-input: #2a3439;
 	--color-ring: #6b9e7e;
-	--color-accent: #4d8b7a;
+	--color-accent: #59a28e;
 	--color-accent-foreground: #141a1d;
 	--color-popover: #1b2328;
 	--color-popover-foreground: #c8ced2;
@@ -107,13 +107,13 @@
 .light {
 	--color-primary: #3a6b4e;
 	--color-primary-foreground: #ffffff;
-	--color-secondary: #8b7530;
+	--color-secondary: #725d1d;
 	--color-secondary-foreground: #ffffff;
-	--color-destructive: #b03a3a;
+	--color-destructive: #9f2929;
 	--color-destructive-foreground: #ffffff;
-	--color-success: #4a7a3a;
+	--color-success: #3f6c31;
 	--color-success-foreground: #ffffff;
-	--color-warning: #9a7520;
+	--color-warning: #7d5b08;
 	--color-warning-foreground: #ffffff;
 	--color-overlay: rgba(0, 0, 0, 0.5);
 	--color-background: #edeee8;
@@ -121,8 +121,8 @@
 	--color-card: #e0e2db;
 	--color-card-foreground: #1c2520;
 	--color-muted: #d0d2cc;
-	--color-muted-foreground: #5b6660;
-	--color-border: #b0b5ac;
+	--color-muted-foreground: #4f5a54;
+	--color-border: #747e76;
 	--color-input: #ffffff;
 	--color-ring: #3a6b4e;
 	--color-accent: #1d6b55;
@@ -147,7 +147,7 @@
  *   - Badges: outline only (border border-{color} text-{color} bg-transparent).
  *   - Links: text-foreground at rest, hover:text-primary on hover.
  *   - Monetary values / stats: text-foreground (neutral).
- *   - Vote approve/reject: dimmed (text-success/70, text-destructive/70).
+ *   - Vote approve/reject: semantic success/destructive colors with AA contrast.
  *   - Cancel/destructive buttons: outline (border border-destructive text-destructive).
  *   - Consensus / state-transition messages: text-primary (allowed).
  *   - Closed/unavailable states: text-destructive/70.
@@ -210,4 +210,21 @@ body {
 		'Segoe UI',
 		Roboto,
 		sans-serif;
+}
+
+.skip-link {
+	position: fixed;
+	top: 0.5rem;
+	left: 0.5rem;
+	z-index: 100;
+	transform: translateY(-150%);
+	border-radius: var(--radius-md);
+	background: var(--color-primary);
+	color: var(--color-primary-foreground);
+	padding: 0.5rem 0.75rem;
+	font-weight: 600;
+}
+
+.skip-link:focus {
+	transform: translateY(0);
 }

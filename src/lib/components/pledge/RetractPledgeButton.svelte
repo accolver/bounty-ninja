@@ -14,11 +14,13 @@
 	const {
 		bountyAddress,
 		pledge,
-		hasSolutions
+		hasSolutions,
+		financialDataComplete
 	}: {
 		bountyAddress: string;
 		pledge: Pledge;
 		hasSolutions: boolean;
+		financialDataComplete: boolean;
 	} = $props();
 	const paymentWritesEnabled = arePaymentWritesEnabled();
 	let confirming = $state(false);
@@ -35,7 +37,7 @@
 	});
 
 	async function beginReclaim() {
-		if (!paymentWritesEnabled) return;
+		if (!paymentWritesEnabled || !financialDataComplete) return;
 		confirming = true;
 		if (!operation) {
 			operation = await paymentJournal.create({
@@ -51,7 +53,8 @@
 	}
 
 	async function handleRetract() {
-		if (!paymentWritesEnabled || !operation || !accountState.pubkey) return;
+		if (!paymentWritesEnabled || !financialDataComplete || !operation || !accountState.pubkey)
+			return;
 		publishing = true;
 		error = '';
 		try {
@@ -121,7 +124,7 @@
 		<p class="text-xs text-muted-foreground">
 			The saved recovery journal survives reload. No private key is requested or stored.
 		</p>
-		{#if hasSolutions}<p class="text-xs font-medium text-destructive/70">
+		{#if hasSolutions}<p class="text-xs font-medium text-destructive">
 				Solutions exist. Retraction will publish a reputation event.
 			</p>{/if}
 		{#if error}<p class="text-xs text-destructive" role="alert">{error}</p>{/if}
@@ -129,7 +132,7 @@
 			<Button
 				variant="outline"
 				size="sm"
-				disabled={publishing || !paymentWritesEnabled}
+				disabled={publishing || !paymentWritesEnabled || !financialDataComplete}
 				onclick={handleRetract}
 				>{publishing
 					? 'Checking mint...'
@@ -143,8 +146,8 @@
 	<button
 		type="button"
 		onclick={beginReclaim}
-		disabled={!paymentWritesEnabled}
-		class="text-xs text-destructive/70 transition-colors hover:text-destructive hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+		disabled={!paymentWritesEnabled || !financialDataComplete}
+		class="text-xs text-destructive transition-colors hover:text-destructive hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
 		aria-label="Reclaim and retract pledge"
 	>
 		<XCircle class="inline size-3" /> Reclaim / retract

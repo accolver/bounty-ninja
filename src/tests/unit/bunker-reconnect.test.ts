@@ -107,18 +107,17 @@ describe('bunker logout → re-login flow', () => {
 		mockInstance.getPublicKey.mockResolvedValue('a'.repeat(64));
 	});
 
-	it('keeps signer instance alive after clearBunkerSigner(false)', async () => {
+	it('discards signer instance after clearBunkerSigner(false)', async () => {
 		// Step 1: Initial login
 		setBunkerSigner(mockInstance as any);
 		expect(getBunkerSigner()?.isConnected).toBe(true);
 
-		// Step 2: Logout (keep signer alive — don't disconnect)
+		// Step 2: Logout
 		await clearBunkerSigner(false);
 		resetEventFactory();
 
-		// Step 3: Signer should still be accessible
-		expect(getBunkerSigner()).not.toBeNull();
-		expect(getBunkerSigner()?.isConnected).toBe(true);
+		expect(getBunkerSigner()).toBeNull();
+		expect(mockInstance.close).toHaveBeenCalled();
 	});
 
 	it('nulls signer instance after clearBunkerSigner(true)', async () => {
@@ -128,23 +127,15 @@ describe('bunker logout → re-login flow', () => {
 		expect(mockInstance.close).toHaveBeenCalled();
 	});
 
-	it('reconnect after logout reuses signer without calling connect()', async () => {
+	it('reconnect after logout requires a new signer', async () => {
 		// Step 1: Initial login
 		setBunkerSigner(mockInstance as any);
 
-		// Step 2: Logout (soft clear)
+		// Step 2: Logout
 		await clearBunkerSigner(false);
 		resetEventFactory();
 
-		// Step 3: Reconnect — signer still available, just getPublicKey
-		const signer = getBunkerSigner();
-		expect(signer).not.toBeNull();
-		expect(signer!.isConnected).toBe(true);
-
-		const pubkey = await signer!.getPublicKey();
-		expect(pubkey).toBe('a'.repeat(64));
-
-		// connect() was NOT called during reconnect
+		expect(getBunkerSigner()).toBeNull();
 		expect(mockInstance.connect).not.toHaveBeenCalled();
 	});
 

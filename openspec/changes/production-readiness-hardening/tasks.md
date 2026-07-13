@@ -59,7 +59,7 @@
 - [x] 7.1 Build hermetic Playwright setup with a clean local relay, deterministic mock mint, blocked public traffic, and browser installation in CI
 - [x] 7.2 Replace conditional shell assertions with full create, validate pledge, solve, vote, release, claim, retract, reload, and offline lifecycle tests
 - [x] 7.3 Add adversarial and crash-boundary scenarios for all audit exploits and irreversible payment transitions
-- [ ] 7.4 Run Chromium, Firefox, WebKit, and 375px mobile projects with accessibility checks and retained failure artifacts
+- [x] 7.4 Run Chromium, Firefox, WebKit, and 375px mobile projects with accessibility checks and retained failure artifacts
 - [x] 7.5 Add Vitest coverage thresholds and stricter branch coverage for validation, projection, signer, publishing, state-machine, sanitization, and recovery modules
 - [x] 7.6 Fix current Svelte warnings and formatting failures, narrow formatter scope appropriately, and make lint a required gate
 

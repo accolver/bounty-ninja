@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
   pull_request:
@@ -9,6 +10,7 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -46,8 +48,14 @@ jobs:
         run: bun run build
 
       - name: Record release identity
-        run: |
-          printf '{"commit":"%s","run":"%s"}\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" > build/release.json
+        env:
+          RELEASE_COMMIT: ${{ github.sha }}
+          RELEASE_CHANNEL: production
+          PUBLIC_PAYMENT_WRITES_ENABLED: 'false'
+        run: bun run release:create
+
+      - name: Validate release identity and payload digest
+        run: bun run release:validate
 
       - name: Assert production headers and redirects
         run: bun run check:headers
@@ -90,8 +98,9 @@ jobs:
 
   deploy:
     needs: check
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment: production
     concurrency:
       group: production-deploy
@@ -100,6 +109,13 @@ jobs:
       contents: read
       deployments: write
     steps:
+      - name: Check out exact release source for smoke runtime
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ github.sha }}
+          path: source
+          persist-credentials: false
+
       - name: Download verified artifact
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
@@ -130,13 +146,13 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: 4.110.0
-          command: pages deploy build --project-name=bounty-ninja
+          command: pages deploy build --project-name=bounty-ninja --branch=main
 
       - name: Validate deployment and custom domain
         env:
           EXPECTED_RELEASE_SHA: ${{ github.sha }}
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
-        run: bun run smoke:deployment -- "$DEPLOYMENT_URL" "https://bounty.ninja"
+        run: bun run source/scripts/smoke-deployment.ts "$DEPLOYMENT_URL" "https://bounty.ninja"
 
       - name: Report production validation failure
         if: failure()

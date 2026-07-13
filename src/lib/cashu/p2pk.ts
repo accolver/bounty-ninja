@@ -14,14 +14,19 @@
 import type { Proof, P2PKOptions, Wallet } from '@cashu/cashu-ts';
 import type { P2PKLockParams, SwapResult } from './types';
 
-/** The event protocol uses canonical lowercase x-only secp256k1 public keys. */
+/** Payment events preserve the complete compressed SEC1 key, including parity. */
+export function isCompressedPubkey(pubkeyHex: string): boolean {
+	return /^(02|03)[0-9a-f]{64}$/.test(pubkeyHex);
+}
+
+/** Legacy event-key syntax. New payment events must not use it. */
 export function isXOnlyPubkey(pubkeyHex: string): boolean {
 	return /^[0-9a-f]{64}$/.test(pubkeyHex);
 }
 
-export function assertXOnlyPubkey(pubkeyHex: string): void {
-	if (!isXOnlyPubkey(pubkeyHex)) {
-		throw new Error('Invalid payment pubkey: expected lowercase 32-byte x-only hex');
+export function assertCompressedPubkey(pubkeyHex: string): void {
+	if (!isCompressedPubkey(pubkeyHex)) {
+		throw new Error('Invalid payment pubkey: expected lowercase compressed secp256k1 hex');
 	}
 }
 
@@ -35,8 +40,8 @@ export function nut11KeyXCoordinate(pubkeyHex: string): string {
 
 /** Compare a NUT-11 key to a canonical event payment key by x-coordinate. */
 export function nut11KeyMatchesXOnly(nut11Key: string, paymentPubkey: string): boolean {
-	assertXOnlyPubkey(paymentPubkey);
-	return nut11KeyXCoordinate(nut11Key) === paymentPubkey;
+	assertCompressedPubkey(paymentPubkey);
+	return nut11Key.toLowerCase() === paymentPubkey;
 }
 
 /**
@@ -59,11 +64,8 @@ export function toCompressedPubkey(pubkeyHex: string): string {
 	if (key.length === 66 && (key.startsWith('02') || key.startsWith('03'))) {
 		return key;
 	}
-	if (key.length === 64) {
-		return `02${key}`;
-	}
 	throw new Error(
-		`Invalid pubkey: expected 32-byte x-only (64 hex) or 33-byte compressed (66 hex), got ${pubkeyHex.length} chars`
+		`Invalid pubkey: expected 33-byte compressed SEC1 key (66 hex), got ${pubkeyHex.length} chars`
 	);
 }
 
@@ -157,6 +159,8 @@ export async function lockProofsToKey(
 	wallet: Wallet,
 	refundLocktimeUnix?: number
 ): Promise<SwapResult> {
+	const { assertPaymentWritesEnabled } = await import('$lib/utils/env');
+	assertPaymentWritesEnabled();
 	const amount = proofs.reduce((sum, p) => sum + p.amount, 0);
 
 	if (amount <= 0) {

@@ -5,6 +5,7 @@ import {
 	type PaymentOperationRecord
 } from './payment-journal';
 import { publishSignedEvent } from '$lib/nostr/signer.svelte';
+import { assertPaymentWritesEnabled } from '$lib/utils/env';
 
 type PublishSigned = (event: NostrEvent) => Promise<{ success: boolean }>;
 
@@ -14,6 +15,7 @@ export async function publishJournaledEvent(
 	journal: PaymentOperationJournal = paymentJournal,
 	publish: PublishSigned = publishSignedEvent
 ): Promise<PaymentOperationRecord> {
+	assertPaymentWritesEnabled();
 	if (!record.signedEvent) throw new Error('The exact signed event is unavailable');
 
 	let broadcast: { success: boolean };

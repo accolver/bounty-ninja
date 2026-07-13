@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ProofState, Wallet } from '@cashu/cashu-ts';
+import type { Proof, ProofState, Wallet } from '@cashu/cashu-ts';
 import type { Bounty, Payout, Pledge } from '$lib/bounty/types';
 import {
+	buildGlobalProofOwnership,
 	verifyPayoutsForBounty,
 	verifyPledgesForBounty,
 	type FinancialVerifierDependencies
@@ -49,7 +50,7 @@ function pledge(id = '3'.repeat(64)): Pledge {
 		event: { ...bounty.event, id, kind: 73002, pubkey: AUTHOR },
 		id,
 		pubkey: AUTHOR,
-		paymentPubkey: 'c'.repeat(64),
+		paymentPubkey: `02${'c'.repeat(64)}`,
 		bountyAddress: ADDRESS,
 		amount: 10,
 		cashuToken: `cashuB${id}`,
@@ -67,7 +68,7 @@ function payout(id = '4'.repeat(64)): Payout {
 		bountyAddress: ADDRESS,
 		solutionId: '5'.repeat(64),
 		solverPubkey: SOLVER,
-		paymentPubkey: 'd'.repeat(64),
+		paymentPubkey: `02${'d'.repeat(64)}`,
 		amount: 10,
 		cashuToken: `cashuB${id}`,
 		sourcePledgeId: '3'.repeat(64),
@@ -88,6 +89,7 @@ function token(secret = 'secret'): TokenInfo {
 function condition(target: string, withDeadline: boolean): P2PKProofCondition {
 	return {
 		target: `02${target}`,
+		primaryKeys: [`02${target}`],
 		refundKeys: withDeadline ? [`02${target}`] : [],
 		locktime: withDeadline ? bounty.deadline : null,
 		nSigs: 1,
@@ -123,8 +125,18 @@ describe('runtime financial verification', () => {
 			),
 			identities: vi.fn(async () => [identity]),
 			condition: vi.fn(async () => inspected),
+			issuance: vi.fn(async (): Promise<'valid'> => 'valid'),
 			now: () => NOW
 		};
+	});
+
+	it('does not contact the mint when caller consent is absent', async () => {
+		const record = (await verifyPledgesForBounty(bounty, [pledge()], dependencies, false)).get(
+			'3'.repeat(64)
+		);
+		expect(dependencies.wallet).not.toHaveBeenCalled();
+		expect(record?.validUntil).toBeNull();
+		expect(record?.reasons).toContain('mint_unavailable');
 	});
 
 	it('produces a fresh valid pledge verification from mint and NUT-11 checks', async () => {
@@ -157,9 +169,10 @@ describe('runtime financial verification', () => {
 		});
 		records = await verifyPledgesForBounty(bounty, [pledge()], dependencies);
 		expect(records.get('3'.repeat(64))).toMatchObject({
-			status: 'unavailable',
+			status: 'invalid',
 			validUntil: null
 		});
+		expect(records.get('3'.repeat(64))?.reasons).toContain('issuance_evidence_missing');
 	});
 
 	it('does not fall back to the pledge identity pubkey', async () => {
@@ -169,6 +182,19 @@ describe('runtime financial verification', () => {
 		);
 		expect(record?.status).toBe('invalid');
 		expect(record?.reasons).toContain('p2pk_target_mismatch');
+	});
+
+	it('rejects missing or unverifiable issuance evidence for pledges and payouts', async () => {
+		dependencies.issuance = vi.fn(async () => 'missing' as const);
+		expect(
+			(await verifyPledgesForBounty(bounty, [pledge()], dependencies)).get('3'.repeat(64))?.reasons
+		).toContain('issuance_evidence_missing');
+
+		dependencies.issuance = vi.fn(async () => 'invalid' as const);
+		inspected = condition('d'.repeat(64), false);
+		expect(
+			(await verifyPayoutsForBounty(bounty, [payout()], dependencies)).get('4'.repeat(64))?.reasons
+		).toContain('issuance_evidence_invalid');
 	});
 
 	it('produces a valid solver-locked payout token verification', async () => {
@@ -184,6 +210,15 @@ describe('runtime financial verification', () => {
 		});
 	});
 
+	it('keeps an issuance-authentic payout valid after the solver spends it', async () => {
+		inspected = condition('d'.repeat(64), false);
+		states = [{ state: 'SPENT' }] as ProofState[];
+		const record = (await verifyPayoutsForBounty(bounty, [payout()], dependencies)).get(
+			'4'.repeat(64)
+		);
+		expect(record).toMatchObject({ status: 'valid', proofState: 'spent' });
+	});
+
 	it('rejects spent, redirected, duplicate, and unsupported payout proofs', async () => {
 		inspected = condition(AUTHOR, false);
 		states = [{ state: 'SPENT' }] as ProofState[];
@@ -194,12 +229,7 @@ describe('runtime financial verification', () => {
 		const record = records.get(first.id);
 		expect(record?.status).toBe('invalid');
 		expect(record?.reasons).toEqual(
-			expect.arrayContaining([
-				'duplicate_proof',
-				'spent_proof',
-				'nut11_unsupported',
-				'p2pk_target_mismatch'
-			])
+			expect.arrayContaining(['duplicate_proof', 'nut11_unsupported', 'p2pk_target_mismatch'])
 		);
 	});
 
@@ -216,5 +246,28 @@ describe('runtime financial verification', () => {
 		record = (await verifyPayoutsForBounty(bounty, [payout()], dependencies)).get('4'.repeat(64));
 		expect(record).toMatchObject({ status: 'unavailable' });
 		expect(record?.reasons).toContain('pending_proof');
+	});
+
+	it('builds deterministic ownership across pledge and payout outputs', async () => {
+		const source = pledge();
+		const firstPayout = payout('8'.repeat(64));
+		const crossBountyReplay = {
+			...payout('9'.repeat(64)),
+			bountyAddress: `${ADDRESS}-other`
+		};
+		const decode = vi.fn(async (value: string) => token(value));
+		const identities = vi.fn(async (_mint: string, proofs: readonly Pick<Proof, 'secret'>[]) => [
+			`${MINT}#${proofs[0]?.secret}` as ProofIdentity
+		]);
+		firstPayout.cashuToken = 'shared-output';
+		crossBountyReplay.cashuToken = 'shared-output';
+		source.cashuToken = 'source-output';
+
+		const owners = await buildGlobalProofOwnership([source], [crossBountyReplay, firstPayout], {
+			decode,
+			identities
+		});
+		expect(owners.get(`${MINT}#shared-output` as ProofIdentity)).toBeNull();
+		expect(owners.get(`${MINT}#source-output` as ProofIdentity)).toBe(source.id);
 	});
 });

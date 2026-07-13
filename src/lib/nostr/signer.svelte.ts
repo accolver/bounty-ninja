@@ -67,18 +67,17 @@ export function setBunkerSigner(signer: NostrConnectSigner): void {
 
 /**
  * Clear the bunker signer.
- * @param disconnect - If true, close the WebSocket connection AND null the reference.
- *                     If false, keep the signer instance alive for re-login.
+ * @param disconnect - Retained for call-site compatibility. Signers are always discarded.
  */
-export async function clearBunkerSigner(disconnect: boolean = false): Promise<void> {
-	if (bunkerSignerInstance && disconnect) {
+export async function clearBunkerSigner(_disconnect: boolean = false): Promise<void> {
+	if (bunkerSignerInstance) {
 		try {
 			await bunkerSignerInstance.close();
 		} catch {
 			// Ignore close errors during cleanup
 		}
-		bunkerSignerInstance = null;
 	}
+	bunkerSignerInstance = null;
 }
 
 /**
@@ -166,6 +165,11 @@ export async function signEventTemplate(template: EventTemplate): Promise<NostrE
 
 /** Publish an already-signed event. Retries therefore never request a new signature. */
 export async function publishSignedEvent(signedEvent: NostrEvent): Promise<BroadcastResult> {
+	if (!signerState.ready || !signerState.pubkey) throw new SignerUnavailableError();
+	if (signedEvent.pubkey.toLowerCase() !== signerState.pubkey) {
+		throw new SignerAccountMismatchError(signerState.pubkey, signedEvent.pubkey);
+	}
+
 	// Optimistic insert — event appears in UI immediately
 	if (!ingestEvent(signedEvent, 'local')) {
 		throw new Error('Signed event failed local validation');

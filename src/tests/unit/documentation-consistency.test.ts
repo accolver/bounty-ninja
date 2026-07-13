@@ -15,8 +15,8 @@ describe('repository payment documentation', () => {
 			expect(document).toMatch(/Minibits/i);
 			expect(document).toMatch(/no[- ]locktime|no locktime/i);
 		}
-		expect(prd).toContain("['payment', 'cashu', '<64-character lowercase");
-		expect(paymentGuide).toContain("['payment','cashu','<x-only-key>']");
+		expect(prd).toContain("['payment', 'cashu', '<66-character lowercase");
+		expect(paymentGuide).toContain("['payment','cashu','<compressed-key>']");
 	});
 
 	it('does not claim automatic payout, generic wallet support, or completed launch work', () => {

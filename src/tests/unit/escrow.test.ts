@@ -11,6 +11,9 @@ import type { DecodedPledge } from '$lib/cashu/types';
 import { DoubleSpendError } from '$lib/cashu/types';
 import { CASHU_PAYMENT_SIGNER_PROTOCOL, type CashuPaymentSigner } from '$lib/cashu/payment-signer';
 
+const paymentWrites = vi.hoisted(() => ({ assertEnabled: vi.fn() }));
+vi.mock('$lib/utils/env', () => ({ assertPaymentWritesEnabled: paymentWrites.assertEnabled }));
+
 // ── Mocks ─────────────────────────────────────────────────────────────────
 
 vi.mock('$lib/cashu/mint', () => ({
@@ -117,6 +120,20 @@ beforeEach(() => {
 	mockedGetProofsAmount.mockImplementation((proofs: Proof[]) =>
 		proofs.reduce((s, p) => s + p.amount, 0)
 	);
+});
+
+describe('payment write guard', () => {
+	it.each([
+		['create', () => createPledgeToken([mockProof(100)], PLEDGER_PK, MINT_URL)],
+		['release', () => releasePledgeToSolver(makeDecodedPledge(), mockPaymentSigner(), SOLVER_PK)],
+		['reclaim', () => reclaimPledge(makeDecodedPledge(), mockPaymentSigner())]
+	])('blocks %s before connecting to a mint', async (_name, operation) => {
+		paymentWrites.assertEnabled.mockImplementationOnce(() => {
+			throw new Error('Payment writes are disabled in this build');
+		});
+		await expect(operation()).rejects.toThrow('Payment writes are disabled');
+		expect(mockedGetWallet).not.toHaveBeenCalled();
+	});
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -197,7 +197,9 @@
 					</ul>
 					<div class="flex items-start gap-2">
 						<div class="flex-1">
+							<label for="new-relay" class="sr-only">New relay WebSocket URL</label>
 							<Input
+								id="new-relay"
 								bind:value={newRelay}
 								placeholder="wss://relay.example.com — find relays at nostr.watch"
 								onkeydown={(e: KeyboardEvent) => {
@@ -206,9 +208,13 @@
 										addRelay();
 									}
 								}}
+								aria-invalid={relayError !== null}
+								aria-describedby={relayError ? 'new-relay-error' : undefined}
 							/>
 							{#if relayError}
-								<p class="mt-1 text-xs text-destructive" role="alert">{relayError}</p>
+								<p id="new-relay-error" class="mt-1 text-xs text-destructive" role="alert">
+									{relayError}
+								</p>
 							{/if}
 						</div>
 						<Button onclick={addRelay}>Add Relay</Button>
@@ -224,7 +230,9 @@
 							The mint handles Bitcoin payments for bounties. The default works great for most
 							users.
 						</p>
+						<label for="preferred-mint" class="sr-only">Preferred Cashu mint URL</label>
 						<Input
+							id="preferred-mint"
 							bind:value={settings.mint}
 							placeholder="https://mint.example.com"
 							onblur={updateMint}
@@ -269,7 +277,7 @@
 										minimumFractionDigits: 2,
 										maximumFractionDigits: 2
 									})}
-									<span class="text-muted-foreground/60">
+									<span class="text-muted-foreground">
 										via {btcPrice.source}
 										{#if !btcPrice.isFresh}(stale){/if}
 									</span>

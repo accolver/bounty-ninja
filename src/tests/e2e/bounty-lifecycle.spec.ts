@@ -1,4 +1,5 @@
 import { nip19, type NostrEvent } from 'nostr-tools';
+import { secp256k1 } from '@noble/curves/secp256k1.js';
 import {
 	bountyBlueprint,
 	payoutBlueprint,
@@ -11,6 +12,7 @@ import { BOUNTY_KIND, PAYOUT_KIND, PLEDGE_KIND, RETRACTION_KIND } from '$lib/bou
 import {
 	authenticateAs,
 	expect,
+	MINT_FIXTURE_URL,
 	MINT_URL,
 	TEST_PUBKEYS,
 	test,
@@ -19,11 +21,20 @@ import {
 import type { TestRole } from './helpers/mock-nip07';
 
 const AMOUNT = 21;
+
+function paymentKey(secret: number): string {
+	const privateKey = new Uint8Array(32);
+	privateKey[31] = secret;
+	return Array.from(secp256k1.getPublicKey(privateKey, true), (byte) =>
+		byte.toString(16).padStart(2, '0')
+	).join('');
+}
+
 const PAYMENT_KEYS = {
-	pledger: '11'.repeat(32),
-	pledger2: '22'.repeat(32),
-	solver: '33'.repeat(32),
-	wrong: '44'.repeat(32)
+	pledger: paymentKey(11),
+	pledger2: paymentKey(12),
+	solver: paymentKey(13),
+	wrong: paymentKey(14)
 };
 
 function address(dTag: string): string {
@@ -38,12 +49,26 @@ function detailUrl(dTag: string): string {
 	})}`;
 }
 
-async function login(page: Parameters<typeof authenticateAs>[0], role: TestRole): Promise<void> {
+async function login(
+	page: Parameters<typeof authenticateAs>[0],
+	role: TestRole,
+	route = '/'
+): Promise<void> {
 	await authenticateAs(page, role);
 	await page.goto('/');
 	await page.getByRole('button', { name: 'Login', exact: true }).first().click();
 	await page.getByRole('button', { name: /Browser Extension/ }).click();
 	await expect(page.getByRole('button', { name: 'Account menu' })).toBeVisible();
+	if (route !== '/') {
+		await page.evaluate((target) => {
+			const link = document.createElement('a');
+			link.href = target;
+			document.body.append(link);
+			link.click();
+			link.remove();
+		}, route);
+		await page.waitForURL((url) => url.pathname === route);
+	}
 }
 
 async function publishBounty(services: E2EServices, dTag: string): Promise<NostrEvent> {
@@ -155,15 +180,13 @@ test.describe('Hermetic bounty lifecycle', () => {
 		page,
 		services
 	}) => {
-		await login(page, 'creator');
-		await page.goto('/bounty/new');
+		await login(page, 'creator', '/bounty/new');
 		await page.locator('#bounty-title').fill('Browser-created hermetic bounty');
 		await page
 			.locator('#bounty-description')
 			.fill('Created entirely against the local relay fixture.');
 		await page.locator('#bounty-reward').fill('100');
 		await page.getByRole('button', { name: 'Advanced Settings' }).click();
-		await page.locator('#bounty-fee').fill('0');
 		await page.locator('#bounty-mint').fill(MINT_URL);
 		await page.getByRole('button', { name: 'Create Bounty' }).click();
 
@@ -181,12 +204,18 @@ test.describe('Hermetic bounty lifecycle', () => {
 		page,
 		services
 	}) => {
+		await page.setViewportSize({ width: 375, height: 667 });
 		const dTag = 'manual-pledge';
 		await publishBounty(services, dTag);
 		const fixture = await services.token({ amount: AMOUNT, paymentPubkey: PAYMENT_KEYS.pledger });
-		await login(page, 'pledger');
-		await page.goto(detailUrl(dTag));
+		await login(page, 'pledger', detailUrl(dTag));
 		await page.getByRole('button', { name: 'Fund this bounty' }).click();
+		const pledgeDialog = page.getByRole('dialog', { name: 'Fund this bounty' });
+		const dialogBounds = await pledgeDialog.boundingBox();
+		expect(dialogBounds).not.toBeNull();
+		expect(dialogBounds!.y).toBeGreaterThanOrEqual(0);
+		expect(dialogBounds!.y + dialogBounds!.height).toBeLessThanOrEqual(667);
+		await expect(pledgeDialog).toHaveCSS('overflow-y', 'auto');
 		await page.locator('#pledge-payment-key').fill(PAYMENT_KEYS.pledger);
 		await page.locator('#pledge-amount').fill(String(AMOUNT));
 		await page.locator('#pledge-token').fill(fixture.token);
@@ -205,8 +234,7 @@ test.describe('Hermetic bounty lifecycle', () => {
 		await publishBounty(services, dTag);
 		await publishPledge(services, dTag);
 
-		await login(page, 'solver');
-		await page.goto(detailUrl(dTag));
+		await login(page, 'solver', detailUrl(dTag));
 		await page.getByRole('button', { name: 'Submit a solution' }).click();
 		await page.locator('#solution-description').fill('Browser-submitted deterministic solution.');
 		await page.locator('#solution-payment-key').fill(PAYMENT_KEYS.solver);
@@ -222,8 +250,11 @@ test.describe('Hermetic bounty lifecycle', () => {
 		await publishBounty(services, dTag);
 		await publishPledge(services, dTag);
 		await publishSolution(services, dTag);
-		await login(page, 'pledger');
-		await page.goto(detailUrl(dTag));
+		await login(page, 'pledger', detailUrl(dTag));
+		await page
+			.getByRole('heading', { name: /Profile:/ })
+			.getByRole('button')
+			.click();
 		await page.getByRole('button', { name: 'Approve solution' }).click();
 		await expect(page.getByText('Vote submitted!')).toBeVisible();
 		await expect(page.getByText(/Consensus reached/i)).toBeVisible();
@@ -239,15 +270,14 @@ test.describe('Hermetic bounty lifecycle', () => {
 		const source = await publishPledge(services, dTag);
 		const solution = await publishSolution(services, dTag);
 		await publishVote(services, dTag, solution);
+		await login(page, 'pledger', detailUrl(dTag));
+		await page.getByRole('button', { name: `Release ${AMOUNT} sats` }).click();
 		await services.spend(source.token);
 		const replacement = await services.token({
 			amount: AMOUNT,
 			paymentPubkey: PAYMENT_KEYS.solver
 		});
 
-		await login(page, 'pledger');
-		await page.goto(detailUrl(dTag));
-		await page.getByRole('button', { name: `Release ${AMOUNT} sats` }).click();
 		await page.getByLabel('Solver-locked Minibits payout token').fill(replacement.token);
 		await page.getByRole('button', { name: 'Verify and publish payout' }).click();
 		await expect(page.getByText('Source-bound payout published')).toBeVisible();
@@ -256,7 +286,7 @@ test.describe('Hermetic bounty lifecycle', () => {
 		expect(payouts).toHaveLength(1);
 		expect(payouts[0].tags).toContainEqual(['e', source.event.id, '', 'source']);
 		const stats = await context.request
-			.get(`${MINT_URL}/fixtures/stats`)
+			.get(`${MINT_FIXTURE_URL}/fixtures/stats`)
 			.then((response) => response.json());
 		expect(stats.swapCalls).toBe(0);
 	});
@@ -272,8 +302,19 @@ test.describe('Hermetic bounty lifecycle', () => {
 		await publishVote(services, dTag, solution);
 		await services.spend(source.token);
 		const payout = await publishPayout(services, dTag, source.event, solution);
-		await login(page, 'solver');
-		await page.goto(detailUrl(dTag));
+		await page.addInitScript(() => {
+			let copiedText = '';
+			Object.defineProperty(navigator, 'clipboard', {
+				configurable: true,
+				value: {
+					writeText: async (text: string) => {
+						copiedText = text;
+					},
+					readText: async () => copiedText
+				}
+			});
+		});
+		await login(page, 'solver', detailUrl(dTag));
 		await expect(page.getByText(`You have been awarded ${AMOUNT} sats!`)).toBeVisible();
 		await page.getByRole('button', { name: 'Copy Cashu token to clipboard' }).click();
 		await expect(page.getByRole('button', { name: 'Token copied to clipboard' })).toBeVisible();
@@ -288,8 +329,7 @@ test.describe('Hermetic bounty lifecycle', () => {
 		await publishBounty(services, dTag);
 		const source = await publishPledge(services, dTag);
 		await services.spend(source.token);
-		await login(page, 'pledger');
-		await page.goto(detailUrl(dTag));
+		await login(page, 'pledger', detailUrl(dTag));
 		await page.getByRole('button', { name: 'Reclaim and retract pledge' }).click();
 		await page.getByRole('button', { name: 'Verify Revert and retract' }).click();
 		await expect.poll(async () => (await services.events(RETRACTION_KIND)).length).toBe(1);
@@ -318,9 +358,9 @@ test.describe('Adversarial payment and crash boundaries', () => {
 			paymentPubkey: PAYMENT_KEYS.pledger,
 			duplicateProof: true
 		});
-		await login(page, 'pledger');
-		await page.goto(detailUrl(dTag));
+		await login(page, 'pledger', detailUrl(dTag));
 		await page.getByRole('button', { name: 'Fund this bounty' }).click();
+		const pledgeForm = page.getByRole('form', { name: 'Pledge form' });
 		await page.locator('#pledge-payment-key').fill(PAYMENT_KEYS.pledger);
 		await page.locator('#pledge-amount').fill(String(AMOUNT));
 		await page.locator('.pledge-checkbox').check();
@@ -328,24 +368,26 @@ test.describe('Adversarial payment and crash boundaries', () => {
 		await page.locator('#pledge-token').fill(wrongKey.token);
 		await page.getByRole('button', { name: `Pledge ${AMOUNT} sats` }).click();
 		await expect(
-			page.getByRole('alert').filter({ hasText: /not locked to the entered/i })
+			pledgeForm.getByRole('alert').filter({ hasText: /not locked to the entered/i })
 		).toBeVisible();
 
 		await page.locator('#pledge-token').fill(correct.token);
 		await page.locator('#pledge-amount').fill('20');
 		await page.getByRole('button', { name: 'Pledge 21 sats' }).click();
-		await expect(page.getByRole('alert').filter({ hasText: /exactly 20/i })).toBeVisible();
+		await expect(pledgeForm.getByRole('alert').filter({ hasText: /exactly 20/i })).toBeVisible();
 
 		await page.locator('#pledge-amount').fill(String(AMOUNT));
 		await page.locator('#pledge-token').fill(wrongMint.token);
 		await expect(
-			page.getByRole('alert').filter({ hasText: /does not match bounty mint/i })
+			pledgeForm.getByRole('alert').filter({ hasText: /does not match bounty mint/i })
 		).toBeVisible();
 
 		await page.locator('#pledge-amount').fill(String(AMOUNT * 2));
 		await page.locator('#pledge-token').fill(duplicate.token);
 		await page.getByRole('button', { name: `Pledge ${AMOUNT * 2} sats` }).click();
-		await expect(page.getByRole('alert').filter({ hasText: /duplicate proofs/i })).toBeVisible();
+		await expect(
+			pledgeForm.getByRole('alert').filter({ hasText: /duplicate proofs/i })
+		).toBeVisible();
 		expect(await services.events(PLEDGE_KIND)).toHaveLength(0);
 	});
 
@@ -364,9 +406,9 @@ test.describe('Adversarial payment and crash boundaries', () => {
 		await publishPayout(services, dTag, first.event, solution);
 		await publishPayout(services, dTag, first.event, solution);
 
-		await login(page, 'solver');
-		await page.goto(detailUrl(dTag));
-		await expect(page.getByText('Funded').locator('..').getByText(`${AMOUNT} sats`)).toBeVisible();
+		await login(page, 'solver', detailUrl(dTag));
+		const fundedStat = page.getByText('Funded', { exact: true }).locator('..').locator('..');
+		await expect(fundedStat.getByRole('button', { name: `${AMOUNT} sats` })).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Copy Cashu token to clipboard' })).toHaveCount(
 			1
 		);
@@ -383,8 +425,7 @@ test.describe('Adversarial payment and crash boundaries', () => {
 		const second = await publishSolution(services, dTag, 'attacker');
 		await publishVote(services, dTag, first);
 		await publishVote(services, dTag, second);
-		await login(page, 'pledger');
-		await page.goto(detailUrl(dTag));
+		await login(page, 'pledger', detailUrl(dTag));
 		await expect(page.getByRole('button', { name: `Release ${AMOUNT} sats` })).toHaveCount(0);
 		await expect(page.getByText(/Releasing Funds|Consensus Reached/)).toHaveCount(0);
 	});
@@ -418,8 +459,7 @@ test.describe('Adversarial payment and crash boundaries', () => {
 			})
 		);
 
-		await login(page, 'pledger');
-		await page.goto(detailUrl(dTag));
+		await login(page, 'pledger', detailUrl(dTag));
 		await expect(page.getByRole('heading', { name: 'Retraction History' })).toHaveCount(0);
 		await expect(page.getByRole('button', { name: `Release ${AMOUNT} sats` })).toBeVisible();
 		await expect(page.getByText(/0 of 1 pledger released/)).toBeVisible();
@@ -438,13 +478,15 @@ test.describe('Adversarial payment and crash boundaries', () => {
 			amount: AMOUNT,
 			paymentPubkey: PAYMENT_KEYS.solver
 		});
-		await login(page, 'pledger');
-		await page.goto(detailUrl(dTag));
+		await login(page, 'pledger', detailUrl(dTag));
 		await page.getByRole('button', { name: `Release ${AMOUNT} sats` }).click();
 		await page.getByLabel('Solver-locked Minibits payout token').fill(replacement.token);
 		await page.getByRole('button', { name: 'Verify and publish payout' }).click();
 		await expect(
-			page.getByRole('alert').filter({ hasText: /Revert is not complete/i })
+			page
+				.getByRole('alert')
+				.filter({ hasText: /Revert is not complete/i })
+				.first()
 		).toBeVisible();
 		expect(await services.events(PAYOUT_KIND)).toHaveLength(0);
 		expect((await services.events(PLEDGE_KIND))[0].id).toBe(source.event.id);
@@ -460,14 +502,13 @@ test.describe('Adversarial payment and crash boundaries', () => {
 		const source = await publishPledge(services, dTag);
 		const solution = await publishSolution(services, dTag);
 		await publishVote(services, dTag, solution);
+		await login(page, 'pledger', detailUrl(dTag));
+		await page.getByRole('button', { name: `Release ${AMOUNT} sats` }).click();
 		await services.spend(source.token);
 		const replacement = await services.token({
 			amount: AMOUNT,
 			paymentPubkey: PAYMENT_KEYS.solver
 		});
-		await login(page, 'pledger');
-		await page.goto(detailUrl(dTag));
-		await page.getByRole('button', { name: `Release ${AMOUNT} sats` }).click();
 		await page.getByLabel('Solver-locked Minibits payout token').fill(replacement.token);
 		await services.rejectRelay(true);
 		await page.getByRole('button', { name: 'Verify and publish payout' }).click();
@@ -475,12 +516,15 @@ test.describe('Adversarial payment and crash boundaries', () => {
 			page.getByRole('alert').filter({ hasText: 'No relay accepted the event' })
 		).toBeVisible();
 		await page.reload();
+		await page.getByRole('button', { name: 'Login', exact: true }).first().click();
+		await page.getByRole('button', { name: /Browser Extension/ }).click();
+		await expect(page.getByRole('button', { name: 'Account menu' })).toBeVisible();
 		await expect(page.getByText('Status: recovery-required')).toBeVisible();
 		await services.rejectRelay(false);
 		await page.getByRole('button', { name: 'Retry exact signed event' }).click();
 		await expect.poll(async () => (await services.events(PAYOUT_KIND)).length).toBe(1);
 		const stats = await context.request
-			.get(`${MINT_URL}/fixtures/stats`)
+			.get(`${MINT_FIXTURE_URL}/fixtures/stats`)
 			.then((response) => response.json());
 		expect(stats.swapCalls).toBe(0);
 	});

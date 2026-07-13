@@ -2,11 +2,15 @@
 	import { onMount } from 'svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { paymentJournal, type PaymentOperationRecord } from '$lib/cashu/payment-journal';
+	import { publishJournaledEvent } from '$lib/cashu/publish-journaled-event';
+	import { accountState } from '$lib/nostr/account.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { arePaymentWritesEnabled } from '$lib/utils/env';
 
 	let operations = $state<PaymentOperationRecord[]>([]);
 	let exportedIds = $state<Set<string>>(new Set());
 	let acknowledgedIds = $state<Set<string>>(new Set());
+	let retryingIds = $state<Set<string>>(new Set());
 	let loading = $state(true);
 
 	async function refresh() {
@@ -45,16 +49,41 @@
 			toastStore.error('Recovery acknowledgement could not be saved');
 		}
 	}
+
+	async function retryExactEvent(operation: PaymentOperationRecord) {
+		if (!operation.signedEvent || operation.signedEvent.pubkey !== accountState.pubkey) return;
+		retryingIds = new Set([...retryingIds, operation.id]);
+		try {
+			await publishJournaledEvent(operation);
+			await refresh();
+			toastStore.success('Exact signed event published');
+		} catch (error) {
+			toastStore.error(error instanceof Error ? error.message : 'Exact event retry failed');
+		} finally {
+			const next = new Set(retryingIds);
+			next.delete(operation.id);
+			retryingIds = next;
+		}
+	}
 </script>
 
 {#if !loading && operations.length > 0}
-	<section class="border-y border-warning bg-warning/10" aria-labelledby="payment-recovery-title">
+	<section
+		class="border-y border-warning bg-warning/10"
+		aria-labelledby="payment-recovery-title"
+		aria-describedby="payment-recovery-summary"
+	>
+		<p class="sr-only" role="status" aria-live="polite">
+			Payment recovery required for {operations.length} pending {operations.length === 1
+				? 'operation'
+				: 'operations'}.
+		</p>
 		<div class="mx-auto w-full max-w-6xl space-y-4 px-4 py-4">
 			<div>
 				<h2 id="payment-recovery-title" class="font-semibold text-warning">
 					Payment recovery required
 				</h2>
-				<p class="mt-1 text-sm text-foreground">
+				<p id="payment-recovery-summary" class="mt-1 text-sm text-foreground">
 					These operations may contain Cashu bearer proofs. Export each recovery file before
 					acknowledging responsibility. This notice cannot be dismissed normally.
 				</p>
@@ -62,7 +91,7 @@
 
 			{#each operations as operation (operation.id)}
 				<div
-					class="flex flex-col gap-3 border-t border-warning/40 pt-3 sm:flex-row sm:items-center sm:justify-between"
+					class="flex flex-col gap-3 border-t border-warning pt-3 sm:flex-row sm:items-center sm:justify-between"
 				>
 					<div class="text-sm">
 						<p class="font-medium text-foreground">
@@ -75,7 +104,7 @@
 							</p>
 						{/if}
 						{#if operation.intent.kind === 'pledge'}
-							<p class="text-xs text-foreground/80">
+							<p class="text-xs text-foreground">
 								Open this bounty to resume publication{operation.signedEvent
 									? ' of the exact signed pledge event'
 									: ''}.
@@ -83,6 +112,20 @@
 						{/if}
 					</div>
 					<div class="flex flex-col gap-2 sm:items-end">
+						{#if operation.status === 'recovery-required' && operation.signedEvent}
+							<Button
+								variant="outline"
+								size="sm"
+								disabled={operation.signedEvent.pubkey !== accountState.pubkey ||
+									!arePaymentWritesEnabled() ||
+									retryingIds.has(operation.id)}
+								onclick={() => retryExactEvent(operation)}
+							>
+								{retryingIds.has(operation.id)
+									? 'Retrying exact signed event...'
+									: 'Retry exact signed event'}
+							</Button>
+						{/if}
 						<Button variant="outline" size="sm" onclick={() => exportRecovery(operation)}>
 							Export recovery file
 						</Button>

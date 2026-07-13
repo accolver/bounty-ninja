@@ -20,6 +20,11 @@
 	let PaymentRecoveryPanel = $state<Component | null>(null);
 	let ServiceWorkerUpdate = $state<Component | null>(null);
 
+	function skipToMain(event: MouseEvent) {
+		event.preventDefault();
+		document.getElementById('main-content')?.focus();
+	}
+
 	// Close search dialog on navigation
 	beforeNavigate(() => {
 		searchDialog.open = false;
@@ -58,12 +63,17 @@
 	});
 </script>
 
+<a class="skip-link" href="#main-content" onclick={skipToMain}>Skip to main content</a>
 <div class="flex min-h-dvh flex-col overflow-x-hidden">
 	<OfflineBanner />
 	{#if PaymentRecoveryPanel}<PaymentRecoveryPanel />{/if}
 	{#if ServiceWorkerUpdate}<ServiceWorkerUpdate />{/if}
 	<Header />
-	<main class="mx-auto w-full max-w-6xl flex-1 px-4 py-6 pb-20 sm:pb-6">
+	<main
+		id="main-content"
+		tabindex="-1"
+		class="mx-auto w-full max-w-6xl flex-1 px-4 py-6 pb-20 sm:pb-6"
+	>
 		{@render children()}
 	</main>
 	{#if !pageLoading.active}

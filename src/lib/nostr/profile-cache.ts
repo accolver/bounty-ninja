@@ -34,6 +34,7 @@ const profileMap = new Map<string, CachedProfile>();
 
 /** Track in-flight revalidation to avoid duplicates */
 const revalidating = new Set<string>();
+const loadingFromRelays = new Set<string>();
 
 /** Track in-flight batch loads */
 let batchTimer: ReturnType<typeof setTimeout> | null = null;
@@ -179,6 +180,7 @@ function revalidateProfile(pubkey: string): void {
  * into a single REQ filter.
  */
 function queueBatchLoad(pubkey: string): void {
+	if (loadingFromRelays.has(pubkey)) return;
 	batchQueue.add(pubkey);
 	if (batchTimer) return;
 	batchTimer = setTimeout(() => {
@@ -200,6 +202,7 @@ export function batchLoadProfiles(pubkeys: string[]): { unsubscribe(): void } {
 
 	// Filter out already-fresh profiles
 	const needed = pubkeys.filter((pk) => {
+		if (loadingFromRelays.has(pk) || revalidating.has(pk)) return false;
 		const cached = profileMap.get(pk);
 		if (!cached) return true;
 		return Date.now() - cached.fetchedAt > FRESH_MS;
@@ -211,7 +214,12 @@ export function batchLoadProfiles(pubkeys: string[]): { unsubscribe(): void } {
 }
 
 function executeBatchLoad(pubkeys: string[]): { unsubscribe(): void } {
-	const filter = { kinds: [0 as number], authors: pubkeys };
+	const needed = [...new Set(pubkeys)].filter(
+		(pubkey) => !loadingFromRelays.has(pubkey) && !revalidating.has(pubkey)
+	);
+	if (needed.length === 0) return { unsubscribe() {} };
+	for (const pubkey of needed) loadingFromRelays.add(pubkey);
+	const filter = { kinds: [0 as number], authors: needed };
 	const relayUrls = getDefaultRelays();
 	const subs: Subscription[] = [];
 
@@ -240,12 +248,14 @@ function executeBatchLoad(pubkeys: string[]): { unsubscribe(): void } {
 	// Auto-cleanup after 15s
 	const timer = setTimeout(() => {
 		for (const sub of subs) sub.unsubscribe();
+		for (const pubkey of needed) loadingFromRelays.delete(pubkey);
 	}, 15_000);
 
 	return {
 		unsubscribe() {
 			clearTimeout(timer);
 			for (const sub of subs) sub.unsubscribe();
+			for (const pubkey of needed) loadingFromRelays.delete(pubkey);
 		}
 	};
 }
@@ -275,6 +285,7 @@ export async function warmProfileCache(pubkeys: string[]): Promise<void> {
 export function clearProfileCache(): void {
 	profileMap.clear();
 	revalidating.clear();
+	loadingFromRelays.clear();
 	batchQueue.clear();
 	if (batchTimer) {
 		clearTimeout(batchTimer);

@@ -1,6 +1,5 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { nip19 } from 'nostr-tools';
 
 const tokenInfo = {
 	mint: 'https://mint.example',
@@ -10,6 +9,7 @@ const tokenInfo = {
 };
 const condition: {
 	target: string;
+	primaryKeys: string[];
 	refundKeys: string[];
 	locktime: number | null;
 	nSigs: number;
@@ -17,6 +17,7 @@ const condition: {
 	sigFlag: string;
 } = {
 	target: `02${'a'.repeat(64)}`,
+	primaryKeys: [`02${'a'.repeat(64)}`],
 	refundKeys: [],
 	locktime: null,
 	nSigs: 1,
@@ -28,6 +29,10 @@ vi.mock('$lib/cashu/token', () => ({ decodeToken: vi.fn(async () => tokenInfo) }
 vi.mock('$lib/cashu/pledge-verification', () => ({
 	inspectP2PKProof: vi.fn(async () => condition)
 }));
+vi.mock('$lib/cashu/financial-verifier', () => ({
+	verifyProofIssuance: vi.fn(async () => 'valid')
+}));
+vi.mock('$lib/utils/env', () => ({ assertPaymentWritesEnabled: vi.fn() }));
 
 import {
 	normalizeMinibitsPaymentPubkey,
@@ -53,11 +58,11 @@ describe('manual Minibits token verification', () => {
 		condition.sigFlag = 'SIG_INPUTS';
 	});
 
-	it('normalizes npub, x-only, and compressed public keys to x-only hex', () => {
+	it('preserves compressed key parity and rejects parity-less keys', () => {
 		const key = 'a'.repeat(64);
-		expect(normalizeMinibitsPaymentPubkey(nip19.npubEncode(key))).toBe(key);
-		expect(normalizeMinibitsPaymentPubkey(key.toUpperCase())).toBe(key);
-		expect(normalizeMinibitsPaymentPubkey(`03${key}`)).toBe(key);
+		expect(normalizeMinibitsPaymentPubkey(`02${key.toUpperCase()}`)).toBe(`02${key}`);
+		expect(normalizeMinibitsPaymentPubkey(`03${key}`)).toBe(`03${key}`);
+		expect(() => normalizeMinibitsPaymentPubkey(key)).toThrow('complete');
 		expect(() => normalizeMinibitsPaymentPubkey('nsec1not-a-public-key')).toThrow();
 	});
 
@@ -68,11 +73,11 @@ describe('manual Minibits token verification', () => {
 				{
 					mintUrl: tokenInfo.mint,
 					amount: 21,
-					paymentPubkey: 'a'.repeat(64)
+					paymentPubkey: `02${'a'.repeat(64)}`
 				},
 				wallet()
 			)
-		).resolves.toMatchObject({ valid: true, paymentPubkey: 'a'.repeat(64) });
+		).resolves.toMatchObject({ valid: true, paymentPubkey: `02${'a'.repeat(64)}` });
 
 		condition.locktime = 123;
 		await expect(
@@ -81,7 +86,7 @@ describe('manual Minibits token verification', () => {
 				{
 					mintUrl: tokenInfo.mint,
 					amount: 21,
-					paymentPubkey: 'a'.repeat(64)
+					paymentPubkey: `02${'a'.repeat(64)}`
 				},
 				wallet()
 			)
@@ -95,7 +100,7 @@ describe('manual Minibits token verification', () => {
 				{
 					mintUrl: tokenInfo.mint,
 					amount: 20,
-					paymentPubkey: 'a'.repeat(64)
+					paymentPubkey: `02${'a'.repeat(64)}`
 				},
 				wallet()
 			)
@@ -108,7 +113,7 @@ describe('manual Minibits token verification', () => {
 				{
 					mintUrl: tokenInfo.mint,
 					amount: 21,
-					paymentPubkey: 'a'.repeat(64)
+					paymentPubkey: `02${'a'.repeat(64)}`
 				},
 				wallet()
 			)
@@ -121,7 +126,7 @@ describe('manual Minibits token verification', () => {
 				{
 					mintUrl: tokenInfo.mint,
 					amount: 21,
-					paymentPubkey: 'a'.repeat(64)
+					paymentPubkey: `02${'a'.repeat(64)}`
 				},
 				wallet([{ state: 'SPENT' }])
 			)

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import type { Solution, Pledge, Payout } from '$lib/bounty/types';
 	import { payoutBlueprint } from '$lib/bounty/blueprints';
 	import { accountState } from '$lib/nostr/account.svelte';
@@ -16,12 +15,14 @@
 		bountyAddress,
 		winningSolution,
 		pledges,
-		payouts = []
+		payouts = [],
+		financialDataComplete
 	}: {
 		bountyAddress: string;
 		winningSolution: Solution | undefined;
 		pledges: Pledge[];
 		payouts: Payout[];
+		financialDataComplete: boolean;
 	} = $props();
 
 	const paymentWritesEnabled = arePaymentWritesEnabled();
@@ -47,23 +48,27 @@
 		totalPledged > 0 ? Math.min(100, Math.round((totalReleased / totalPledged) * 100)) : 0
 	);
 
-	onMount(async () => {
-		const pending = await paymentJournal.listPending();
-		const existing = pending.find(
-			(item) =>
-				item.intent.kind === 'release' &&
-				myPledges.some((pledge) => item.intent.sourceEventIds.includes(pledge.id))
-		);
-		if (existing) {
+	$effect(() => {
+		const pubkey = accountState.pubkey;
+		const currentPledges = myPledges;
+		if (!pubkey || currentPledges.length === 0 || operation) return;
+		void paymentJournal.listPending().then((pending) => {
+			if (accountState.pubkey !== pubkey || operation) return;
+			const existing = pending.find(
+				(item) =>
+					item.intent.kind === 'release' &&
+					currentPledges.some((pledge) => item.intent.sourceEventIds.includes(pledge.id))
+			);
+			if (!existing) return;
 			operation = existing;
 			selectedPledge =
-				myPledges.find((pledge) => existing.intent.sourceEventIds.includes(pledge.id)) ?? null;
+				currentPledges.find((pledge) => existing.intent.sourceEventIds.includes(pledge.id)) ?? null;
 			payoutToken = existing.recovery?.token ?? '';
-		}
+		});
 	});
 
 	async function begin(pledge: Pledge) {
-		if (!winningSolution?.paymentPubkey || !paymentWritesEnabled) return;
+		if (!winningSolution?.paymentPubkey || !paymentWritesEnabled || !financialDataComplete) return;
 		selectedPledge = pledge;
 		error = '';
 		operation = await paymentJournal.create({
@@ -91,7 +96,13 @@
 	}
 
 	async function submitRelease() {
-		if (!paymentWritesEnabled || !operation || !selectedPledge || !winningSolution?.paymentPubkey)
+		if (
+			!paymentWritesEnabled ||
+			!financialDataComplete ||
+			!operation ||
+			!selectedPledge ||
+			!winningSolution?.paymentPubkey
+		)
 			return;
 		busy = true;
 		error = '';
@@ -166,13 +177,11 @@
 {#if accountState.isAuthenticated && myPledges.length > 0 && winningSolution}
 	{#if !paymentWritesEnabled}<PaymentUnavailable action="Fund release" />{/if}
 	{#if !winningSolution.paymentPubkey}
-		<p class="text-sm text-destructive/70">
+		<p class="text-sm text-destructive">
 			Release blocked: the winning solution has no Minibits payout key.
 		</p>
 	{:else if unreleased.length === 0}
-		<p class="text-sm font-medium text-success/70" role="status">
-			You released every source pledge.
-		</p>
+		<p class="text-sm font-medium text-success" role="status">You released every source pledge.</p>
 	{:else if operation && selectedPledge}
 		<section class="border-t border-border pt-4 space-y-3" aria-labelledby="manual-release-title">
 			<h3 id="manual-release-title" class="font-medium text-foreground">
@@ -220,7 +229,10 @@
 				Release each pledge separately. The operation is saved before Minibits handoff.
 			</p>
 			{#each unreleased as pledge (pledge.id)}
-				<Button variant="outline" onclick={() => begin(pledge)} disabled={!paymentWritesEnabled}
+				<Button
+					variant="outline"
+					onclick={() => begin(pledge)}
+					disabled={!paymentWritesEnabled || !financialDataComplete}
 					>Release {pledge.amount.toLocaleString()} sats</Button
 				>
 			{/each}

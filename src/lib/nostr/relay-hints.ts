@@ -13,7 +13,7 @@ function normalizeRelayUrl(value: string, allowLocalInsecure: boolean): string |
 	}
 }
 
-/** Merge untrusted naddr hints after configured relays using strict connection bounds. */
+/** Use configured relays only. Untrusted naddr hints must never create connections implicitly. */
 export function mergeRelayHints(
 	configured: readonly string[],
 	hints: readonly string[],
@@ -34,9 +34,7 @@ export function mergeRelayHints(
 		if (acceptedHints >= maxHints || merged.length >= maxConnections) break;
 		if (!isValidRelayUrl(hint).valid) continue;
 		const normalized = normalizeRelayUrl(hint, false);
-		if (!normalized || seen.has(normalized)) continue;
-		seen.add(normalized);
-		merged.push(normalized);
+		if (!normalized || !seen.has(normalized)) continue;
 		acceptedHints++;
 	}
 	return merged;

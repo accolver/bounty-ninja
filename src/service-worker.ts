@@ -13,7 +13,7 @@ import {
 
 // NOTE: Keep prefix in sync with config.storagePrefix in src/lib/config.ts
 const CACHE_NAME = `bounty-ninja-${version}`;
-const APP_SHELL = '/index.html';
+const APP_SHELL = '/';
 
 // Files to cache (app shell)
 const ASSETS = [...build, ...files, APP_SHELL];

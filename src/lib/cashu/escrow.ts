@@ -21,6 +21,7 @@ import { decodeToken, encodeToken, getProofsAmount } from './token';
 import { assertNut11Support, createP2PKLock } from './p2pk';
 import { getWallet } from './mint';
 import { requestP2PKSignatures, type CashuPaymentSigner } from './payment-signer';
+import { assertPaymentWritesEnabled } from '$lib/utils/env';
 
 /**
  * Create a P2PK-locked pledge token for a bounty.
@@ -39,6 +40,7 @@ export async function createPledgeToken(
 	paymentPubkey: string,
 	mintUrl?: string
 ): Promise<MintResult> {
+	assertPaymentWritesEnabled();
 	if (proofs.length === 0) {
 		return { success: false, proofs: [], error: 'No proofs provided' };
 	}
@@ -143,6 +145,7 @@ export async function releasePledgeToSolver(
 	paymentSigner: CashuPaymentSigner,
 	solverPaymentPubkey: string
 ): Promise<MintResult> {
+	assertPaymentWritesEnabled();
 	if (pledge.proofs.length === 0) {
 		return { success: false, proofs: [], error: 'No proofs to release' };
 	}
@@ -215,6 +218,7 @@ export async function reclaimPledge(
 	pledge: DecodedPledge,
 	paymentSigner: CashuPaymentSigner
 ): Promise<SwapResult> {
+	assertPaymentWritesEnabled();
 	if (pledge.proofs.length === 0) {
 		return {
 			success: false,

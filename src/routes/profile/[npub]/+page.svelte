@@ -30,6 +30,7 @@
 
 	let profile = $state<Record<string, string> | null>(null);
 	let loading = $state(true);
+	let loadProfileImage = $state(false);
 	const bounties = $derived(bountyList.items.filter((item) => item.pubkey === data.pubkey));
 	const authoredSolutions = $derived(
 		projectionRegistry.items.flatMap((projection) =>
@@ -59,6 +60,10 @@
 
 	$effect(() => {
 		const subs: Array<Subscription | { unsubscribe(): void }> = [];
+		profile = null;
+		loading = true;
+		needsOverlay = false;
+		loadProfileImage = false;
 		bountyList.init();
 
 		// Subscribe to profile metadata from EventStore
@@ -107,7 +112,10 @@
 		const timer = setTimeout(() => {
 			minTimeElapsed = true;
 		}, 1000);
-		return () => clearTimeout(timer);
+		return () => {
+			clearTimeout(timer);
+			pageLoading.active = false;
+		};
 	});
 
 	const dataReady = $derived(!loading || bounties.length > 0);
@@ -141,7 +149,18 @@
 		>
 			<!-- Profile header -->
 			<header class="flex items-center gap-4">
-				<ProfileAvatar pubkey={data.pubkey} size="xl" />
+				<div class="space-y-1 text-center">
+					<ProfileAvatar pubkey={data.pubkey} size="xl" allowRemoteImage={loadProfileImage} />
+					{#if !loadProfileImage && profile?.picture}
+						<button
+							type="button"
+							onclick={() => (loadProfileImage = true)}
+							class="hover:cursor-pointer text-xs text-muted-foreground transition-colors hover:text-primary"
+						>
+							Load image
+						</button>
+					{/if}
+				</div>
 				<div>
 					<h1 class="text-xl font-bold text-foreground">{displayName}</h1>
 					<p class="text-xs font-mono text-muted-foreground">{formatNpub(npub)}</p>
@@ -184,8 +203,8 @@
 						{/if}
 						{#if reputation.bountyRetractions > 0 || reputation.pledgeRetractions > 0}
 							<div>
-								<p class="text-xs uppercase text-destructive/70">Retractions</p>
-								<p class="text-lg font-semibold text-destructive/70">
+								<p class="text-xs uppercase text-destructive">Retractions</p>
+								<p class="text-lg font-semibold text-destructive">
 									{reputation.bountyRetractions + reputation.pledgeRetractions}
 								</p>
 							</div>
@@ -223,12 +242,10 @@
 						{isOwnProfile ? 'My Bounties' : 'Bounties'} ({bounties.length})
 					</h2>
 					{#if isOwnProfile}
-						<a href={resolve('/bounty/new')}>
-							<Button variant="default" size="sm" class="gap-1.5">
-								<Plus class="size-4" />
-								Create Bounty
-							</Button>
-						</a>
+						<Button href={resolve('/bounty/new')} variant="default" size="sm" class="gap-1.5">
+							<Plus class="size-4" />
+							Create Bounty
+						</Button>
 					{/if}
 				</div>
 

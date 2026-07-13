@@ -40,6 +40,11 @@
 
 	function toggle() {
 		open = !open;
+		if (open) {
+			requestAnimationFrame(() =>
+				menuRef?.querySelector<HTMLElement>('[role="menuitem"]')?.focus()
+			);
+		}
 	}
 
 	function close() {
@@ -81,6 +86,15 @@
 			if (event.key === 'Escape') {
 				close();
 				triggerRef?.focus();
+				return;
+			}
+			if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+				const items = [...(menuRef?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
+				if (items.length === 0) return;
+				event.preventDefault();
+				const current = items.indexOf(document.activeElement as HTMLElement);
+				const offset = event.key === 'ArrowDown' ? 1 : -1;
+				items[(current + offset + items.length) % items.length]?.focus();
 			}
 		}
 

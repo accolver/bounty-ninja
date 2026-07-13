@@ -121,17 +121,14 @@ description = "Run svelte-check for type errors"
 run = "bun run check"
 
 [tasks.deploy]
-description = "Build and deploy to Cloudflare Pages (bounty.ninja)"
+description = "Dispatch the protected production CI workflow from a clean, pushed main"
 run = """
-echo "🔨 Building..."
-bun run build
-
-echo ""
-echo "🚀 Deploying to Cloudflare Pages..."
-bunx wrangler pages deploy build --project-name bounty-ninja --branch main --commit-dirty=true
-
-echo ""
-echo "✅ Deployed to https://bounty.ninja"
+test "$(git branch --show-current)" = "main" || { echo "Production deploy requires main" >&2; exit 1; }
+test -z "$(git status --porcelain)" || { echo "Production deploy rejects a dirty worktree" >&2; exit 1; }
+git fetch --quiet origin main
+test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" || { echo "Production deploy requires local main to match pushed origin/main" >&2; exit 1; }
+gh workflow run ci.yml --ref main
+echo "Dispatched protected CI: it runs all gates, creates release metadata, and smokes the Pages URL and https://bounty.ninja"
 """
 
 [tasks."deploy:preview"]
@@ -143,7 +140,7 @@ bun run build
 
 echo ""
 echo "🚀 Deploying preview branch: $BRANCH"
-bunx wrangler pages deploy build --project-name bounty-ninja --branch "$BRANCH" --commit-dirty=true
+bunx wrangler pages deploy build --project-name bounty-ninja --branch "$BRANCH"
 """
 
 [tasks.clean]

@@ -81,49 +81,19 @@
 		goto(`/bounty/${naddr}`);
 	}
 
-	function navigateToSelected() {
-		if (selectedIndex >= 0 && selectedIndex < activeResults.length) {
-			const result = activeResults[selectedIndex];
-			navigateToBounty(result.pubkey, result.dTag);
-		}
-	}
-
-	function scrollSelectedIntoView() {
+	function focusSelectedResult() {
 		if (selectedIndex < 0 || !listRef) return;
-		const item = listRef.children[selectedIndex] as HTMLElement | undefined;
+		const item = listRef.children[selectedIndex]?.querySelector('button');
+		item?.focus();
 		item?.scrollIntoView({ block: 'nearest' });
 	}
 
 	/**
-	 * Unified keydown handler for the entire dialog.
-	 * Captures Tab/Shift+Tab to cycle through results,
-	 * Enter/Space to activate the selected result.
+	 * Arrow keys offer quick result navigation while Tab follows the normal
+	 * dialog focus order through the input, close control, and result buttons.
 	 */
 	function handleDialogKeydown(e: KeyboardEvent) {
 		const count = activeResults.length;
-
-		if (e.key === 'Tab' && count > 0) {
-			e.preventDefault();
-			if (e.shiftKey) {
-				// Shift+Tab: move up, loop to last from input
-				if (selectedIndex <= 0) {
-					selectedIndex = count - 1;
-				} else {
-					selectedIndex--;
-				}
-			} else {
-				// Tab: move down, loop to input from last
-				if (selectedIndex >= count - 1) {
-					selectedIndex = -1;
-					inputRef?.focus();
-					return;
-				} else {
-					selectedIndex++;
-				}
-			}
-			scrollSelectedIntoView();
-			return;
-		}
 
 		if (e.key === 'Escape') {
 			// Let bits-ui Dialog handle Escape to close
@@ -131,7 +101,7 @@
 		}
 
 		// When input is focused, Enter goes to full search page
-		if (selectedIndex === -1 && e.key === 'Enter') {
+		if (e.target === inputRef && e.key === 'Enter') {
 			e.preventDefault();
 			if (debounceTimer) {
 				clearTimeout(debounceTimer);
@@ -145,25 +115,18 @@
 			return;
 		}
 
-		// When a result is selected, Enter/Space navigates to it
-		if (selectedIndex >= 0 && (e.key === 'Enter' || e.key === ' ')) {
-			e.preventDefault();
-			navigateToSelected();
-			return;
-		}
-
 		// ArrowDown/ArrowUp as alternative navigation
 		if (e.key === 'ArrowDown' && count > 0) {
 			e.preventDefault();
 			selectedIndex = selectedIndex >= count - 1 ? 0 : selectedIndex + 1;
-			scrollSelectedIntoView();
+			focusSelectedResult();
 			return;
 		}
 
 		if (e.key === 'ArrowUp' && count > 0) {
 			e.preventDefault();
 			selectedIndex = selectedIndex <= 0 ? count - 1 : selectedIndex - 1;
-			scrollSelectedIntoView();
+			focusSelectedResult();
 			return;
 		}
 	}
@@ -222,15 +185,16 @@
 						{...props}
 						onkeydown={handleDialogKeydown}
 						transition:scale={{ duration: 150, start: 0.98, easing: cubicOut }}
-						class="fixed left-1/2 top-[12%] z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2
-							rounded-xl bg-card shadow-2xl"
+						class="fixed left-1/2 top-[max(1rem,12%)] z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 overflow-y-auto overscroll-contain rounded-xl border border-border bg-card shadow-2xl"
 					>
 						<Dialog.Title class="sr-only">Search bounties</Dialog.Title>
 
 						<!-- Search input -->
 						<div class="flex items-center gap-3 px-4">
 							<SearchIcon class="size-4 shrink-0 text-muted-foreground" />
+							<label for="global-bounty-search" class="sr-only">Search bounties</label>
 							<input
+								id="global-bounty-search"
 								bind:this={inputRef}
 								type="text"
 								bind:value={query}
@@ -243,7 +207,6 @@
 							<button
 								type="button"
 								onclick={close}
-								tabindex={-1}
 								class="shrink-0 cursor-pointer rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
 								aria-label="Close search"
 							>
@@ -272,17 +235,17 @@
 											No active bounties found
 										</p>
 									{:else}
-										<ul bind:this={listRef} role="listbox" aria-label="Search results">
+										<ul bind:this={listRef} aria-label="Search results">
 											{#each activeResults as result, i (result.id)}
-												<li role="option" aria-selected={i === selectedIndex}>
+												<li>
 													<button
 														type="button"
-														tabindex={-1}
-														class="flex w-full cursor-pointer items-center gap-4 border-b border-border/50 px-4 py-2.5 text-left text-sm transition-colors last:border-b-0 hover:bg-muted/30 {i ===
+														class="flex w-full cursor-pointer items-center gap-4 border-b border-border px-4 py-2.5 text-left text-sm transition-colors last:border-b-0 hover:bg-muted/30 {i ===
 														selectedIndex
 															? 'bg-muted/30'
 															: ''}"
 														onclick={() => navigateToBounty(result.pubkey, result.dTag)}
+														onfocus={() => (selectedIndex = i)}
 													>
 														<span class="min-w-0 flex-1 truncate text-foreground">
 															{result.title}

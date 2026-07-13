@@ -20,7 +20,7 @@
 
 <a
 	href="/bounty/{naddr}"
-	class="group flex items-center gap-4 border-b border-border/50 px-4 py-5
+	class="group flex items-center gap-4 border-b border-border px-4 py-5
 		transition-colors hover:bg-card/60
 		focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
 	aria-label="Bounty: {bounty.title}"
@@ -54,7 +54,7 @@
 	<div class="flex shrink-0 items-center gap-3">
 		<BountyStatusBadge status={bounty.status} />
 		<ChevronRight
-			class="h-4 w-4 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5"
+			class="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5"
 		/>
 	</div>
 </a>

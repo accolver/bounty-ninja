@@ -11,6 +11,9 @@ import {
 } from '$lib/cashu/p2pk';
 import type { P2PKLockParams } from '$lib/cashu/types';
 
+const paymentWrites = vi.hoisted(() => ({ assertEnabled: vi.fn() }));
+vi.mock('$lib/utils/env', () => ({ assertPaymentWritesEnabled: paymentWrites.assertEnabled }));
+
 function mockProof(amount: number, id = 'proof-id'): Proof {
 	return {
 		id,
@@ -32,16 +35,16 @@ function mockWallet(overrides: Partial<Wallet> = {}): Wallet {
 	} as unknown as Wallet;
 }
 
-const VALID_PUBKEY = 'a'.repeat(64);
 const COMPRESSED_PUBKEY = `02${'a'.repeat(64)}`;
-const OTHER_PUBKEY = 'b'.repeat(64);
 const COMPRESSED_OTHER = `02${'b'.repeat(64)}`;
+const VALID_PUBKEY = COMPRESSED_PUBKEY;
+const OTHER_PUBKEY = COMPRESSED_OTHER;
 
 // ── toCompressedPubkey ──────────────────────────────────────────────────────
 
 describe('toCompressedPubkey', () => {
-	it('prepends 02 to x-only (64-char) pubkey', () => {
-		expect(toCompressedPubkey(VALID_PUBKEY)).toBe(COMPRESSED_PUBKEY);
+	it('rejects x-only keys because parity is unknown', () => {
+		expect(() => toCompressedPubkey('a'.repeat(64))).toThrow('compressed SEC1');
 	});
 
 	it('passes through already-compressed 02-prefixed key', () => {
@@ -55,8 +58,8 @@ describe('toCompressedPubkey', () => {
 	});
 
 	it('lowercases the key', () => {
-		const upper = 'A'.repeat(64);
-		expect(toCompressedPubkey(upper)).toBe(`02${'a'.repeat(64)}`);
+		const upper = `02${'A'.repeat(64)}`;
+		expect(toCompressedPubkey(upper)).toBe(COMPRESSED_PUBKEY);
 	});
 
 	it('throws for invalid key length', () => {
@@ -66,14 +69,14 @@ describe('toCompressedPubkey', () => {
 	});
 });
 
-describe('NUT-11 x-coordinate comparison', () => {
-	it('matches either compressed parity to one canonical x-only key', () => {
-		expect(nut11KeyMatchesXOnly(`02${VALID_PUBKEY}`, VALID_PUBKEY)).toBe(true);
-		expect(nut11KeyMatchesXOnly(`03${VALID_PUBKEY}`, VALID_PUBKEY)).toBe(true);
+describe('NUT-11 parity-preserving comparison', () => {
+	it('matches only the exact compressed parity', () => {
+		expect(nut11KeyMatchesXOnly(COMPRESSED_PUBKEY, COMPRESSED_PUBKEY)).toBe(true);
+		expect(nut11KeyMatchesXOnly(`03${'a'.repeat(64)}`, COMPRESSED_PUBKEY)).toBe(false);
 	});
 
 	it('rejects malformed NUT-11 keys and non-canonical event keys', () => {
-		expect(() => nut11KeyXCoordinate(`04${VALID_PUBKEY}`)).toThrow('Invalid NUT-11');
+		expect(() => nut11KeyXCoordinate(`04${'a'.repeat(64)}`)).toThrow('Invalid NUT-11');
 		expect(() => nut11KeyMatchesXOnly(COMPRESSED_PUBKEY, VALID_PUBKEY.toUpperCase())).toThrow(
 			'lowercase'
 		);
@@ -83,7 +86,7 @@ describe('NUT-11 x-coordinate comparison', () => {
 // ── createP2PKLock ──────────────────────────────────────────────────────────
 
 describe('createP2PKLock', () => {
-	it('normalizes x-only pubkey to compressed format', () => {
+	it('preserves compressed pubkey parity', () => {
 		const options = createP2PKLock(VALID_PUBKEY);
 		expect(options.pubkey).toBe(COMPRESSED_PUBKEY);
 		expect(options.locktime).toBeUndefined();
@@ -163,6 +166,17 @@ describe('createP2PKLockFromParams', () => {
 // ── lockProofsToKey ─────────────────────────────────────────────────────────
 
 describe('lockProofsToKey', () => {
+	it('checks the payment-write gate before any mint mutation', async () => {
+		paymentWrites.assertEnabled.mockImplementationOnce(() => {
+			throw new Error('Payment writes are disabled in this build');
+		});
+		const wallet = mockWallet();
+		await expect(lockProofsToKey([mockProof(100)], VALID_PUBKEY, wallet)).rejects.toThrow(
+			'Payment writes are disabled'
+		);
+		expect(wallet.send).not.toHaveBeenCalled();
+	});
+
 	it('locks proofs to a pubkey successfully', async () => {
 		const proofs = [mockProof(100), mockProof(50)];
 		const wallet = mockWallet();

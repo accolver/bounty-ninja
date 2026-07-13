@@ -1,4 +1,4 @@
-import type { CashuTokenVerification } from '$lib/cashu/types';
+import type { CashuTokenVerification, PledgeVerification, ProofIdentity } from '$lib/cashu/types';
 import { normalizeMintUrl } from '$lib/cashu/proof-identity';
 import { nut11KeyMatchesXOnly } from '$lib/cashu/p2pk';
 import type { Payout, PayoutValidation, Pledge, Solution } from './types';
@@ -9,7 +9,10 @@ export interface PayoutValidationContext {
 	winner: Solution | null;
 	activePledgesById: ReadonlyMap<string, Pledge>;
 	payoutTokenVerifications: ReadonlyMap<string, CashuTokenVerification>;
+	pledgeVerifications: ReadonlyMap<string, PledgeVerification>;
 	alreadyReleasedPledgeIds: ReadonlySet<string>;
+	globalProofOwners: ReadonlyMap<ProofIdentity, string | null>;
+	globalProofSetComplete: boolean;
 	now: number;
 }
 
@@ -20,6 +23,9 @@ export function validatePayout(payout: Payout, context: PayoutValidationContext)
 		? context.activePledgesById.get(payout.sourcePledgeId)
 		: undefined;
 	const token = context.payoutTokenVerifications.get(payout.id);
+	const sourceVerification = payout.sourcePledgeId
+		? context.pledgeVerifications.get(payout.sourcePledgeId)
+		: undefined;
 
 	if (!context.winner) reasons.push('consensus_not_unique');
 	if (!payout.paymentPubkey) reasons.push('missing_payment_key');
@@ -30,6 +36,11 @@ export function validatePayout(payout: Payout, context: PayoutValidationContext)
 		if (sourcePledge.bountyAddress !== context.bountyAddress) reasons.push('wrong_bounty');
 		if (payout.pubkey !== sourcePledge.pubkey) reasons.push('unauthorized_source_owner');
 		if (payout.amount !== sourcePledge.amount) reasons.push('source_amount_mismatch');
+	}
+	if (!sourceVerification || !sourceVerification.issuanceAuthentic) {
+		reasons.push('source_issuance_unverified');
+	} else if (sourceVerification.proofState !== 'spent') {
+		reasons.push('source_not_spent');
 	}
 	if (context.winner) {
 		if (payout.solutionId !== context.winner.id) reasons.push('wrong_solution');
@@ -59,6 +70,7 @@ export function validatePayout(payout: Payout, context: PayoutValidationContext)
 	if (!token) {
 		reasons.push('missing_token_verification');
 	} else {
+		if (!token.issuanceAuthentic) reasons.push('token_issuance_unverified');
 		if (token.decodedAmount !== payout.amount) reasons.push('token_amount_mismatch');
 		if (context.winner?.paymentPubkey) {
 			try {
@@ -71,6 +83,22 @@ export function validatePayout(payout: Payout, context: PayoutValidationContext)
 			} catch {
 				reasons.push('token_target_mismatch');
 			}
+		}
+		if (
+			!context.globalProofSetComplete ||
+			token.proofIdentities.some(
+				(identity) => context.globalProofOwners.get(identity) !== payout.id
+			)
+		) {
+			reasons.push('globally_replayed_proof');
+		}
+		if (
+			sourceVerification &&
+			token.proofIdentities.some((identity) =>
+				sourceVerification.proofIdentities.includes(identity)
+			)
+		) {
+			reasons.push('source_output_proof_overlap');
 		}
 	}
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Proof, ProofState } from '@cashu/cashu-ts';
 import type { Pledge } from '$lib/bounty/types';
 import type { PledgeValidationInput, P2PKProofCondition } from '$lib/cashu/pledge-verification';
-import { validatePledge } from '$lib/cashu/pledge-verification';
+import { inspectP2PKProof, validatePledge } from '$lib/cashu/pledge-verification';
 import type { ProofIdentity, TokenInfo } from '$lib/cashu/types';
 
 const BOUNTY_ADDRESS = `37300:${'a'.repeat(64)}:bounty`;
@@ -14,7 +14,7 @@ const pledge = {
 	event: {} as Pledge['event'],
 	id: 'pledge-1',
 	pubkey: 'b'.repeat(64),
-	paymentPubkey: 'b'.repeat(64),
+	paymentPubkey: TARGET,
 	bountyAddress: BOUNTY_ADDRESS,
 	amount: 100,
 	cashuToken: 'cashuBtoken',
@@ -31,6 +31,7 @@ const decoded = {
 const state = { Y: 'proof-y', state: 'UNSPENT', witness: null } satisfies ProofState;
 const condition = {
 	target: TARGET,
+	primaryKeys: [TARGET],
 	refundKeys: [],
 	locktime: null,
 	nSigs: 1,
@@ -48,6 +49,7 @@ function input(overrides: Partial<PledgeValidationInput> = {}): PledgeValidation
 		proofIdentities: [IDENTITY],
 		duplicateProofs: new Set(),
 		conditions: [condition],
+		issuanceEvidence: ['valid'],
 		checkedAt: 1_900_000_000,
 		validUntil: 1_900_000_300,
 		...overrides
@@ -103,10 +105,10 @@ describe('validatePledge', () => {
 		expect(pending.reasons).toContain('pending_proof');
 	});
 
-	it('rejects spent proofs and proof-state cardinality mismatches', () => {
-		expect(
-			validatePledge(input({ proofStates: [{ ...state, state: 'SPENT' }] })).reasons
-		).toContain('spent_proof');
+	it('retains authentic spent proofs as historical evidence and rejects state cardinality mismatches', () => {
+		const spent = validatePledge(input({ proofStates: [{ ...state, state: 'SPENT' }] }));
+		expect(spent.status).toBe('valid');
+		expect(spent.proofState).toBe('spent');
 		expect(validatePledge(input({ proofStates: [] })).reasons).toContain('proof_state_mismatch');
 	});
 
@@ -145,9 +147,26 @@ describe('validatePledge', () => {
 		expect(validatePledge(input({ conditions: [{ ...condition, nSigs: 0 }] })).reasons).toContain(
 			'signature_policy_mismatch'
 		);
+		expect(validatePledge(input({ conditions: [{ ...condition, nSigs: 2 }] })).reasons).toContain(
+			'signature_policy_mismatch'
+		);
+		expect(
+			validatePledge(
+				input({ conditions: [{ ...condition, primaryKeys: [TARGET, `03${'c'.repeat(64)}`] }] })
+			).reasons
+		).toContain('signature_policy_mismatch');
 		expect(
 			validatePledge(input({ conditions: [{ ...condition, sigFlag: 'SIG_ALL' }] })).reasons
 		).toContain('signature_policy_mismatch');
+	});
+
+	it('requires cryptographically verified mint issuance evidence', () => {
+		expect(validatePledge(input({ issuanceEvidence: ['missing'] })).reasons).toContain(
+			'issuance_evidence_missing'
+		);
+		expect(validatePledge(input({ issuanceEvidence: ['invalid'] })).reasons).toContain(
+			'issuance_evidence_invalid'
+		);
 	});
 
 	it('rejects legacy pledges without an explicit payment key', () => {
@@ -173,5 +192,59 @@ describe('validatePledge', () => {
 		const result = validatePledge(input({ bountyAddress: `${BOUNTY_ADDRESS}-other` }));
 		expect(result.status).toBe('invalid');
 		expect(result.reasons).toContain('wrong_bounty');
+	});
+});
+
+describe('inspectP2PKProof raw NUT-11 syntax', () => {
+	const secret = (tags: string[][]) =>
+		JSON.stringify(['P2PK', { nonce: 'nonce', data: TARGET, tags }]);
+
+	it('accepts the exact permanent one-signature policy', async () => {
+		await expect(
+			inspectP2PKProof(
+				secret([
+					['n_sigs', '1'],
+					['sigflag', 'SIG_INPUTS']
+				])
+			)
+		).resolves.toMatchObject({
+			target: TARGET,
+			primaryKeys: [TARGET],
+			nSigs: 1,
+			sigFlag: 'SIG_INPUTS'
+		});
+	});
+
+	it('rejects duplicate policy tags and duplicate additional pubkeys', async () => {
+		await expect(
+			inspectP2PKProof(
+				secret([
+					['n_sigs', '1'],
+					['n_sigs', '1']
+				])
+			)
+		).resolves.toBeNull();
+		const additional = `03${'c'.repeat(64)}`;
+		await expect(
+			inspectP2PKProof(secret([['pubkeys', additional, additional]]))
+		).resolves.toBeNull();
+	});
+
+	it('rejects malformed numeric values instead of accepting numeric prefixes', async () => {
+		await expect(inspectP2PKProof(secret([['n_sigs', '1junk']]))).resolves.toBeNull();
+		await expect(
+			inspectP2PKProof(
+				secret([
+					['locktime', '123junk'],
+					['refund', `03${'c'.repeat(64)}`]
+				])
+			)
+		).resolves.toBeNull();
+	});
+
+	it('rejects unknown, conflicting, and malformed critical tags', async () => {
+		await expect(inspectP2PKProof(secret([['critical_future_policy', '1']]))).resolves.toBeNull();
+		await expect(inspectP2PKProof(secret([['refund', `03${'c'.repeat(64)}`]]))).resolves.toBeNull();
+		await expect(inspectP2PKProof(secret([['sigflag', 'SIG_UNKNOWN']]))).resolves.toBeNull();
 	});
 });

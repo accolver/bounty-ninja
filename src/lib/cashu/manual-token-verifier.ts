@@ -1,9 +1,10 @@
-import type { Proof } from '@cashu/cashu-ts';
-import { nip19 } from 'nostr-tools';
+import type { Proof, Wallet } from '@cashu/cashu-ts';
 import { getWallet } from './mint';
 import { normalizeMintUrl } from './proof-identity';
 import { inspectP2PKProof } from './pledge-verification';
-import { nut11KeyXCoordinate } from './p2pk';
+import { isCompressedPubkey } from './p2pk';
+import { verifyProofIssuance } from './financial-verifier';
+import { assertPaymentWritesEnabled } from '$lib/utils/env';
 import { decodeToken } from './token';
 import type { TokenInfo } from './types';
 
@@ -23,20 +24,12 @@ type WalletProvider = (mintUrl: string) => Promise<ManualVerificationWallet>;
 
 /** Normalize a Minibits public payment key without ever requesting its private key. */
 export function normalizeMinibitsPaymentPubkey(value: string): string {
-	const input = value.trim();
+	const input = value.trim().toLowerCase();
 	if (!input) throw new Error('Minibits wallet public key is required');
-	if (input.toLowerCase().startsWith('npub1')) {
-		const decoded = nip19.decode(input.toLowerCase());
-		if (decoded.type !== 'npub' || typeof decoded.data !== 'string') {
-			throw new Error('Invalid Minibits npub');
-		}
-		return nut11KeyXCoordinate(decoded.data);
+	if (!isCompressedPubkey(input)) {
+		throw new Error('Enter the complete 02/03 compressed Minibits public key');
 	}
-	try {
-		return nut11KeyXCoordinate(input);
-	} catch {
-		throw new Error('Enter an npub, 64-character x-only key, or 02/03 compressed public key');
-	}
+	return input;
 }
 
 function stateError(
@@ -56,9 +49,11 @@ function stateError(
 export async function verifyManualP2PKToken(
 	token: string,
 	expected: { mintUrl: string; amount: number; paymentPubkey: string },
-	walletProvider: WalletProvider = getWallet
+	walletProvider: WalletProvider = getWallet,
+	issuanceVerifier: typeof verifyProofIssuance = verifyProofIssuance
 ): Promise<ManualTokenVerification> {
 	try {
+		assertPaymentWritesEnabled();
 		const paymentPubkey = normalizeMinibitsPaymentPubkey(expected.paymentPubkey);
 		const tokenInfo = await decodeToken(token.trim());
 		if (!tokenInfo || tokenInfo.proofs.length === 0)
@@ -94,6 +89,15 @@ export async function verifyManualP2PKToken(
 			throw new Error('Mint returned incomplete proof states');
 		const proofStateError = stateError(states, 'UNSPENT');
 		if (proofStateError) throw new Error(proofStateError);
+		const issuance = await Promise.all(
+			tokenInfo.proofs.map((proof) => issuanceVerifier(proof, wallet as Wallet))
+		);
+		if (issuance.some((result) => result === 'missing')) {
+			throw new Error('Every proof must include verifiable DLEQ issuance evidence');
+		}
+		if (issuance.some((result) => result !== 'valid')) {
+			throw new Error('A proof has invalid mint issuance evidence');
+		}
 
 		const conditions = await Promise.all(
 			tokenInfo.proofs.map((proof) => inspectP2PKProof(proof.secret))
@@ -102,13 +106,17 @@ export async function verifyManualP2PKToken(
 			throw new Error('Every proof must use a NUT-11 P2PK lock');
 		}
 		for (const condition of conditions) {
-			if (!condition || nut11KeyXCoordinate(condition.target) !== paymentPubkey) {
+			if (!condition || condition.target.toLowerCase() !== paymentPubkey) {
 				throw new Error('Token is not locked to the entered Minibits public key');
 			}
 			if (condition.locktime !== null || condition.refundKeys.length > 0) {
 				throw new Error('Token must have no locktime or refund keys');
 			}
-			if (condition.sigFlag !== 'SIG_INPUTS' || condition.nSigs !== 1) {
+			if (
+				condition.primaryKeys.length !== 1 ||
+				condition.sigFlag !== 'SIG_INPUTS' ||
+				condition.nSigs !== 1
+			) {
 				throw new Error('Token must permanently require one SIG_INPUTS signature');
 			}
 		}
@@ -129,6 +137,7 @@ export async function verifySourceProofsSpent(
 	walletProvider: WalletProvider = getWallet
 ): Promise<{ spent: boolean; error?: string }> {
 	try {
+		assertPaymentWritesEnabled();
 		const tokenInfo = await decodeToken(token);
 		if (!tokenInfo || tokenInfo.proofs.length === 0) throw new Error('Invalid source token');
 		if (normalizeMintUrl(tokenInfo.mint) !== normalizeMintUrl(mintUrl)) {

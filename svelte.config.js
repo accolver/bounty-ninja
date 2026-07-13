@@ -10,6 +10,9 @@ const config = {
 			precompress: true,
 			strict: true
 		}),
+		paths: {
+			relative: false
+		},
 		alias: {
 			$lib: './src/lib'
 		}

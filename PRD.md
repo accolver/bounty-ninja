@@ -58,16 +58,16 @@ unavailable do not create voting power or release authority.
 
 | Kind  | Record                 | Required relationship/payment data                                                                                             |
 | ----- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| 37300 | Bounty definition      | `d`, title, reward; optional expiration, mint, fee, and topic tags                                                             |
-| 73001 | Solution               | Bounty `a` reference and `['payment','cashu','<x-only-key>']` for new payout-compatible solutions                              |
-| 73002 | Pledge                 | Bounty `a`, creator `p`, amount, Cashu token, mint, and `['payment','cashu','<x-only-key>']`                                   |
+| 37300 | Bounty definition      | `d`, title, reward; optional expiration, mint, and topic tags                                                                  |
+| 73001 | Solution               | Bounty `a` reference and `['payment','cashu','<compressed-key>']` for new payout-compatible solutions                          |
+| 73002 | Pledge                 | Bounty `a`, creator `p`, amount, Cashu token, mint, and `['payment','cashu','<compressed-key>']`                               |
 | 1018  | Vote                   | Bounty `a`, solution `e`, and approve/reject choice                                                                            |
 | 73004 | Payout                 | Bounty `a`, one solution `e`, one source-pledge `e` marked `source`, solver `p`, amount, token, mint, and matching payment tag |
 | 73005 | Retraction             | Bounty `a`, bounty/pledge type, and source pledge `e` for pledge retraction                                                    |
 | 73006 | Reputation attestation | Authorized retraction relationship used as one derived reputation signal                                                       |
 
-The payment tag is exactly `['payment', 'cashu', '<64-character lowercase
-x-only public key>']`. It identifies a dedicated Cashu spending/receiving key,
+The payment tag is exactly `['payment', 'cashu', '<66-character lowercase
+02/03 compressed public key>']`. It preserves full key parity and identifies a dedicated Cashu spending/receiving key,
 not the event author's Nostr identity key. Legacy events without this tag may be
 displayed but cannot participate in new validated payment operations.
 
@@ -80,6 +80,7 @@ publishing a pledge, the user creates an exact-amount P2PK token at the bounty's
 mint, locked to the public key declared in the payment tag. Every proof must:
 
 - use unit `sat` and the bounty mint;
+- include DLEQ issuance evidence cryptographically verified against the exact mint keyset;
 - be unspent and unique;
 - target the declared Minibits payment key;
 - have no locktime and no refund keys; and
@@ -132,7 +133,9 @@ solvency remain external trust dependencies.
 
 All list, detail, search, profile, reputation, voting, and action authorization
 views use the shared validated financial projection. Active pledge value comes
-only from valid, unspent, non-retracted, non-replayed source proofs. Votes are
+only from issuance-authentic, non-retracted, globally non-replayed source proofs
+that are either unspent or paired with an exact valid source-bound payout.
+NUT-07 state does not establish issuance authenticity. Votes are
 weighted by that value; deterministic `(created_at, id)` ordering resolves
 latest-event choices. Multiple quorum winners are ambiguous and block release.
 
@@ -155,6 +158,17 @@ Unauthorized or cross-bounty retractions, winner redirection, mismatched
 payment keys/mints/amounts, legacy payouts without source references, and
 duplicate source payouts do not affect trusted state.
 
+Spent state alone never means reclaim and never retains funding or voting
+authority. Circular source/consensus/payout evaluation starts with otherwise
+valid sources and deterministically prunes unsettled spent sources without
+re-adding removed authority. A spent source paired with an exact valid
+source-bound payout and a spent payout after solver claim remain historical
+settlement evidence, so release and completion do not regress. Global replay
+ownership covers pledge and payout outputs across bounties; payout outputs may
+not be reused or overlap their source proofs. Financial actions require
+successful unbounded pledge+payout EOSE from at least the configured minimum
+relay count; errors and timeouts remain incomplete.
+
 ## 7. Security And Privacy
 
 - Never request, receive, store, or transmit an `nsec`, Nostr private key, Cashu
@@ -174,6 +188,11 @@ duplicate source payouts do not affect trusted state.
 
 See `SECURITY.md` and `docs/runbooks/` for disclosure, incident, rollback,
 outage, and recovery procedures.
+
+The application ships no analytics or tracking code. Cloudflare Pages Web Analytics and
+automatic beacon injection must remain disabled in the external project dashboard; the
+repository cannot enforce or verify that dashboard setting, so launch evidence remains a
+manual gate in `LAUNCH_CHECKLIST.md`.
 
 ## 8. Quality And Performance
 

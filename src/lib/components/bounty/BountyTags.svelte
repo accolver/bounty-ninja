@@ -7,7 +7,7 @@
 		{#each tags as tag (tag)}
 			<li>
 				<span
-					class="inline-block rounded-full border border-muted-foreground/40 bg-transparent px-2 py-0.5 text-xs text-muted-foreground"
+					class="inline-block rounded-full border border-muted-foreground bg-transparent px-2 py-0.5 text-xs text-muted-foreground"
 				>
 					{tag}
 				</span>

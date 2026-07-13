@@ -54,7 +54,7 @@
 		{:else}
 			<div
 				role="alert"
-				class="flex items-start gap-3 rounded-lg border border-destructive/50 bg-destructive/10 p-4"
+				class="flex items-start gap-3 rounded-lg border border-destructive bg-destructive/10 p-4"
 			>
 				<CircleXIcon class="mt-0.5 size-5 shrink-0 text-destructive" aria-hidden="true" />
 

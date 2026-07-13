@@ -37,7 +37,10 @@
 </script>
 
 {#if isSolver && payouts.length > 0}
-	<div class="border-t border-border pt-4 space-y-3" role="status" aria-label="Payout awarded">
+	<div class="border-t border-border pt-4 space-y-3">
+		<p class="sr-only" role="status" aria-live="polite">
+			Payout awarded: {totalAmount.toLocaleString()} sats.
+		</p>
 		<!-- Award header -->
 		<div class="flex items-center gap-2">
 			<svg
@@ -57,6 +60,9 @@
 				You have been awarded <SatAmount amount={totalAmount} />!
 			</p>
 		</div>
+		<p class="sr-only" role="status" aria-live="polite">
+			{copiedIndex === null ? '' : `Payout ${copiedIndex + 1} token copied to clipboard.`}
+		</p>
 
 		<!-- Release progress -->
 		{#if uniquePledgers > 1}

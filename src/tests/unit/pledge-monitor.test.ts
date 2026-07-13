@@ -1,10 +1,10 @@
 /**
- * Unit tests for pledge-monitor: spent token detection and auto-retraction.
+ * Unit tests for informational spent token detection.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Pledge, Retraction } from '$lib/bounty/types';
 import type { NostrEvent } from 'nostr-tools';
-import { PLEDGE_KIND, RETRACTION_KIND } from '$lib/bounty/kinds';
+import { PLEDGE_KIND } from '$lib/bounty/kinds';
 
 // Mock all external dependencies before imports
 vi.mock('$lib/utils/env', () => ({
@@ -19,22 +19,9 @@ vi.mock('$lib/cashu/mint', () => ({
 	getWallet: vi.fn()
 }));
 
-vi.mock('$lib/nostr/account.svelte', () => ({
-	accountState: { pubkey: null }
-}));
-
-vi.mock('$lib/nostr/signer.svelte', () => ({
-	publishEvent: vi.fn()
-}));
-
-import {
-	detectSpentUnretractedPledges,
-	autoRetractSpentPledge
-} from '$lib/cashu/pledge-monitor.svelte';
+import { detectSpentUnretractedPledges } from '$lib/cashu/pledge-monitor.svelte';
 import { decodeToken } from '$lib/cashu/token';
 import { getWallet } from '$lib/cashu/mint';
-import { accountState } from '$lib/nostr/account.svelte';
-import { publishEvent } from '$lib/nostr/signer.svelte';
 
 const PUBKEY_A = 'a'.repeat(64);
 const PUBKEY_B = 'b'.repeat(64);
@@ -146,60 +133,5 @@ describe('detectSpentUnretractedPledges', () => {
 		const pledges = [makePledge('1'.repeat(64))];
 		const result = await detectSpentUnretractedPledges(pledges, []);
 		expect(result).toEqual([]);
-	});
-});
-
-describe('autoRetractSpentPledge', () => {
-	it('does nothing if current user is not the pledger', async () => {
-		(accountState as { pubkey: string | null }).pubkey = PUBKEY_B; // different user
-		const pledge = makePledge('1'.repeat(64), PUBKEY_A);
-		const result = await autoRetractSpentPledge(pledge, TASK_ADDR, false);
-		expect(result).toBe(false);
-		expect(publishEvent).not.toHaveBeenCalled();
-	});
-
-	it('does nothing if not logged in', async () => {
-		(accountState as { pubkey: string | null }).pubkey = null;
-		const pledge = makePledge('1'.repeat(64), PUBKEY_A);
-		const result = await autoRetractSpentPledge(pledge, TASK_ADDR, false);
-		expect(result).toBe(false);
-		expect(publishEvent).not.toHaveBeenCalled();
-	});
-
-	it('publishes retraction only (no reputation) when no solutions', async () => {
-		(accountState as { pubkey: string | null }).pubkey = PUBKEY_A;
-		const signedEvent = { id: 'signed'.padEnd(64, '0'), kind: RETRACTION_KIND } as NostrEvent;
-		(publishEvent as ReturnType<typeof vi.fn>).mockResolvedValue({
-			event: signedEvent,
-			broadcast: {}
-		});
-
-		const pledge = makePledge('1'.repeat(64), PUBKEY_A);
-		const result = await autoRetractSpentPledge(pledge, TASK_ADDR, false);
-		expect(result).toBe(true);
-		expect(publishEvent).toHaveBeenCalledTimes(1); // Only retraction, no reputation
-	});
-
-	it('publishes retraction AND reputation when solutions exist', async () => {
-		(accountState as { pubkey: string | null }).pubkey = PUBKEY_A;
-		const signedEvent = { id: 'signed'.padEnd(64, '0'), kind: RETRACTION_KIND } as NostrEvent;
-		(publishEvent as ReturnType<typeof vi.fn>).mockResolvedValue({
-			event: signedEvent,
-			broadcast: {}
-		});
-
-		const pledge = makePledge('1'.repeat(64), PUBKEY_A);
-		const result = await autoRetractSpentPledge(pledge, TASK_ADDR, true);
-		expect(result).toBe(true);
-		expect(publishEvent).toHaveBeenCalledTimes(2); // Retraction + reputation
-	});
-
-	it('returns false on publish failure', async () => {
-		(accountState as { pubkey: string | null }).pubkey = PUBKEY_A;
-		(publishEvent as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Signing failed'));
-
-		const pledge = makePledge('1'.repeat(64), PUBKEY_A);
-		const result = await autoRetractSpentPledge(pledge, TASK_ADDR, false);
-		expect(result).toBe(false);
 	});
 });

@@ -16,10 +16,24 @@
 	const popularTags = $derived([...tagCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10));
 </script>
 
-<aside class="hidden w-64 shrink-0 space-y-6 lg:block" aria-label="Category filter">
-	<div class="space-y-2">
+<aside class="w-full shrink-0 lg:w-64" aria-label="Category filter">
+	<div class="px-4 lg:hidden">
+		<label for="mobile-category-filter" class="sr-only">Category</label>
+		<select
+			id="mobile-category-filter"
+			bind:value={selectedTag}
+			class="h-9 w-full cursor-pointer rounded-md border border-border bg-background px-3 text-sm text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+		>
+			<option value="">All categories</option>
+			{#each popularTags as [tag, count]}
+				<option value={tag}>{tag} ({count})</option>
+			{/each}
+		</select>
+	</div>
+
+	<div class="hidden space-y-2 lg:block">
 		<h3 class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Categories</h3>
-		<p class="text-xs text-muted-foreground/70">Filter bounties by topic</p>
+		<p class="text-xs text-muted-foreground">Filter bounties by topic</p>
 		<ul class="space-y-0.5">
 			<li>
 				<button

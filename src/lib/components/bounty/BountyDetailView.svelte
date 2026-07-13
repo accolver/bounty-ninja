@@ -15,11 +15,8 @@
 	import PledgeButton from '$lib/components/pledge/PledgeButton.svelte';
 	import PledgeForm from '$lib/components/pledge/PledgeForm.svelte';
 	import ReclaimAlert from '$lib/components/pledge/ReclaimAlert.svelte';
-	import SolutionForm from '$lib/components/solution/SolutionForm.svelte';
 	import VoteButton from '$lib/components/voting/VoteButton.svelte';
 	import VoteProgress from '$lib/components/voting/VoteProgress.svelte';
-	import PayoutTrigger from '$lib/components/voting/PayoutTrigger.svelte';
-	import SolverClaim from '$lib/components/voting/SolverClaim.svelte';
 	import RetractButton from '$lib/components/bounty/RetractButton.svelte';
 	import type { Retraction } from '$lib/bounty/types';
 	import CrownIcon from '@lucide/svelte/icons/crown';
@@ -32,6 +29,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import FileTextIcon from '@lucide/svelte/icons/file-text';
 	import DeliverableLink from '$lib/components/solution/DeliverableLink.svelte';
+	import SolutionForm from '$lib/components/solution/SolutionForm.svelte';
 
 	const {
 		detail,
@@ -137,7 +135,7 @@
 					<div class="flex items-center gap-1.5" aria-label="Bounty tags">
 						{#each detail.tags as tag (tag)}
 							<span
-								class="inline-block rounded-full border border-muted-foreground/40 bg-transparent px-2 py-0.5 text-xs text-muted-foreground"
+								class="inline-block rounded-full border border-muted-foreground bg-transparent px-2 py-0.5 text-xs text-muted-foreground"
 							>
 								{tag}
 							</span>
@@ -161,7 +159,7 @@
 						text="The amount the creator is requesting. This is a target — no funds are locked until someone pledges."
 					>
 						{#snippet children()}
-							<InfoIcon class="h-3 w-3 text-muted-foreground/70" />
+							<InfoIcon class="h-3 w-3 text-muted-foreground" />
 						{/snippet}
 					</Tooltip>
 				</p>
@@ -178,7 +176,7 @@
 						text="Actual ecash pledged by supporters, held in escrow until a solution is approved. Anyone can pledge — not just the creator."
 					>
 						{#snippet children()}
-							<InfoIcon class="h-3 w-3 text-muted-foreground/70" />
+							<InfoIcon class="h-3 w-3 text-muted-foreground" />
 						{/snippet}
 					</Tooltip>
 				</p>
@@ -196,7 +194,7 @@
 	<!-- Retraction history -->
 	{#if retractions.length > 0}
 		<section
-			class="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-2"
+			class="rounded-lg border border-destructive bg-destructive/5 p-3 space-y-2"
 			aria-label="Retraction history"
 		>
 			<h2 class="text-sm font-semibold text-destructive">Retraction History</h2>
@@ -249,14 +247,24 @@
 						</div>
 					</div>
 				{/if}
-				<PledgeList pledges={detail.pledges} payouts={detail.payouts} {isReleasePhase} />
-				<PledgeForm
+				<PledgeList
+					pledges={detail.pledges}
+					payouts={detail.payouts}
+					{isReleasePhase}
 					{bountyAddress}
-					creatorPubkey={detail.pubkey}
-					mintUrl={detail.mintUrl}
-					deadline={detail.deadline}
-					bind:open={pledgeFormOpen}
+					hasSolutions={detail.solutions.length > 0}
+					financialDataComplete={projection.financialDataComplete}
 				/>
+				{#if pledgeFormOpen}
+					<PledgeForm
+						{bountyAddress}
+						creatorPubkey={detail.pubkey}
+						mintUrl={detail.mintUrl}
+						deadline={detail.deadline}
+						financialDataComplete={projection.financialDataComplete}
+						bind:open={pledgeFormOpen}
+					/>
+				{/if}
 			</section>
 		</ErrorBoundary>
 
@@ -369,13 +377,14 @@
 				{/if}
 
 				<!-- Solution submission dialog -->
-				<SolutionForm
-					{bountyAddress}
-					creatorPubkey={detail.pubkey}
-					bountyStatus={detail.status}
-					requiredFee={detail.submissionFee}
-					bind:open={solutionFormOpen}
-				/>
+				{#if solutionFormOpen}
+					<SolutionForm
+						{bountyAddress}
+						creatorPubkey={detail.pubkey}
+						bountyStatus={detail.status}
+						bind:open={solutionFormOpen}
+					/>
+				{/if}
 			</section>
 		</ErrorBoundary>
 	</div>
@@ -385,16 +394,21 @@
 		<!-- Release trigger for pledgers when consensus reached or releasing -->
 		{#if winningSolution && (isReleasePhase || detail.payouts.length > 0)}
 			<section class="space-y-3" aria-label="Payout">
-				<PayoutTrigger
-					{bountyAddress}
-					{winningSolution}
-					pledges={[...projection.activePledges]}
-					payouts={[...projection.validPayouts]}
-				/>
-				<SolverClaim
-					payouts={[...projection.validPayouts]}
-					pledges={[...projection.activePledges]}
-				/>
+				{#await Promise.all( [import('$lib/components/voting/PayoutTrigger.svelte'), import('$lib/components/voting/SolverClaim.svelte')] ) then [payout, claim]}
+					{@const PayoutTrigger = payout.default}
+					{@const SolverClaim = claim.default}
+					<PayoutTrigger
+						{bountyAddress}
+						{winningSolution}
+						pledges={[...projection.activePledges]}
+						payouts={[...projection.validPayouts]}
+						financialDataComplete={projection.financialDataComplete}
+					/>
+					<SolverClaim
+						payouts={[...projection.validPayouts]}
+						pledges={[...projection.activePledges]}
+					/>
+				{/await}
 			</section>
 		{/if}
 	</ErrorBoundary>

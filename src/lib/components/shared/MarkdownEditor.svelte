@@ -4,13 +4,17 @@
 		placeholder = 'Start typing...',
 		onchange,
 		maxlength,
-		id
+		id,
+		ariaInvalid = false,
+		ariaDescribedby
 	}: {
 		value?: string;
 		placeholder?: string;
 		onchange?: (markdown: string) => void;
 		maxlength?: number;
 		id?: string;
+		ariaInvalid?: boolean;
+		ariaDescribedby?: string;
 	} = $props();
 
 	let markdown = $state('');
@@ -33,6 +37,8 @@
 	{maxlength}
 	oninput={handleInput}
 	aria-label="Markdown editor"
+	aria-invalid={ariaInvalid}
+	aria-describedby={ariaDescribedby}
 	class="min-h-80 w-full resize-y rounded-md border border-border bg-input px-3 py-2 font-mono text-sm text-foreground transition-colors placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background dark:bg-input/30"
 ></textarea>
 
