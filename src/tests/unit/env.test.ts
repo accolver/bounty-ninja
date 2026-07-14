@@ -23,6 +23,7 @@ const {
 describe('env accessors', () => {
 	beforeEach(() => {
 		for (const key of Object.keys(publicEnv)) delete publicEnv[key];
+		localStorage.clear();
 	});
 
 	it('getDefaultRelays returns fallback relay list when env is undefined', () => {
@@ -35,6 +36,14 @@ describe('env accessors', () => {
 	it('allows insecure private relay defaults only for a loopback-hosted app', () => {
 		publicEnv.PUBLIC_DEFAULT_RELAYS = 'ws://127.0.0.1:10547,wss://relay.example.com';
 		expect(getDefaultRelays()).toEqual(['ws://127.0.0.1:10547', 'wss://relay.example.com']);
+	});
+
+	it('allows saved loopback relays for a loopback-hosted app', () => {
+		localStorage.setItem(
+			'bounty.ninja:settings',
+			JSON.stringify({ relays: ['ws://127.0.0.1:10547', 'ws://127.0.0.1:10548'] })
+		);
+		expect(getDefaultRelays()).toEqual(['ws://127.0.0.1:10547', 'ws://127.0.0.1:10548']);
 	});
 
 	it('getDefaultMint returns fallback mint URL', () => {

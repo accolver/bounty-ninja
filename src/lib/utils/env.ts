@@ -27,6 +27,8 @@ function isLoopbackApp(): boolean {
  * then falls back to PUBLIC_DEFAULT_RELAYS env var.
  */
 export function getDefaultRelays(): string[] {
+	const allowLocalRelays = isLoopbackApp();
+
 	// Check user-saved settings first
 	try {
 		if (typeof localStorage !== 'undefined') {
@@ -35,7 +37,8 @@ export function getDefaultRelays(): string[] {
 				const parsed = JSON.parse(raw);
 				if (Array.isArray(parsed.relays) && parsed.relays.length > 0) {
 					const validRelays = normalizeRelayList(
-						parsed.relays.filter((url: unknown): url is string => typeof url === 'string')
+						parsed.relays.filter((url: unknown): url is string => typeof url === 'string'),
+						{ allowPrivate: allowLocalRelays, allowInsecureLocal: allowLocalRelays }
 					);
 					if (validRelays.length > 0) return validRelays;
 				}
@@ -47,7 +50,6 @@ export function getDefaultRelays(): string[] {
 
 	// Fall back to env defaults
 	const raw = env.PUBLIC_DEFAULT_RELAYS ?? config.nostr.defaultRelays.join(',');
-	const allowLocalRelays = isLoopbackApp();
 	const relays = normalizeRelayList(
 		raw
 			.split(',')

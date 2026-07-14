@@ -55,20 +55,13 @@ async function login(
 	route = '/'
 ): Promise<void> {
 	await authenticateAs(page, role);
-	await page.goto('/');
+	await page.goto(route);
 	await page.getByRole('button', { name: 'Login', exact: true }).first().click();
 	await page.getByRole('button', { name: /Browser Extension/ }).click();
 	await expect(page.getByRole('button', { name: 'Account menu' })).toBeVisible();
-	if (route !== '/') {
-		await page.evaluate((target) => {
-			const link = document.createElement('a');
-			link.href = target;
-			document.body.append(link);
-			link.click();
-			link.remove();
-		}, route);
-		await page.waitForURL((url) => url.pathname === route);
-	}
+	await expect(page.getByRole('button', { name: /2 of 2 relays connected/i })).toBeVisible({
+		timeout: 15_000
+	});
 }
 
 async function publishBounty(services: E2EServices, dTag: string): Promise<NostrEvent> {
