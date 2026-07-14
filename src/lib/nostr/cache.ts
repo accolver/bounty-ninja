@@ -17,11 +17,36 @@ let initPromise: Promise<void> | null = null;
 let insertSubscription: Subscription | null = null;
 
 const CACHE_VERSION = 1;
+const CACHE_READ_TIMEOUT_MS = 2_000;
 import { storageKey } from '$lib/config';
 
 const CACHE_VERSION_KEY = storageKey('cache-version');
 export const EVENT_CACHE_DATABASE_NAME = 'nostr-idb';
 const APP_OWNED_CACHE_DATABASES = [EVENT_CACHE_DATABASE_NAME] as const;
+
+function withinCacheReadTimeout<T>(operation: Promise<T>): Promise<T | null> {
+	return new Promise((resolve, reject) => {
+		let settled = false;
+		const timer = setTimeout(() => {
+			settled = true;
+			resolve(null);
+		}, CACHE_READ_TIMEOUT_MS);
+		operation.then(
+			(value) => {
+				if (settled) return;
+				settled = true;
+				clearTimeout(timer);
+				resolve(value);
+			},
+			(error: unknown) => {
+				if (settled) return;
+				settled = true;
+				clearTimeout(timer);
+				reject(error);
+			}
+		);
+	});
+}
 
 function isQuotaError(error: unknown): boolean {
 	return (
@@ -101,9 +126,10 @@ export function initCache(): Promise<void> {
  * Verifies signatures on load; deletes events that fail verification from IndexedDB.
  */
 export async function loadCachedEvents(filters: Filter[]): Promise<void> {
-	if (!db) await initCache();
+	if (!db && (await withinCacheReadTimeout(initCache())) === null) return;
 	if (!db) return;
-	const events = await getEventsForFilters(db, filters);
+	const events = await withinCacheReadTimeout(getEventsForFilters(db, filters));
+	if (!events) return;
 	for (const event of events) {
 		if (ingestEvent(event, 'cache')) {
 			continue;
