@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { nip19 } from 'nostr-tools';
-import { decodeBountyNaddr } from '../../routes/bounty/[naddr]/+page';
+import { decodeBountyNaddr } from '$lib/bounty/naddr';
 
 const pubkey = 'a'.repeat(64);
 

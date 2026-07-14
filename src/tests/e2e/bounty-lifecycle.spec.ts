@@ -419,6 +419,7 @@ test.describe('Adversarial payment and crash boundaries', () => {
 		await publishVote(services, dTag, first);
 		await publishVote(services, dTag, second);
 		await login(page, 'pledger', detailUrl(dTag));
+		await expect(page.getByRole('heading', { name: `Hermetic bounty ${dTag}` })).toBeVisible();
 		await expect(page.getByRole('button', { name: `Release ${AMOUNT} sats` })).toHaveCount(0);
 		await expect(page.getByText(/Releasing Funds|Consensus Reached/)).toHaveCount(0);
 	});
