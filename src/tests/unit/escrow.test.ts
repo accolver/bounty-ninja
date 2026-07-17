@@ -61,6 +61,7 @@ function mockProof(amount: number, id = 'proof'): Proof {
 
 function mockWallet(overrides: Record<string, unknown> = {}): Wallet {
 	return {
+		keysetId: 'test-keyset',
 		getMintInfo: vi.fn(() => ({ isSupported: vi.fn(() => ({ supported: true })) })),
 		getFeesForProofs: vi.fn(() => 0),
 		send: vi.fn(async (amount: number) => ({
@@ -457,7 +458,9 @@ describe('reclaimPledge', () => {
 			purpose: 'reclaim'
 		});
 		expect(wallet.signP2PKProofs).not.toHaveBeenCalled();
-		expect(wallet.send).toHaveBeenCalledOnce();
+		expect(wallet.send).toHaveBeenCalledWith(100, expect.any(Array), {
+			keysetId: 'test-keyset'
+		});
 	});
 
 	it('returns fees in result', async () => {

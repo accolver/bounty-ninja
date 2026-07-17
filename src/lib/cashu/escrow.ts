@@ -260,7 +260,11 @@ export async function reclaimPledge(
 			proofs: pledge.proofs,
 			purpose: 'reclaim'
 		});
-		const { keep, send } = await wallet.send(receiveAmount, signedProofs);
+		// A keyset override forces cashu-ts to swap exact-match inputs instead of
+		// returning the still-locked proofs through its offline send fast path.
+		const { keep, send } = await wallet.send(receiveAmount, signedProofs, {
+			keysetId: wallet.keysetId
+		});
 
 		return {
 			success: true,
